@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -331,6 +331,20 @@ ok((await raiz('select points from profiles where id = $1', [pid(5)]))[0].points
 await falha(rpc(uids[0], 'definir_pontos', { p_perfil: pid(5), p_pontos: -4 }), 'entre 0 e 10000', 'não aceita pontos negativos')
 await falha(rpc(uids[4], 'definir_pontos', { p_perfil: pid(5), p_pontos: 2000 }), 'Owner e Dev', 'um jogador normal não mexe em pontos')
 ok((await rpc(uids[0], 'estado_fila')).agora != null, 'o estado da fila traz a hora do servidor')
+
+// ------------------------------------------------------------ fila com amigos e bots
+console.log('\nFila com amigos e bots')
+await raiz('update profiles set cooldown_until = null')
+await rpc(uids[0], 'entrar_fila')
+await rpc(uids[2], 'entrar_fila') // amigo do Owner (ficaram amigos mais acima)
+await rpc(uids[7], 'entrar_fila') // um estranho na mesma fila
+await falha(rpc(uids[2], 'dev_completar_fila', { p_ser_capitao: false }), 'Owner e Dev', 'um jogador normal não completa a fila')
+await rpc(uids[0], 'dev_completar_fila', { p_ser_capitao: true })
+const comAmigo = await rpc(uids[0], 'partida_ativa')
+ok(comAmigo?.simulada && comAmigo.jogadores.length === 10, 'cria uma partida simulada de 10')
+ok(comAmigo.jogadores.some((j) => j.perfilId === pid(2)) && comAmigo.jogadores.filter((j) => j.bot).length === 8, 'entra o amigo e o resto são 8 bots')
+ok(!comAmigo.jogadores.some((j) => j.perfilId === pid(7)) && (await rpc(uids[7], 'estado_fila')).naFila, 'o estranho fica na fila, fora da partida')
+ok((await rpc(uids[2], 'partida_ativa'))?.id === comAmigo.id, 'o amigo vê a mesma partida')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

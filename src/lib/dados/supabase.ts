@@ -156,6 +156,7 @@ export const dadosSupabase: Dados = {
   async submeterResultado(id, a, b) { await rpc('submeter_resultado', { p_match: id, p_a: a, p_b: b }) },
 
   async devEncherFila({ serCapitao }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao }) },
+  async devCompletarFila({ serCapitao }) { await rpc('dev_completar_fila', { p_ser_capitao: serCapitao }) },
   async devSimularPartida() { await rpc('dev_simular_partida') },
   async devSaltarBloqueio(id) { await rpc('dev_saltar_bloqueio', { p_match: id }) },
   async devAcelerar(id) { await rpc('dev_acelerar', { p_match: id }) },

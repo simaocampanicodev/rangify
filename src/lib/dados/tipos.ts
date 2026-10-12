@@ -282,6 +282,8 @@ export interface Dados {
 
   // Ferramentas de teste (só owner e dev)
   devEncherFila(opts: { serCapitao: boolean }): Promise<void>
+  /** Estando na fila: junta os teus amigos que também estão na fila e completa com bots. */
+  devCompletarFila(opts: { serCapitao: boolean }): Promise<void>
   devSimularPartida(): Promise<void>
   devSaltarBloqueio(id: string): Promise<void>
   devAcelerar(id: string): Promise<void>

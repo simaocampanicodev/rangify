@@ -917,6 +917,11 @@ export const dadosLocais: Dados = {
     avisarMudanca('partida')
   },
 
+  // No modo demo não há amigos reais na fila: completar é o mesmo que encher com bots.
+  async devCompletarFila(opts) {
+    return dadosLocais.devEncherFila(opts)
+  },
+
   async devEncherFila({ serCapitao }) {
     const e = await pronto()
     const p = exigirDev(e)

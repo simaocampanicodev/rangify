@@ -1,4 +1,4 @@
-import { Bot, FastForward, FlaskConical, LockOpen, Users, Zap } from 'lucide-react'
+import { Bot, FastForward, FlaskConical, LockOpen, UserPlus, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAcao } from '@/contexts/Avisos'
@@ -48,6 +48,11 @@ export function FerramentasDev() {
             Ser o Capitão A (para testar o draft, os bans e o código)
           </label>
           <div className="flex flex-wrap gap-2">
+            {fila?.naFila && (
+              <button type="button" disabled={ocupado} className="btn btn-primario" onClick={() => correr(() => dados.devCompletarFila({ serCapitao }), 'Fila completa: tu, os teus amigos na fila e bots. Aceita a partida!', true)}>
+                <UserPlus size={16} aria-hidden />Completar fila com bots
+              </button>
+            )}
             <button type="button" disabled={ocupado} className="btn btn-suave" onClick={() => correr(() => dados.devEncherFila({ serCapitao }), 'Fila cheia com bots. Aceita a partida!', true)}>
               <Users size={16} aria-hidden />Simular fila cheia
             </button>
@@ -56,8 +61,10 @@ export function FerramentasDev() {
             </button>
           </div>
           <p className="m-0 text-[12.5px] leading-normal text-mudo">
-            "Simular fila cheia" enche a fila com 9 bots e tu jogas cada fase. "Simular partida completa" corre tudo sozinho em poucos segundos, do aceitar ao resultado.
-            {fila?.naFila ? ' Estás na fila neste momento.' : ''}
+            {fila?.naFila
+              ? '"Completar fila com bots" junta-te aos teus amigos que estão na fila (da mesma região) e preenche o resto com bots. Quem não é teu amigo continua na fila. '
+              : 'Para testar com amigos: entrem os dois na fila e depois carrega em "Completar fila com bots". '}
+            "Simular fila cheia" põe-te sozinho com 9 bots e "Simular partida completa" corre tudo sozinha em poucos segundos. Nenhuma destas partidas conta para os pontos.
           </p>
         </div>
       ) : partida && (

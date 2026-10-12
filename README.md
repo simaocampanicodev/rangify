@@ -34,7 +34,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql` e `0003_estatisticas.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql` e `0004_fila_amigos.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
