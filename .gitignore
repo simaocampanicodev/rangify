@@ -1,0 +1,21 @@
+# Dependências e build
+node_modules
+dist
+
+# Segredos: nunca vão para o GitHub (o .env.example, sem valores, vai)
+.env
+.env.*
+.env.example
+!.env.example
+*.pem
+*.key
+
+# Supabase CLI (estado local)
+supabase/.temp
+supabase/.branches
+supabase/.env
+
+# Lixo do sistema e logs
+*.log
+.DS_Store
+Thumbs.db

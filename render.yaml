@@ -1,0 +1,22 @@
+# Render Blueprint: o Rangify como site estático.
+# As variáveis do Supabase ficam com `sync: false`: o Render pede-as ao criar o serviço.
+services:
+  - type: web
+    name: rangify
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    # SPA: /perfil/Nyx-4521 não existe como ficheiro, por isso tudo abre o index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /mapas/*
+        name: Cache-Control
+        value: public, max-age=604800, immutable
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false

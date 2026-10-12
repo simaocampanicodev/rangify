@@ -1,0 +1,168 @@
+/**
+ * Peças da máquina de estados que o modo demo e a semente partilham:
+ * a escolha dos capitães, o resultado, as estatísticas e os pontos.
+ * Tudo puro, com o gerador de aleatórios passado por fora.
+ */
+import { calcularPontos } from '../pontos'
+import { divisao, mediaDivisoes } from '../ranks'
+import type { Equipa, Partida, Perfil } from './tipos'
+
+export type Rng = () => number
+
+/** Gerador determinístico para a semente ser sempre igual. */
+export function mulberry32(semente: number): Rng {
+  let a = semente >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export const entre = (rng: Rng, min: number, max: number) => min + rng() * (max - min)
+export const inteiro = (rng: Rng, min: number, max: number) => Math.floor(entre(rng, min, max + 1))
+export function escolherUm<T>(rng: Rng, lista: T[]): T {
+  return lista[Math.floor(rng() * lista.length)]
+}
+export function baralhar<T>(rng: Rng, lista: T[]): T[] {
+  const r = [...lista]
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[r[i], r[j]] = [r[j], r[i]]
+  }
+  return r
+}
+
+/** O que fica guardado por jogador. O nome e o avatar vêm do perfil atual. */
+export interface JogadorGuardado {
+  perfilId: string
+  /** Tier oficial no momento da partida, que é o que conta para os pontos. */
+  tier: number
+  equipa: Equipa | null
+  capitao: boolean
+  aceitou: boolean
+  ordemEscolha: number | null
+  kills: number | null
+  deaths: number | null
+  assists: number | null
+  acs: number | null
+  firstBloods: number | null
+  mvp: boolean
+  deltaPontos: number | null
+  pontosDepois: number | null
+}
+
+export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[] }
+
+export function novoJogador(p: Perfil): JogadorGuardado {
+  return {
+    perfilId: p.id, tier: p.tier, equipa: null, capitao: false, aceitou: false, ordemEscolha: null,
+    kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null,
+  }
+}
+
+/** Os dois ranks oficiais mais altos são capitães; desempata quem tem mais pontos. */
+export function ordenarParaCapitao(jogadores: JogadorGuardado[], perfis: Record<string, Perfil>) {
+  return [...jogadores].sort((x, y) => y.tier - x.tier || (perfis[y.perfilId]?.pontos ?? 0) - (perfis[x.perfilId]?.pontos ?? 0))
+}
+
+export function definirCapitaes(p: PartidaGuardada, perfis: Record<string, Perfil>, forcarA?: string) {
+  const ord = ordenarParaCapitao(p.jogadores, perfis)
+  const a = forcarA ? p.jogadores.find((j) => j.perfilId === forcarA)! : ord[0]
+  const b = ord.find((j) => j !== a)!
+  a.capitao = true; a.equipa = 'A'
+  b.capitao = true; b.equipa = 'B'
+  p.capitaoA = a.perfilId
+  p.capitaoB = b.perfilId
+}
+
+/** Um capitão automático escolhe entre os três melhores disponíveis. */
+export function melhorDisponivel(rng: Rng, p: PartidaGuardada, perfis: Record<string, Perfil>): JogadorGuardado | null {
+  const livres = ordenarParaCapitao(p.jogadores.filter((j) => !j.equipa), perfis)
+  if (!livres.length) return null
+  const topo = livres.slice(0, Math.min(3, livres.length))
+  const pesos = topo.map((_, i) => [0.6, 0.28, 0.12][i])
+  let r = rng() * pesos.reduce((s, x) => s + x, 0)
+  for (let i = 0; i < topo.length; i++) { r -= pesos[i]; if (r <= 0) return topo[i] }
+  return topo[0]
+}
+
+export function escolhidos(p: PartidaGuardada | Partida): number {
+  return p.jogadores.filter((j) => j.equipa && !j.capitao).length
+}
+
+/** Resultado plausível: a equipa com rank oficial médio mais alto ganha mais vezes. */
+export function gerarResultado(rng: Rng, tiersA: number[], tiersB: number[]): { a: number; b: number } {
+  const dif = mediaDivisoes(tiersA) - mediaDivisoes(tiersB)
+  const probA = 1 / (1 + Math.exp(-dif * 0.32))
+  const ganhaA = rng() < probA
+  let ven = 13
+  let per: number
+  if (rng() < 0.14) {
+    const extra = rng() < 0.75 ? 0 : rng() < 0.7 ? 1 : 2
+    ven = 14 + extra
+    per = 12 + extra
+  } else {
+    per = escolherUm(rng, [3, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 11])
+  }
+  return ganhaA ? { a: ven, b: per } : { a: per, b: ven }
+}
+
+/** KDA, ACS e first bloods para todos, como se viessem da Henrik Dev API. */
+export function gerarEstatisticas(rng: Rng, p: PartidaGuardada, perfis: Record<string, Perfil>) {
+  const rondas = (p.resultadoA ?? 13) + (p.resultadoB ?? 0)
+  let melhor: JogadorGuardado | null = null
+  for (const j of p.jogadores) {
+    if (!j.equipa) continue
+    const ganhou = j.equipa === p.vencedor
+    const funcao = perfis[j.perfilId]?.funcaoJogo
+    const acs = Math.round(Math.max(90, entre(rng, 150, 270) + (divisao(j.tier) - 14) * 3 + (ganhou ? 22 : -18) + (funcao === 'Duelista' ? 18 : 0)))
+    j.acs = acs
+    j.kills = Math.max(1, Math.round(rondas * (acs / 265) * entre(rng, 0.68, 0.86)))
+    j.deaths = Math.max(2, Math.round(rondas * entre(rng, ganhou ? 0.5 : 0.62, ganhou ? 0.74 : 0.86)))
+    j.assists = Math.round(rondas * entre(rng, funcao === 'Iniciador' || funcao === 'Controlador' ? 0.22 : 0.1, 0.42))
+    j.firstBloods = Math.round(rondas * entre(rng, 0, funcao === 'Duelista' ? 0.2 : 0.09))
+    j.mvp = false
+    if (!melhor || acs > (melhor.acs ?? 0)) melhor = j
+  }
+  if (melhor) melhor.mvp = true
+  p.estatisticas = true
+}
+
+/** Fecha a partida: vencedor, pontos de cada jogador e vitórias/derrotas. */
+export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perfil>, a: number, b: number, agora: string) {
+  p.resultadoA = a
+  p.resultadoB = b
+  p.vencedor = a > b ? 'A' : 'B'
+  const tiers = (eq: Equipa) => p.jogadores.filter((j) => j.equipa === eq).map((j) => j.tier)
+  for (const j of p.jogadores) {
+    if (!j.equipa) continue
+    const venceu = j.equipa === p.vencedor
+    const r = calcularPontos(j.tier, tiers(j.equipa === 'A' ? 'B' : 'A'), venceu)
+    j.deltaPontos = r.total
+    const perfil = perfis[j.perfilId]
+    if (!perfil) continue
+    // As partidas simuladas mostram o cálculo, mas não mexem nos pontos reais.
+    if (!p.simulada) {
+      perfil.pontos += r.total
+      if (venceu) perfil.vitorias++
+      else perfil.derrotas++
+    }
+    j.pontosDepois = perfil.pontos
+  }
+  p.estado = 'COMPLETED'
+  p.terminouEm = agora
+  p.atualizadaEm = agora
+  p.prazoFase = null
+}
+
+export function codigoPartida(rng: Rng): string {
+  return `RG-${inteiro(rng, 1000, 9999)}`
+}
+
+export function codigoGrupo(rng: Rng): string {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 6 }, () => letras[Math.floor(rng() * letras.length)]).join('')
+}
