@@ -8,7 +8,7 @@ import { useSessao } from '@/contexts/Sessao'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/dados'
 import { REGIOES } from '@/lib/regioes'
-import { ligarSom, somLigado, tocarPartidaEncontrada } from '@/lib/som'
+import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/som'
 import { haQuanto } from '@/lib/tempo'
 
 const FUNCOES_JOGO: FuncaoJogo[] = ['Duelista', 'Controlador', 'Iniciador', 'Sentinela']
@@ -21,6 +21,7 @@ export function Definicoes() {
   const [funcaoJogo, setFuncaoJogo] = useState<FuncaoJogo | ''>('')
   const [password, setPassword] = useState('')
   const [som, setSom] = useState(somLigado)
+  const [volume, setVolume] = useState(volumeSom)
 
   useEffect(() => {
     if (!perfil) return
@@ -95,12 +96,13 @@ export function Definicoes() {
         <button type="button" className="btn btn-suave" onClick={reverTour}><RotateCcw size={16} aria-hidden />Ver o guia outra vez</button>
       </Painel>
 
-      <Painel aria-labelledby="rg-def-som" className="flex flex-wrap items-center justify-between gap-4 p-[22px]">
+      <Painel aria-labelledby="rg-def-som" className="flex flex-col gap-5 p-[22px]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Volume2 size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
             <h2 id="rg-def-som" className="m-0 text-[16px] font-bold">Som de partida encontrada</h2>
-            <span className="text-[13px] text-mudo">Um aviso curto e baixo quando a fila enche, para não perderes os 20 segundos.</span>
+            <span className="text-[13px] text-mudo">Um aviso curto quando a fila enche, para não perderes os 20 segundos.</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -115,6 +117,27 @@ export function Definicoes() {
           >
             <span className={`absolute top-1/2 size-5 -translate-y-1/2 rounded-full transition-all ${som ? 'left-[24px] bg-laranja' : 'left-[3px] bg-mudo'}`} />
           </button>
+        </div>
+        </div>
+        <div className={`flex items-center gap-4 border-t border-white/7 pt-4 ${som ? '' : 'opacity-45'}`}>
+          <label htmlFor="rg-volume" className="shrink-0 text-[13.5px] font-semibold text-suave">Volume</label>
+          {/* Ao largar a barra toca o aviso, para ouvires logo como fica. */}
+          <input
+            id="rg-volume"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={volume}
+            disabled={!som}
+            aria-valuetext={`${volume}%`}
+            className="volume min-w-0 flex-1"
+            style={{ '--v': `${volume}%` } as React.CSSProperties}
+            onChange={(e) => { const v = Number(e.target.value); setVolume(v); definirVolumeSom(v) }}
+            onPointerUp={() => tocarPartidaEncontrada()}
+            onKeyUp={(e) => { if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') tocarPartidaEncontrada() }}
+          />
+          <span className="w-11 shrink-0 text-right font-mono text-[13px] font-semibold text-pessego">{volume}%</span>
         </div>
       </Painel>
 

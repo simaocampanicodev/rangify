@@ -226,6 +226,18 @@
 .fila-gira { animation: rg-gira 6s linear infinite; transform-origin: 50% 50%; }
 @media (prefers-reduced-motion: reduce) { .fila-gira { animation: none } }
 
+/* Barra de volume: laranja até ao valor (--v), escura depois. */
+.volume { -webkit-appearance: none; appearance: none; height: 28px; background: transparent; cursor: pointer; }
+.volume:disabled { cursor: not-allowed; }
+.volume::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(90deg, #ff5b1f 0 var(--v), rgb(255 255 255 / 0.1) var(--v) 100%); }
+.volume::-moz-range-track { height: 6px; border-radius: 999px; background: rgb(255 255 255 / 0.1); }
+.volume::-moz-range-progress { height: 6px; border-radius: 999px; background: #ff5b1f; }
+.volume::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 999px; background: #ff5b1f; border: 3px solid #170802; box-shadow: 0 0 0 1px rgb(255 91 31 / 0.6), 0 0 14px rgb(255 91 31 / 0.55); transition: transform .15s; }
+.volume::-moz-range-thumb { width: 12px; height: 12px; border-radius: 999px; background: #ff5b1f; border: 3px solid #170802; box-shadow: 0 0 0 1px rgb(255 91 31 / 0.6), 0 0 14px rgb(255 91 31 / 0.55); }
+.volume:not(:disabled):hover::-webkit-slider-thumb, .volume:focus-visible::-webkit-slider-thumb { transform: scale(1.15); }
+.volume:focus-visible { outline: none; }
+.volume:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgb(255 91 31 / 0.45), 0 0 14px rgb(255 91 31 / 0.55); }
+
 /* Esqueletos enquanto os dados chegam. */
 .esqueleto {
   border-radius: 7px;
