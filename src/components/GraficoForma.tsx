@@ -20,7 +20,7 @@ function caminho(pts: [number, number][]) {
 
 /** O gráfico "Forma" do perfil: pontos ou KDA nas últimas partidas, com média e detalhe ao passar o rato. */
 export function GraficoForma({ dados }: { dados: PontoForma[] }) {
-  const [modo, setModo] = useState<'pontos' | 'kda'>('pontos')
+  const [modo, setModo] = useState<'pontos' | 'kda' | 'acs'>('pontos')
   const [hover, setHover] = useState<number | null>(null)
   const caixa = useRef<HTMLDivElement>(null)
   const [largura, setLargura] = useState(640)
@@ -33,12 +33,12 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
     return () => ro.disconnect()
   }, [])
 
-  const valores = dados.map((d) => (modo === 'pontos' ? d.pontos : d.kda ?? 0))
+  const valores = dados.map((d) => (modo === 'pontos' ? d.pontos : modo === 'acs' ? d.acs ?? 0 : d.kda ?? 0))
   const altura = 220
   const m = { t: 18, b: 28, l: 44, r: 14 }
   const min = Math.min(...valores)
   const max = Math.max(...valores)
-  const folga = modo === 'pontos' ? Math.max(10, (max - min) * 0.15) : Math.max(0.2, (max - min) * 0.15)
+  const folga = modo === 'kda' ? Math.max(0.2, (max - min) * 0.15) : Math.max(10, (max - min) * 0.15)
   const lo = min - folga
   const hi = max + folga
   const x = (i: number) => m.l + (dados.length === 1 ? (largura - m.l - m.r) / 2 : (i / (dados.length - 1)) * (largura - m.l - m.r))
@@ -46,7 +46,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
   const pts = valores.map((v, i) => [x(i), y(v)] as [number, number])
   const media = valores.reduce((s, v) => s + v, 0) / Math.max(1, valores.length)
   const marcas = [lo + (hi - lo) * 0.15, (lo + hi) / 2, hi - (hi - lo) * 0.15]
-  const fmt = (v: number) => (modo === 'pontos' ? String(Math.round(v)) : v.toFixed(2))
+  const fmt = (v: number) => (modo === 'kda' ? v.toFixed(2) : String(Math.round(v)))
   const h = hover != null ? dados[hover] : null
 
   const mover = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -66,7 +66,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-2 text-[12px] text-mudo"><span className="w-5 border-t border-dashed border-white/40" />média {fmt(media)}</span>
-          <Segmentado rotulo="Métrica do gráfico" valor={modo} onChange={setModo} opcoes={[{ valor: 'pontos', texto: 'Pontos' }, { valor: 'kda', texto: 'KDA' }]} />
+          <Segmentado rotulo="Métrica do gráfico" valor={modo} onChange={setModo} opcoes={[{ valor: 'pontos', texto: 'Pontos' }, { valor: 'kda', texto: 'KDA' }, { valor: 'acs', texto: 'ACS' }]} />
         </div>
       </div>
       <div ref={caixa} className="relative">
@@ -74,7 +74,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
           width={largura}
           height={altura}
           role="img"
-          aria-label={`${modo === 'pontos' ? 'Pontos' : 'KDA'} nas últimas ${dados.length} partidas, média ${fmt(media)}`}
+          aria-label={`${modo === 'pontos' ? 'Pontos' : modo === 'acs' ? 'ACS' : 'KDA'} nas últimas ${dados.length} partidas, média ${fmt(media)}`}
           onPointerMove={mover}
           onPointerLeave={() => setHover(null)}
           className="block touch-none"
@@ -118,7 +118,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
             </span>
             <span className="text-mudo">{h.mapa} · {h.adversario}</span>
             <span className="flex justify-between font-mono"><span>{h.pontos} pts</span><span className={h.delta > 0 ? 'text-vitoria' : 'text-derrota'}>{comSinal(h.delta)}</span></span>
-            <span className="font-mono text-suave">KDA {h.kda != null ? h.kda.toFixed(2) : '-'}</span>
+            <span className="font-mono text-suave">KDA {h.kda != null ? h.kda.toFixed(2) : '-'} · ACS {h.acs ?? '-'}</span>
           </div>
         )}
       </div>

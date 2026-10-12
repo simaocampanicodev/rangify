@@ -1,6 +1,7 @@
 import { BadgeCheck, Flag, RefreshCw, Shield, Swords, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Desempenho, PorMapa } from '@/components/DesempenhoPerfil'
 import { EditarPerfil } from '@/components/EditarPerfil'
 import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
@@ -123,6 +124,13 @@ export function Perfil() {
           ? <GraficoForma dados={forma.valor} />
           : <Vazio icone={<Swords size={22} />} titulo="Ainda sem forma para mostrar" texto="O gráfico aparece depois de duas partidas confirmadas." />}
       </Painel>
+
+      {s && (
+        <div className="flex flex-wrap items-start gap-4">
+          <Desempenho s={s} />
+          <PorMapa s={s} />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-start gap-4">
         <Painel aria-labelledby="rg-perfil-hist" className="flex min-w-0 flex-[2_1_540px] flex-col px-[22px] pt-[22px] pb-2">

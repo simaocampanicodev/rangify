@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -214,6 +214,10 @@ const forma = await rpc(uids[0], 'forma_perfil', { p_perfil: pid(0), p_n: 20 })
 ok(forma.length === 1 && forma[0].resultado === '14-12', 'forma do perfil')
 const est = await rpc(uids[0], 'estatisticas_perfil', { p_perfil: pid(0) })
 ok(est.partidas === 1 && est.vitorias === 1 && est.kda > 0, 'estatísticas do perfil')
+ok(est.kastPct >= 65 && est.hsPct >= 20 && est.tradesMedia != null && est.kd > 0, 'perfil com KAST, HS%, trades e K/D')
+ok(est.sequenciaAtual === 1 && est.melhorSequencia === 1 && est.capitao.partidas === 1 && est.capitao.vitorias === 1, 'sequências e registo como capitão')
+ok(est.porMapa.length === 1 && est.porMapa[0].mapa === 'Sunset' && est.porMapa[0].vitorias === 1, 'números por mapa')
+ok(forma[0].acs != null, 'a forma traz o ACS')
 const missoes = await rpc(uids[0], 'missoes')
 ok(missoes.length === 8 && missoes.find((m) => m.tipo === 'jogos').progresso === 1 && missoes.find((m) => m.tipo === 'vitorias').progresso === 1, 'missões com progresso da semana')
 

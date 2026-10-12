@@ -169,16 +169,35 @@ export interface PontoForma {
   pontos: number
   delta: number
   kda: number | null
+  acs: number | null
   mvp: boolean
 }
+
+export interface EstatisticasMapa { mapa: string; partidas: number; vitorias: number; acs: number | null }
 
 export interface EstatisticasPerfil {
   partidas: number
   vitorias: number
   kda: number | null
+  /** Kills a dividir por mortes. */
+  kd: number | null
   acs: number | null
+  killsMedia: number | null
+  mortesMedia: number | null
+  assistMedia: number | null
+  hsPct: number | null
+  kastPct: number | null
+  tradesMedia: number | null
+  fbMedia: number | null
   mvps: number
   firstBloods: number
+  melhorAcs: number | null
+  maisKills: number | null
+  melhorSequencia: number
+  /** Positivo: vitórias seguidas agora; negativo: derrotas seguidas. */
+  sequenciaAtual: number
+  capitao: { partidas: number; vitorias: number }
+  porMapa: EstatisticasMapa[]
   posicao: number
   totalJogadores: number
 }

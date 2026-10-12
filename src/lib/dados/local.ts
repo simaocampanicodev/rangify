@@ -715,18 +715,50 @@ export const dadosLocais: Dados = {
   async estatisticas(perfilId) {
     const e = await pronto()
     const lista = terminadas(e).map((p) => p.jogadores.find((j) => j.perfilId === perfilId && j.equipa) ? p : null).filter(Boolean) as PartidaGuardada[]
-    let k = 0, d = 0, a = 0, acs = 0, comAcs = 0, mvps = 0, fb = 0, vit = 0
+    lista.sort((x, y) => ms(x.terminouEm) - ms(y.terminouEm))
+    const media = (xs: (number | null | undefined)[]) => {
+      const v = xs.filter((x): x is number => x != null)
+      return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null
+    }
+    let k = 0, d = 0, a = 0, comAcs = 0, mvps = 0, fb = 0, vit = 0, seq = 0, melhorSeq = 0, atual = 0, capP = 0, capV = 0
+    const js: JogadorGuardado[] = []
+    const mapas = new Map<string, { partidas: number; vitorias: number; acs: number[] }>()
     for (const p of lista) {
       const j = p.jogadores.find((x) => x.perfilId === perfilId)!
-      if (p.vencedor === j.equipa) vit++
-      if (j.acs != null) { k += j.kills ?? 0; d += j.deaths ?? 0; a += j.assists ?? 0; acs += j.acs; comAcs++ }
+      const ganhou = p.vencedor === j.equipa
+      js.push(j)
+      if (ganhou) vit++
+      if (j.acs != null) { k += j.kills ?? 0; d += j.deaths ?? 0; a += j.assists ?? 0; comAcs++ }
       if (j.mvp) mvps++
       fb += j.firstBloods ?? 0
+      seq = ganhou ? seq + 1 : 0
+      melhorSeq = Math.max(melhorSeq, seq)
+      atual = ganhou ? (atual > 0 ? atual + 1 : 1) : (atual < 0 ? atual - 1 : -1)
+      if (j.capitao) { capP++; if (ganhou) capV++ }
+      const m = mapas.get(p.mapa ?? '?') ?? { partidas: 0, vitorias: 0, acs: [] }
+      m.partidas++
+      if (ganhou) m.vitorias++
+      if (j.acs != null) m.acs.push(j.acs)
+      mapas.set(p.mapa ?? '?', m)
     }
+    const comStats = js.filter((j) => j.acs != null)
     const ordem = classificados(e)
     return {
-      partidas: lista.length, vitorias: vit, kda: comAcs ? (k + a) / Math.max(1, d) : null, acs: comAcs ? acs / comAcs : null,
-      mvps, firstBloods: fb, posicao: ordem.findIndex((p) => p.id === perfilId) + 1, totalJogadores: ordem.length,
+      partidas: lista.length, vitorias: vit,
+      kda: comAcs ? (k + a) / Math.max(1, d) : null, kd: comAcs ? k / Math.max(1, d) : null,
+      acs: media(comStats.map((j) => j.acs)),
+      killsMedia: media(comStats.map((j) => j.kills)), mortesMedia: media(comStats.map((j) => j.deaths)), assistMedia: media(comStats.map((j) => j.assists)),
+      hsPct: media(js.map((j) => j.hsPct)), kastPct: media(js.map((j) => j.kastPct)), tradesMedia: media(js.map((j) => j.trades)),
+      fbMedia: media(comStats.map((j) => j.firstBloods)),
+      mvps, firstBloods: fb,
+      melhorAcs: comStats.length ? Math.max(...comStats.map((j) => j.acs!)) : null,
+      maisKills: comStats.length ? Math.max(...comStats.map((j) => j.kills ?? 0)) : null,
+      melhorSequencia: melhorSeq, sequenciaAtual: atual,
+      capitao: { partidas: capP, vitorias: capV },
+      porMapa: [...mapas.entries()]
+        .map(([mapa, m]) => ({ mapa, partidas: m.partidas, vitorias: m.vitorias, acs: media(m.acs) }))
+        .sort((x, y) => y.partidas - x.partidas || x.mapa.localeCompare(y.mapa)),
+      posicao: ordem.findIndex((p) => p.id === perfilId) + 1, totalJogadores: ordem.length,
     }
   },
 
@@ -745,7 +777,7 @@ export const dadosLocais: Dados = {
       return {
         partidaId: p.id, data: p.terminouEm!, mapa: p.mapa ?? '?', adversario: `Equipa ${nomeCurto(e.perfis[adv ?? ''])}`,
         venceu: p.vencedor === j.equipa, resultado: `${meus}-${deles}`, pontos: j.pontosDepois ?? 0, delta: j.deltaPontos ?? 0,
-        kda: j.kills != null ? ((j.kills ?? 0) + (j.assists ?? 0)) / Math.max(1, j.deaths ?? 1) : null, mvp: j.mvp,
+        kda: j.kills != null ? ((j.kills ?? 0) + (j.assists ?? 0)) / Math.max(1, j.deaths ?? 1) : null, acs: j.acs, mvp: j.mvp,
       }
     })
   },
