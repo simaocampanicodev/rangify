@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<title>Rangify, banner do Discord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;800&family=Geist+Mono:wght@600&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+  /* 1920x1080 (16:9): serve de banner do servidor e de imagem de boas-vindas.
+     Abre com ?fundo para a versão só com o fundo, sem texto. */
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #09090b; }
+  .palco { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #09090b; font-family: Geist, system-ui, sans-serif; color: #f3f0eb; }
+  .palco > svg { position: absolute; inset: 0; }
+  .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; }
+  .marca { display: flex; align-items: center; gap: 34px; }
+  .nome { font-size: 168px; line-height: 1; color: #ff5b1f; letter-spacing: -0.045em; }
+  .nome b { font-weight: 800; }
+  .nome i { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 1.22em; letter-spacing: -0.01em; }
+  .hub { align-self: flex-start; margin-top: 30px; background: #ff5b1f; color: #170802; border-radius: 10px; padding: 7px 14px; font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 30px; letter-spacing: 0.04em; }
+  .frase { font-size: 46px; font-weight: 500; color: #d0cbc4; letter-spacing: -0.02em; }
+  .frase em { font-family: 'Instrument Serif', serif; font-style: italic; color: #ff8a5b; font-size: 1.15em; }
+  .linha { display: flex; gap: 18px; font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 24px; letter-spacing: 0.14em; color: #8a857e; }
+  .linha span + span::before { content: '·'; margin-right: 18px; color: #ff5b1f; }
+  body.fundo .centro { display: none; }
+</style>
+</head>
+<body>
+<div class="palco">
+  <svg viewBox="0 0 1920 1080" width="1920" height="1080" aria-hidden="true">
+    <defs>
+      <filter id="nevoa" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="46" /></filter>
+      <filter id="brilho" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
+      <radialGradient id="luzA" cx="0.12" cy="0.1" r="0.55"><stop offset="0" stop-color="#ff5b1f" stop-opacity="0.13" /><stop offset="1" stop-color="#ff5b1f" stop-opacity="0" /></radialGradient>
+      <radialGradient id="luzB" cx="0.92" cy="0.95" r="0.5"><stop offset="0" stop-color="#ff5b1f" stop-opacity="0.08" /><stop offset="1" stop-color="#ff5b1f" stop-opacity="0" /></radialGradient>
+      <radialGradient id="vinheta" cx="0.5" cy="0.47" r="0.62"><stop offset="0" stop-color="#09090b" stop-opacity="0.55" /><stop offset="1" stop-color="#09090b" stop-opacity="0" /></radialGradient>
+      <linearGradient id="nucleo" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#ffd9c2" stop-opacity="0.1" />
+        <stop offset="0.25" stop-color="#ffe4d2" stop-opacity="1" />
+        <stop offset="0.55" stop-color="#ffa577" stop-opacity="0.55" />
+        <stop offset="0.8" stop-color="#ffe4d2" stop-opacity="1" />
+        <stop offset="1" stop-color="#ffa577" stop-opacity="0.1" />
+      </linearGradient>
+      <linearGradient id="nucleoV" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffd9c2" stop-opacity="0" />
+        <stop offset="0.2" stop-color="#ffe4d2" stop-opacity="0.95" />
+        <stop offset="0.5" stop-color="#ffa577" stop-opacity="0.5" />
+        <stop offset="0.75" stop-color="#ffe4d2" stop-opacity="1" />
+        <stop offset="1" stop-color="#ffa577" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <rect width="1920" height="1080" fill="url(#luzA)" />
+    <rect width="1920" height="1080" fill="url(#luzB)" />
+
+    <g fill="none" stroke-linecap="round">
+      <!-- O U no canto de cima, à direita. -->
+      <path d="M 1180 -60 C 1215 70 1300 150 1470 178 C 1650 208 1782 196 1806 108 C 1822 46 1798 -12 1772 -60" stroke="#ff5b1f" stroke-width="90" stroke-opacity="0.14" filter="url(#nevoa)" />
+      <path d="M 1180 -60 C 1215 70 1300 150 1470 178 C 1650 208 1782 196 1806 108 C 1822 46 1798 -12 1772 -60" stroke="#ff5b1f" stroke-width="13" stroke-opacity="0.85" filter="url(#brilho)" />
+      <path d="M 1180 -60 C 1215 70 1300 150 1470 178 C 1650 208 1782 196 1806 108 C 1822 46 1798 -12 1772 -60" stroke="url(#nucleo)" stroke-width="2.6" />
+      <path d="M 1858 -60 C 1864 40 1888 118 1980 158" stroke="#ff5b1f" stroke-width="8" stroke-opacity="0.45" filter="url(#brilho)" />
+      <path d="M 1858 -60 C 1864 40 1888 118 1980 158" stroke="#ffd2b6" stroke-width="1.6" stroke-opacity="0.6" />
+
+      <!-- A curva da esquerda. -->
+      <path d="M -60 90 C 160 104 330 222 362 398 C 388 534 338 640 232 712 C 132 780 44 838 -60 950" stroke="#ff5b1f" stroke-width="86" stroke-opacity="0.13" filter="url(#nevoa)" />
+      <path d="M -60 90 C 160 104 330 222 362 398 C 388 534 338 640 232 712 C 132 780 44 838 -60 950" stroke="#ff5b1f" stroke-width="12" stroke-opacity="0.8" filter="url(#brilho)" />
+      <path d="M -60 90 C 160 104 330 222 362 398 C 388 534 338 640 232 712 C 132 780 44 838 -60 950" stroke="url(#nucleoV)" stroke-width="2.4" />
+
+      <!-- A curva de baixo, à esquerda. -->
+      <path d="M 120 1140 C 300 1000 520 948 720 990 C 880 1024 980 1080 1090 1150" stroke="#ff5b1f" stroke-width="80" stroke-opacity="0.12" filter="url(#nevoa)" />
+      <path d="M 120 1140 C 300 1000 520 948 720 990 C 880 1024 980 1080 1090 1150" stroke="#ff5b1f" stroke-width="11" stroke-opacity="0.75" filter="url(#brilho)" />
+      <path d="M 120 1140 C 300 1000 520 948 720 990 C 880 1024 980 1080 1090 1150" stroke="url(#nucleo)" stroke-width="2.3" />
+
+      <!-- Um fio mais fraco à direita, como no site. -->
+      <path d="M 1960 520 C 1840 610 1806 750 1866 870 C 1904 946 1950 994 1990 1100" stroke="#ff5b1f" stroke-width="56" stroke-opacity="0.08" filter="url(#nevoa)" />
+      <path d="M 1960 520 C 1840 610 1806 750 1866 870 C 1904 946 1950 994 1990 1100" stroke="#ff5b1f" stroke-width="7" stroke-opacity="0.4" filter="url(#brilho)" />
+      <path d="M 1960 520 C 1840 610 1806 750 1866 870 C 1904 946 1950 994 1990 1100" stroke="#ffc8a8" stroke-width="1.5" stroke-opacity="0.45" />
+    </g>
+    <rect width="1920" height="1080" fill="url(#vinheta)" />
+  </svg>
+
+  <div class="centro">
+    <div class="marca">
+      <svg width="210" height="155" viewBox="12 18 57 42" aria-hidden="true"><path d="M23 19.5H66.25L55 35.4H67.5L40 58.75L51.25 41.25H40.25L50.6 28H27C24 28 22 30.5 22 33.75C22 37 24 39.75 27 39.75H38.2L23.1 58.5H13.1L23.1 46.25C17 46.25 13.5 40.5 13.5 33C13.5 25.5 17.5 19.5 23 19.5Z" fill="#ff5b1f" /></svg>
+      <span class="nome"><b>Rang</b><i>ify</i></span>
+      <span class="hub">HUB</span>
+    </div>
+    <div class="frase">O teu 5v5 de Valorant, <em>a sério.</em></div>
+    <div class="linha"><span>DRAFT DE CAPITÃES</span><span>BAN DE MAPAS</span><span>TABELA PRÓPRIA</span></div>
+  </div>
+</div>
+<script>if (location.search.includes('fundo')) document.body.classList.add('fundo')</script>
+</body>
+</html>

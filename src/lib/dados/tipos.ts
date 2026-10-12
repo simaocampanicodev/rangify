@@ -410,6 +410,8 @@ export interface Dados {
   apagarNovidade(id: string): Promise<Novidade[]>
   /** Owner e Dev: lê o último jogo personalizado da própria conta na Henrik Dev API. */
   testarApi(): Promise<TesteApi>
+  /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
+  discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
 
   // Staff
   disputas(): Promise<Partida[]>

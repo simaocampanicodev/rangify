@@ -211,6 +211,7 @@ export const dadosSupabase: Dados = {
   criarNovidade: (n) => rpc<Novidade[]>('criar_novidade', { p_data: n.data, p_titulo: n.titulo, p_texto: n.texto }),
   apagarNovidade: (id) => rpc<Novidade[]>('apagar_novidade', { p_id: id }),
   testarApi: () => funcao<TesteApi>('testar-api', {}),
+  discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
 
   poolMapas: () => rpc<string[]>('pool_mapas'),
   definirPoolMapas: (mapas) => rpc<string[]>('definir_pool_mapas', { p_mapas: mapas }),

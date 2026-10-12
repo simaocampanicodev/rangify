@@ -1,4 +1,5 @@
-import { Ban, Check, ClipboardPaste, Crown, Flag, Swords, Users } from 'lucide-react'
+import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
+import { useEffect } from 'react'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { Codigo } from '@/components/partida/Codigo'
@@ -24,6 +25,27 @@ const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
   { estados: ['RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API', 'COMPLETED'], nome: l('Resultado', 'Result') },
 ]
 
+/** O chat e a call da tua equipa no Discord, quando o bot já os criou. */
+function LinksDiscord({ p }: { p: Partida }) {
+  const links = useCarregar(() => dados.discordPartida(p.id), [p.id, p.estado])
+  // A criação demora uns segundos depois de as equipas fecharem: volta a perguntar até aparecer.
+  const { recarregar, valor } = links
+  useEffect(() => {
+    if (valor) return
+    const t = window.setInterval(recarregar, 8000)
+    return () => window.clearInterval(t)
+  }, [valor, recarregar])
+  if (!valor) return null
+  const url = (canal: string) => `https://discord.com/channels/${valor.servidor}/${canal}`
+  const botao = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-laranja/35 bg-laranja/10 px-2.5 text-[12.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/20'
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      <a href={url(valor.chat)} target="_blank" rel="noreferrer" className={botao}><Hash size={13} aria-hidden />{l('Chat da partida', 'Match chat')}</a>
+      <a href={url(valor.call)} target="_blank" rel="noreferrer" className={botao}><Volume2 size={13} aria-hidden />{l('Call da equipa', 'Team call')}</a>
+    </span>
+  )
+}
+
 function Progresso({ p }: { p: Partida }) {
   const FASES = fases()
   const atual = FASES.findIndex((f) => f.estados.includes(p.estado))
@@ -48,6 +70,7 @@ function Progresso({ p }: { p: Partida }) {
           )
         })}
       </ol>
+      <LinksDiscord p={p} />
     </nav>
   )
 }

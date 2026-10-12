@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -477,6 +477,27 @@ await rpc(uids[0], 'apagar_sugestao', { p_id: alvoSug.id })
 ok(!(await rpc(uids[4], 'sugestoes', { p_ordem: 'recentes' })).some((s) => s.id === alvoSug.id), 'a staff apaga a sugestão')
 ok((await raiz('select count(*)::int as n from suggestion_votes where suggestion_id = $1', [alvoSug.id]))[0].n === 0, 'e os votos dela saem da base de dados')
 await falha(rpc(uids[0], 'apagar_sugestao', { p_id: alvoSug.id }), 'já não existe', 'apagar duas vezes avisa que já não existe')
+
+// ------------------------------------------------------------ Discord
+console.log('\nDiscord')
+await raiz(`insert into discord_config (url, segredo) values ('https://exemplo.supabase.co/functions/v1/discord-partida', 'segredo-de-teste') on conflict (id) do nothing`)
+ok((await como(uids[1], 'select * from discord_config')).length === 0, 'o browser não lê o segredo do Discord')
+for (let i = 0; i < 10; i++) await rpc(uids[i], 'entrar_fila')
+const dPartida = (await rpc(uids[0], 'partida_ativa')).id
+await raiz(`update match_players set team = case when profile_id in (select profile_id from match_players where match_id = $1 order by profile_id limit 5) then 'A'::team else 'B'::team end where match_id = $1`, [dPartida])
+// Sem pg_net (como aqui), o pedido ao Discord falha em silêncio e a partida segue.
+await raiz(`update matches set state = 'MAP_BAN' where id = $1`, [dPartida])
+ok((await raiz(`select state from matches where id = $1`, [dPartida]))[0].state === 'MAP_BAN', 'o pedido ao Discord nunca trava a partida')
+ok((await rpc(uids[0], 'discord_partida', { p_match: dPartida })) === null, 'sem canais criados, não há links')
+await raiz(`insert into match_discord (match_id, estado, guild_id, texto_id, voz_a_id, voz_b_id) values ($1, 'criado', '111', '222', '333', '444')`, [dPartida])
+const equipaDe = async (i) => (await raiz(`select team from match_players where match_id = $1 and profile_id = $2`, [dPartida, pid(i)]))[0].team
+const links0 = await rpc(uids[0], 'discord_partida', { p_match: dPartida })
+ok(links0.servidor === '111' && links0.chat === '222' && links0.call === ((await equipaDe(0)) === 'A' ? '333' : '444'), 'cada jogador recebe o chat e a call da sua equipa')
+ok((await rpc(uids[10], 'discord_partida', { p_match: dPartida })) === null, 'quem não joga a partida não recebe links')
+await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [dPartida])
+ok((await raiz(`select state from matches where id = $1`, [dPartida]))[0].state === 'CANCELLED', 'acabar a partida pede a limpeza sem erros')
+await raiz(`delete from match_discord where match_id = $1`, [dPartida])
+await raiz(`delete from discord_config`)
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

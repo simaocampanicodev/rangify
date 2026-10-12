@@ -4,3 +4,7 @@ project_id = "rangify"
 # O login por utilizador é chamado antes de haver sessão.
 [functions.entrar]
 verify_jwt = false
+
+[functions.discord-partida]
+# Chamada pela base de dados (pg_net) com um segredo no cabeçalho, não por utilizadores.
+verify_jwt = false

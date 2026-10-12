@@ -1337,6 +1337,11 @@ export const dadosLocais: Dados = {
     return ordenarNovidades(e)
   },
 
+  // O modo demo não tem servidor de Discord.
+  async discordPartida() {
+    return null
+  },
+
   async testarApi() {
     throw new Error('O teste da API só funciona com o Supabase ligado: no modo demo não há Henrik Dev API.')
   },
