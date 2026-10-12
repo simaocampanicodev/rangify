@@ -1,6 +1,7 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Swords, Users } from 'lucide-react'
 import { FerramentasDev } from '@/components/FerramentasDev'
-import { CartaoFila } from '@/components/Fila'
+import { BotaoFila, LinhaFases, RadarFila, useVistaFila } from '@/components/Fila'
+import { NomeRangify } from '@/components/Marca'
 import { Codigo } from '@/components/partida/Codigo'
 import { Draft } from '@/components/partida/Draft'
 import { Mapas } from '@/components/partida/Mapas'
@@ -10,6 +11,7 @@ import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import type { EstadoPartida, Partida } from '@/lib/dados'
 import { TOTAL_BANS } from '@/lib/mapas'
+import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 
 const FASES: { estados: EstadoPartida[]; nome: string }[] = [
@@ -80,6 +82,35 @@ function ComoFunciona() {
   )
 }
 
+/** O cartão do Rangify Hub: o radar com os jogadores encontrados, as fases e o botão da fila. */
+function PainelFila() {
+  const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
+  const faltam = 10 - contagem
+  return (
+    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-11 gap-y-6 px-[34px] py-[26px]">
+      <RadarFila contagem={contagem} naFila={naFila} legenda={naFila ? relogio(espera) : 'NA SALA'} />
+      <div className="flex min-w-[280px] flex-1 flex-col gap-4">
+        <span className="eyebrow flex items-baseline gap-1.5"><NomeRangify className="text-[15px] tracking-normal normal-case" />HUB · {regiao}</span>
+        <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? 'À procura de jogadores…' : 'Pronto para a próxima?'}</h2>
+        <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
+          {castigo > 0
+            ? `Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`
+            : naFila
+              ? `Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`
+              : 'Entra na fila da tua região. Com 10 jogadores, aceitas a partida e segues para o draft dos capitães, os bans e o código do grupo.'}
+        </p>
+        <LinhaFases />
+        <div className="flex flex-wrap items-center gap-2.5 pt-1">
+          <BotaoFila grande />
+          <span className="text-[13px] text-mudo">
+            {naFila ? `Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.` : `${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`}
+          </span>
+        </div>
+      </div>
+    </Painel>
+  )
+}
+
 export function Jogar() {
   const { partida } = usePartida()
   const { perfil } = useSessao()
@@ -112,12 +143,7 @@ export function Jogar() {
         titulo="Jogar"
         descricao="Entra na fila da tua região. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft."
       />
-      <Painel aria-labelledby="rg-fila" className="relative flex min-w-0 flex-col gap-4 overflow-hidden p-7">
-        <div aria-hidden className="absolute -top-40 -right-36 size-[460px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,91,31,0.12) 0%, rgba(0,0,0,0) 65%)' }} />
-        <span className="eyebrow relative">FILA COMPETITIVA 5V5</span>
-        <h2 id="rg-fila" className="relative m-0 text-[31px] leading-[1.08] font-extrabold tracking-[-0.035em]">Pronto para a próxima?</h2>
-        <div className="relative"><CartaoFila largo /></div>
-      </Painel>
+      <PainelFila />
       <FerramentasDev />
       <ComoFunciona />
       <p className="m-0 flex items-center gap-2 text-[12.5px] text-mudo"><Swords size={14} className="text-laranja" aria-hidden />Precisas do Riot ID ligado e de jogar com essa conta, para o resultado ser confirmado.</p>

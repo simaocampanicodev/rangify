@@ -32,7 +32,7 @@ export function Marca({ compacta = false }: { compacta?: boolean }) {
               <span className="font-extrabold tracking-[-0.045em]">Rang</span>
               <span className="font-serif text-[1.22em] font-normal tracking-[-0.01em] italic">ify</span>
             </span>
-            <span className="rounded-[4px] bg-laranja px-[5px] py-[2px] font-mono text-[9.5px] font-bold tracking-[0.04em] text-escuro-laranja">5V5</span>
+            <span className="rounded-[4px] bg-laranja px-[5px] py-[2px] font-mono text-[9.5px] font-bold tracking-[0.04em] text-escuro-laranja">HUB</span>
           </span>
           <span className="font-mono text-[10.5px] text-mudo">v0.1.0 · beta</span>
         </span>

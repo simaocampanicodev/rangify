@@ -13,6 +13,7 @@ import { nomeRank, tierMedio } from '@/lib/ranks'
 import { SEGUNDOS_CONFIRMAR } from '@/lib/regras'
 import { tocarPartidaEncontrada } from '@/lib/som'
 import { emFalta } from '@/lib/tempo'
+import { NomeRangify } from '../Marca'
 import { iniciais } from '../ui'
 import { Relogio } from './Relogio'
 
@@ -87,7 +88,7 @@ export function Confirmar() {
             <span className="relative size-2"><span className="ping absolute inset-0 rounded-full bg-laranja" /><span className="absolute inset-0 rounded-full bg-laranja" /></span>
             PARTIDA ENCONTRADA
           </span>
-          <span className="text-[12.5px] text-[#a6a19a]">Fila {partida.regiao.toUpperCase()} · Competitivo 5v5{partida.simulada ? ' · Simulação' : ''}</span>
+          <span className="text-[12.5px] text-[#a6a19a]"><NomeRangify className="text-marfim" /> Hub · {partida.regiao.toUpperCase()}{partida.simulada ? ' · Simulação' : ''}</span>
         </div>
 
         <Relogio restante={restante} total={SEGUNDOS_CONFIRMAR} tamanho={176} espessura={8} legenda={eu.aceitou ? 'à espera' : 'para aceitar'} />

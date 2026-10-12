@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, Bell, Check, Clock, Globe, MessageCircle, RefreshCw, Shield, Swords, Target, Trophy, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CartaoFila } from '@/components/Fila'
+import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { NomeRangify } from '@/components/Marca'
 import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, LinhasEsqueleto, LinkSeta, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -12,8 +12,9 @@ import { dados } from '@/lib/dados'
 import { nomeJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
-import { NOMES_ESTADO } from '@/lib/regras'
-import { duracaoAte, fimDaSemana, haQuanto } from '@/lib/tempo'
+import { MAPAS } from '@/lib/mapas'
+import { NOMES_ESTADO, SEGUNDOS_CONFIRMAR } from '@/lib/regras'
+import { duracaoAte, fimDaSemana, haQuanto, relogio } from '@/lib/tempo'
 
 function BarrasPontos({ deltas }: { deltas: number[] }) {
   const max = Math.max(30, ...deltas.map(Math.abs))
@@ -44,6 +45,7 @@ function BarrasPontos({ deltas }: { deltas: number[] }) {
 export function Dashboard() {
   const { perfil } = useSessao()
   const { partida, ativa } = usePartida()
+  const fila = useVistaFila()
   const [minhas, setMinhas] = useState<'minhas' | 'todas'>('minhas')
   const id = perfil?.id ?? ''
   const posicao = useCarregar(() => dados.posicao(id), [id, perfil?.pontos], ['partida'])
@@ -91,23 +93,35 @@ export function Dashboard() {
       </div>
 
       <div className="flex flex-wrap items-stretch gap-4">
-        <Painel aria-labelledby="rg-proxima" className="flex min-w-0 flex-[2_1_540px] p-7">
-          <div className="flex min-w-0 flex-1 flex-col gap-3.5">
+        <Painel aria-labelledby="rg-proxima" className="flex min-w-0 flex-[2_1_540px] flex-wrap items-center gap-x-9 gap-y-6 p-7">
+          <AnelFila
+            contagem={ativa ? 10 : fila.contagem}
+            naFila={fila.naFila}
+            legenda={ativa ? 'AO VIVO' : fila.naFila ? `NA FILA ${relogio(fila.espera)}` : fila.castigo > 0 ? `CASTIGO ${relogio(fila.castigo)}` : 'À ESPERA DE TI'}
+          />
+          <div className="flex min-w-[260px] flex-1 flex-col gap-3.5">
             <span className="eyebrow">{ativa ? 'PARTIDA A DECORRER' : 'A TUA PRÓXIMA PARTIDA'}</span>
             <h2 id="rg-proxima" className="m-0 max-w-[460px] text-[31px] leading-[1.08] font-extrabold tracking-[-0.035em]">
-              {ativa && partida ? `${partida.codigo}: ${NOMES_ESTADO[partida.estado]}` : 'Entra na fila e joga um 5v5 a sério.'}
+              {ativa && partida ? `${partida.codigo}: ${NOMES_ESTADO[partida.estado]}` : <>Entra na fila para jogar no <NomeRangify className="text-laranja" />.</>}
             </h2>
             <p className="m-0 max-w-[470px] text-[14.5px] leading-[1.55] text-suave">
-              Dez jogadores da mesma região, dois capitães, draft à vez e ban de mapas até sobrar um. Tudo validado pelo teu Riot ID.
+              {ativa
+                ? 'Tens uma partida a decorrer. Volta à página Jogar para a fase em que está.'
+                : fila.naFila
+                  ? `Faltam ${10 - fila.contagem} ${10 - fila.contagem === 1 ? 'jogador' : 'jogadores'}. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`
+                  : 'Dez jogadores da mesma região, dois capitães, draft à vez e ban de mapas até sobrar um.'}
             </p>
-            {ativa ? (
-              <div className="flex flex-wrap gap-2.5">
-                <Link to="/jogar" className="btn btn-primario">Voltar à partida<ArrowRight size={16} aria-hidden /></Link>
-                <BotaoAjuda topico="draft">Como funciona o draft</BotaoAjuda>
-              </div>
-            ) : (
-              <CartaoFila compacto />
-            )}
+            <div className="flex flex-wrap gap-2">
+              <EtiquetaHub regiao={fila.regiao} />
+              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">{SEGUNDOS_CONFIRMAR} s para aceitar</span>
+              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">2 capitães · {MAPAS.length} mapas</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              {ativa
+                ? <Link to="/jogar" className="btn btn-primario">Voltar à partida<ArrowRight size={16} aria-hidden /></Link>
+                : <BotaoFila />}
+              <BotaoAjuda topico="draft">Como funciona o draft</BotaoAjuda>
+            </div>
           </div>
         </Painel>
 
