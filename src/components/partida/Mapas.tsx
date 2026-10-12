@@ -87,9 +87,9 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
               )}
               <span aria-hidden className="ban-vertical">{m.nome}</span>
               <div className="ban-aberto">
-                <span className="text-[clamp(20px,2.4vw,32px)] leading-[0.95] font-black tracking-[-0.03em] uppercase">{m.nome}</span>
+                <span className="max-w-full truncate text-[clamp(20px,2.2vw,30px)] leading-[0.95] font-black tracking-[-0.03em] uppercase">{m.nome}</span>
                 <span className={`font-mono text-[10.5px] font-bold tracking-[0.12em] ${ban ? 'text-mudo' : 'text-pessego'}`}>
-                  {decisivo ? 'MAPA DA PARTIDA' : ban ? `BANIDO PELA EQUIPA ${ban.equipa}` : souEu ? 'DISPONÍVEL · É A TUA VEZ' : 'DISPONÍVEL'}
+                  {decisivo ? 'MAPA DA PARTIDA' : ban ? `BANIDO PELA EQUIPA ${ban.equipa}` : souEu ? 'É A TUA VEZ' : 'DISPONÍVEL'}
                 </span>
                 {pode && (
                   <button

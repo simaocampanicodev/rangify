@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { aoMudarDados, dados, type EstadoFila, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
+import { acertarRelogio } from '@/lib/tempo'
 import { useAvisos } from './Avisos'
 import { useSessao } from './Sessao'
 
@@ -35,6 +36,7 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
     aCorrer.current = true
     try {
       const [f, ativa] = await Promise.all([dados.estadoFila(), dados.partidaAtiva()])
+      acertarRelogio(f.agora)
       setFila(f)
       if (ativa) {
         const p = await dados.avancarPartida(ativa.id)

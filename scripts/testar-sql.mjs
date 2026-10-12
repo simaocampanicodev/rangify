@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -182,10 +182,11 @@ partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
 ok(partida.estado === 'PROCESSING_API' && partida.resultadoA === 14, 'resultados iguais: PROCESSING_API')
 
 // A Edge Function devolve as estatísticas tiradas da Henrik Dev API.
-const stats = partida.jogadores.map((j, i) => ({ perfilId: j.perfilId, kills: 10 + i, deaths: 12, assists: 4, acs: 180 + i * 10, firstBloods: i % 3 }))
+const stats = partida.jogadores.map((j, i) => ({ perfilId: j.perfilId, kills: 10 + i, deaths: 12, assists: 4, acs: 180 + i * 10, firstBloods: i % 3, trades: i % 4, hsPct: 20 + i, kastPct: 65 + i }))
 await servico(`select public.aplicar_resultado($1, null, null, $2)`, [mid, JSON.stringify(stats)])
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
 ok(partida.estado === 'COMPLETED' && partida.vencedor === 'A' && partida.estatisticas, 'aplicar_resultado fecha a partida com estatísticas')
+ok(partida.jogadores.every((j) => j.trades != null && j.hsPct >= 20 && j.kastPct >= 65), 'guarda Trades, HS% e KAST%')
 
 // Os pontos batem certo com a fórmula do site.
 const divisao = (t) => (t >= 3 ? Math.min(25, t - 2) : 9)
@@ -199,6 +200,7 @@ const depois = await raiz(`select id, points, wins, losses from profiles`)
 ok(partida.jogadores.every((j) => depois.find((p) => p.id === j.perfilId).points === 1000 + j.deltaPontos), 'os pontos foram aplicados aos perfis')
 ok(partida.jogadores.filter((j) => j.mvp).length === 1 && partida.jogadores.find((j) => j.mvp).acs === Math.max(...stats.map((s) => s.acs)), 'MVP = maior ACS')
 await falha(servico(`select public.aplicar_resultado($1, 13, 0, null)`, [mid]), 'à espera da API', 'não se aplica o resultado duas vezes')
+const primeira = partida
 
 // ------------------------------------------------------------ leituras
 console.log('\nRanking, perfil e histórico')
@@ -305,6 +307,30 @@ await raiz(`update auth.users set raw_user_meta_data = raw_user_meta_data || '{"
 ok((await rpc(uids[3], 'definir_avatar', { p_url: null })).avatarUrl === 'https://cdn.discordapp.com/a.png', 'remover a foto volta à do Discord')
 const bucket = (await raiz(`select allowed_mime_types from storage.buckets where id = 'avatars'`))[0]
 ok(bucket?.allowed_mime_types.join() === 'image/png,image/jpeg,image/webp', 'o bucket só aceita PNG, JPG e WebP')
+
+// ------------------------------------------------------------ remover partidas e acertar pontos
+console.log('\nRemover partidas e acertar pontos')
+const pontosAntes = await raiz('select id, points, wins, losses from profiles')
+await falha(rpc(uids[1], 'remover_partida', { p_match: mid }), 'Owner e Dev', 'um Mod não remove partidas')
+await rpc(uids[0], 'remover_partida', { p_match: mid })
+ok((await rpc(uids[0], 'partida_detalhe', { p_match: mid })) === null, 'a partida desaparece do histórico')
+const pontosDepois = await raiz('select id, points, wins, losses from profiles')
+ok(primeira.jogadores.every((j) => {
+  const a = pontosAntes.find((p) => p.id === j.perfilId)
+  const d = pontosDepois.find((p) => p.id === j.perfilId)
+  return d.points === a.points - j.deltaPontos && d.wins + d.losses === a.wins + a.losses - 1
+}), 'os pontos, as vitórias e as derrotas da partida são devolvidos')
+await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: false })
+const ativaDev = await rpc(uids[0], 'partida_ativa')
+await falha(rpc(uids[0], 'remover_partida', { p_match: ativaDev.id }), 'Cancela a partida', 'uma partida a decorrer não se remove')
+await rpc(uids[0], 'cancelar_partida', { p_match: ativaDev.id })
+await rpc(uids[0], 'remover_partida', { p_match: ativaDev.id })
+ok((await rpc(uids[0], 'partida_detalhe', { p_match: ativaDev.id })) === null, 'uma partida cancelada também se remove')
+await rpc(uids[0], 'definir_pontos', { p_perfil: pid(5), p_pontos: 1337 })
+ok((await raiz('select points from profiles where id = $1', [pid(5)]))[0].points === 1337, 'o Owner acerta os pontos de um jogador')
+await falha(rpc(uids[0], 'definir_pontos', { p_perfil: pid(5), p_pontos: -4 }), 'entre 0 e 10000', 'não aceita pontos negativos')
+await falha(rpc(uids[4], 'definir_pontos', { p_perfil: pid(5), p_pontos: 2000 }), 'Owner e Dev', 'um jogador normal não mexe em pontos')
+ok((await rpc(uids[0], 'estado_fila')).agora != null, 'o estado da fila traz a hora do servidor')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

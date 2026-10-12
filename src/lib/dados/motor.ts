@@ -52,6 +52,9 @@ export interface JogadorGuardado {
   mvp: boolean
   deltaPontos: number | null
   pontosDepois: number | null
+  trades?: number | null
+  hsPct?: number | null
+  kastPct?: number | null
 }
 
 export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[] }
@@ -60,6 +63,7 @@ export function novoJogador(p: Perfil): JogadorGuardado {
   return {
     perfilId: p.id, tier: p.tier, equipa: null, capitao: false, aceitou: false, ordemEscolha: null,
     kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null,
+    trades: null, hsPct: null, kastPct: null,
   }
 }
 
@@ -124,6 +128,9 @@ export function gerarEstatisticas(rng: Rng, p: PartidaGuardada, perfis: Record<s
     j.deaths = Math.max(2, Math.round(rondas * entre(rng, ganhou ? 0.5 : 0.62, ganhou ? 0.74 : 0.86)))
     j.assists = Math.round(rondas * entre(rng, funcao === 'Iniciador' || funcao === 'Controlador' ? 0.22 : 0.1, 0.42))
     j.firstBloods = Math.round(rondas * entre(rng, 0, funcao === 'Duelista' ? 0.2 : 0.09))
+    j.trades = Math.round(rondas * entre(rng, 0.03, 0.15))
+    j.hsPct = Math.min(45, Math.round(entre(rng, 13, 27) + Math.max(0, acs - 200) / 25))
+    j.kastPct = Math.min(95, Math.round(entre(rng, ganhou ? 70 : 58, ganhou ? 88 : 76)))
     j.mvp = false
     if (!melhor || acs > (melhor.acs ?? 0)) melhor = j
   }

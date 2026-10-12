@@ -48,6 +48,27 @@ function Disputa({ p }: { p: Partida }) {
   )
 }
 
+/** Pontos de um jogador, editáveis por Owner e Dev. */
+function CampoPontos({ p, onGuardado }: { p: Perfil; onGuardado: () => void }) {
+  const acao = useAcao()
+  const [valor, setValor] = useState(String(p.pontos))
+  useEffect(() => { setValor(String(p.pontos)) }, [p.pontos])
+  const n = Number(valor)
+  const mudou = valor !== String(p.pontos) && Number.isInteger(n) && n >= 0 && n <= 10000
+  const guardar = async () => {
+    const ok = await acao(async () => { await dados.definirPontos(p.id, n); return true }, `Pontos de ${p.riotId ?? p.utilizador} acertados para ${n}.`)
+    if (ok) onGuardado()
+  }
+  return (
+    <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (mudou) guardar() }}>
+      <label className="so-leitores" htmlFor={`pts-${p.id}`}>Pontos de {p.utilizador}</label>
+      <input id={`pts-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/D/g, '').slice(0, 5))} />
+      <span className="text-[12px] text-mudo">pts</span>
+      {mudou && <button type="submit" className="btn btn-suave !min-h-9 !px-3 !text-[12.5px]">Guardar</button>}
+    </form>
+  )
+}
+
 function Jogadores() {
   const acao = useAcao()
   const { perfil: eu } = useSessao()
@@ -74,9 +95,12 @@ function Jogadores() {
             <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
-              <span className="font-mono text-[11px] text-mudo">{p.utilizador} · {p.pontos} pts</span>
+              <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
             </span>
             <RankBadge tier={p.tier} pequeno />
+            {(eu?.funcao === 'owner' || eu?.funcao === 'dev')
+              ? <CampoPontos p={p} onGuardado={() => dados.pesquisarJogadores(q).then(setLista).catch(() => {})} />
+              : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts</span>}
             <select
               aria-label={`Função de ${p.utilizador}`}
               className="campo !h-9 !w-auto !text-[13px]"
@@ -176,7 +200,7 @@ export function Admin() {
         {aba === 'jogadores' && (
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="JOGADORES" titulo="Funções" />
-            <p className="m-0 text-[13px] text-mudo">Só o Owner atribui Owner e Dev. Owner e Dev atribuem Mod, Verificado e Jogador.</p>
+            <p className="m-0 text-[13px] text-mudo">Só o Owner atribui Owner e Dev. Owner e Dev atribuem Mod, Verificado e Jogador, e podem acertar os pontos de cada jogador.</p>
             <Jogadores />
           </div>
         )}

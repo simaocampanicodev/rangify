@@ -1,8 +1,30 @@
 /** Datas e tempos em português de Portugal. */
 
+/**
+ * Diferença entre o relógio do servidor e o deste computador. Os prazos e o
+ * tempo na fila vêm do servidor; se o relógio local estiver uns segundos
+ * atrasado, as contagens ficavam presas em 00:00. O site acerta-o a cada
+ * leitura do estado da fila.
+ */
+let desvio = 0
+let acertado = false
+
+export function acertarRelogio(isoServidor: string | null | undefined) {
+  if (!isoServidor) return
+  const d = new Date(isoServidor).getTime() - Date.now()
+  if (!Number.isFinite(d)) return
+  // A primeira leitura vale logo; depois suaviza, para a latência da rede não fazer saltar os números.
+  desvio = acertado ? desvio * 0.7 + d * 0.3 : d
+  acertado = true
+}
+
+export function agoraCerto(): number {
+  return Date.now() + desvio
+}
+
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-export function haQuanto(iso: string | null | undefined, agora = Date.now()): string {
+export function haQuanto(iso: string | null | undefined, agora = agoraCerto()): string {
   if (!iso) return '-'
   const s = Math.max(0, Math.round((agora - new Date(iso).getTime()) / 1000))
   if (s < 45) return 'agora mesmo'
@@ -33,12 +55,12 @@ export function relogio(segundos: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function emFalta(iso: string | null | undefined, agora = Date.now()): number {
+export function emFalta(iso: string | null | undefined, agora = agoraCerto()): number {
   if (!iso) return 0
   return Math.max(0, (new Date(iso).getTime() - agora) / 1000)
 }
 
-export function duracaoAte(iso: string, agora = Date.now()): string {
+export function duracaoAte(iso: string, agora = agoraCerto()): string {
   const s = Math.max(0, Math.round((new Date(iso).getTime() - agora) / 1000))
   const d = Math.floor(s / 86400)
   const h = Math.floor((s % 86400) / 3600)

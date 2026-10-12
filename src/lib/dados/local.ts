@@ -30,8 +30,8 @@ import type {
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
-// v2: os 13 mapas do Valorant e as fotos de perfil; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v2'
+// v3: Trades, HS% e KAST nas partidas; os dados de exemplo voltam a ser gerados.
+const CHAVE = 'rangify:demo:v3'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -41,7 +41,7 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 2
+  versao: 3
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -107,13 +107,14 @@ async function carregar(): Promise<Estado> {
     let lido: Estado | null = null
     try {
       localStorage.removeItem('rangify:demo:v1')
+      localStorage.removeItem('rangify:demo:v2')
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 2) {
+    if (!lido || lido.versao !== 3) {
       const s = gerarSemente()
       lido = {
-        versao: 2, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        versao: 3, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
         amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false,
       }
@@ -202,6 +203,7 @@ function jogadorPublico(e: Estado, j: JogadorGuardado): JogadorPartida {
     tier: j.tier, pontos: p?.pontos ?? PONTOS_INICIAIS, funcaoJogo: p?.funcaoJogo ?? null, bot: p?.bot ?? false,
     equipa: j.equipa, capitao: j.capitao, aceitou: j.aceitou, ordemEscolha: j.ordemEscolha,
     kills: j.kills, deaths: j.deaths, assists: j.assists, acs: j.acs, firstBloods: j.firstBloods, mvp: j.mvp, deltaPontos: j.deltaPontos,
+    trades: j.trades ?? null, hsPct: j.hsPct ?? null, kastPct: j.kastPct ?? null,
   }
 }
 
@@ -1169,6 +1171,41 @@ export const dadosLocais: Dados = {
     cancelar(e, p, Date.now())
     guardar()
     avisarMudanca('staff')
+  },
+
+  async removerPartida(id) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    const p = obterPartida(e, id)
+    if (p.estado !== 'COMPLETED' && p.estado !== 'CANCELLED') throw new Error('Cancela a partida antes de a remover.')
+    // Numa partida real terminada, devolve os pontos, as vitórias e as derrotas.
+    if (p.estado === 'COMPLETED' && !p.simulada) {
+      for (const j of p.jogadores) {
+        const perfil = e.perfis[j.perfilId]
+        if (!perfil || !j.equipa || j.deltaPontos == null) continue
+        perfil.pontos -= j.deltaPontos
+        if (j.equipa === p.vencedor) perfil.vitorias = Math.max(0, perfil.vitorias - 1)
+        else perfil.derrotas = Math.max(0, perfil.derrotas - 1)
+      }
+    }
+    e.partidas = e.partidas.filter((x) => x.id !== id)
+    guardar()
+    avisarMudanca('partida')
+    avisarMudanca('perfil')
+  },
+
+  async definirPontos(perfilId, pontos) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    if (!Number.isInteger(pontos) || pontos < 0 || pontos > 10000) throw new Error('Os pontos têm de estar entre 0 e 10000.')
+    const alvo = e.perfis[perfilId]
+    if (!alvo) throw new Error('Jogador não encontrado.')
+    alvo.pontos = pontos
+    guardar()
+    avisarMudanca('staff')
+    avisarMudanca('perfil')
   },
 
   async denuncias() {

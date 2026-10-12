@@ -63,6 +63,12 @@ export interface JogadorPartida {
   firstBloods: number | null
   mvp: boolean
   deltaPontos: number | null
+  /** Kills de troca: mataste quem tinha acabado de matar um colega (até 5 s). */
+  trades: number | null
+  /** Percentagem de tiros na cabeça. */
+  hsPct: number | null
+  /** Rondas com kill, assistência, sobrevivência ou troca, em percentagem. */
+  kastPct: number | null
 }
 
 export interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
@@ -102,6 +108,8 @@ export interface EstadoFila {
   contagem: number
   regiao: Regiao
   cooldownAte: string | null
+  /** Hora do servidor, para acertar as contagens com o relógio dele. */
+  agora?: string | null
 }
 
 export interface LinhaRanking {
@@ -308,6 +316,10 @@ export interface Dados {
   resolverDisputa(id: string, resultado: { a: number; b: number } | null): Promise<void>
   partidasEncravadas(): Promise<Partida[]>
   cancelarPartida(id: string): Promise<void>
+  /** Owner e Dev: apaga uma partida terminada ou cancelada (os pontos dela são devolvidos). */
+  removerPartida(id: string): Promise<void>
+  /** Owner e Dev: acerta os pontos de um jogador à mão. */
+  definirPontos(perfilId: string, pontos: number): Promise<void>
   denuncias(): Promise<Denuncia[]>
   tratarDenuncia(id: string, estado: 'resolvida' | 'arquivada'): Promise<void>
   pesquisarJogadores(q: string): Promise<Perfil[]>

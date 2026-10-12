@@ -184,6 +184,8 @@ export const dadosSupabase: Dados = {
   async resolverDisputa(id, r) { await rpc('resolver_disputa', { p_match: id, p_a: r?.a ?? null, p_b: r?.b ?? null }) },
   partidasEncravadas: () => rpc<Partida[]>('partidas_encravadas'),
   async cancelarPartida(id) { await rpc('cancelar_partida', { p_match: id }) },
+  async removerPartida(id) { await rpc('remover_partida', { p_match: id }) },
+  async definirPontos(perfilId, pontos) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos }) },
   denuncias: () => rpc<Denuncia[]>('denuncias'),
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
   pesquisarJogadores: (q) => rpc<Perfil[]>('pesquisar_jogadores', { p_q: q }),

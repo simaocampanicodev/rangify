@@ -164,48 +164,67 @@ function Submeter({ p, eu }: { p: Partida; eu: string }) {
   )
 }
 
+const pct = (v: number | null | undefined) => (v != null ? `${v}%` : '-')
+
+/** As colunas da tabela da partida, com a explicação de cada uma ao passar o rato. */
+const COLUNAS: { rotulo: string; titulo: string; largura: number }[] = [
+  { rotulo: 'K/D/A', titulo: 'Kills, mortes e assistências', largura: 92 },
+  { rotulo: 'ACS', titulo: 'Average Combat Score: pontuação de combate por ronda', largura: 54 },
+  { rotulo: 'KAST', titulo: 'Rondas com kill, assistência, sobrevivência ou troca', largura: 58 },
+  { rotulo: 'HS%', titulo: 'Percentagem de tiros na cabeça', largura: 54 },
+  { rotulo: 'Trades', titulo: 'Kills de troca: mataste quem tinha matado um colega há menos de 5 s', largura: 58 },
+  { rotulo: 'FB', titulo: 'First bloods: a primeira kill da ronda', largura: 42 },
+  { rotulo: 'Pontos', titulo: 'Pontos Rangify ganhos ou perdidos', largura: 64 },
+]
+
 function LinhaEstatisticas({ j, eu }: { j: JogadorPartida; eu: string }) {
+  const num = 'px-2 text-right font-mono text-[13px] tabular-nums'
   return (
     <tr className={j.perfilId === eu ? 'bg-laranja/8' : ''}>
       <td className="py-2 pr-2 pl-3">
-        <Link to={caminhoPerfil(j.riotId)} className="flex items-center gap-2.5 text-texto no-underline hover:text-pessego">
+        <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
           <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} />
           <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
           {j.capitao && <span className="font-mono text-[11px] font-bold text-laranja">(C)</span>}
           {j.mvp && <SeloMvp tamanho={20} />}
         </Link>
       </td>
-      <td className="px-2 text-right font-mono text-[13px]">{j.kills ?? '-'}/{j.deaths ?? '-'}/{j.assists ?? '-'}</td>
-      <td className="px-2 text-right font-mono text-[13px]">{j.acs ?? '-'}</td>
-      <td className="px-2 text-right font-mono text-[13px]">{j.firstBloods ?? '-'}</td>
-      <td className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? comSinal(j.deltaPontos) : '-'}</td>
+      <td className={num}>{j.kills ?? '-'}/{j.deaths ?? '-'}/{j.assists ?? '-'}</td>
+      <td className={num}>{j.acs ?? '-'}</td>
+      <td className={num}>{pct(j.kastPct)}</td>
+      <td className={num}>{pct(j.hsPct)}</td>
+      <td className={num}>{j.trades ?? '-'}</td>
+      <td className={num}>{j.firstBloods ?? '-'}</td>
+      <td className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? comSinal(j.deltaPontos) : '-'}</td>
     </tr>
   )
 }
 
+/** As duas equipas com as mesmas larguras de coluna, para os números ficarem alinhados de uma tabela para a outra. */
 export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 overflow-x-auto">
       {(['A', 'B'] as const).map((eq) => (
-        <div key={eq} className="overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse">
-            <caption className={`pb-2 text-left font-mono text-[11px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>
-              EQUIPA {eq} · {p.resultadoA != null ? (eq === 'A' ? p.resultadoA : p.resultadoB) : '-'} RONDAS {p.vencedor === eq ? '· VITÓRIA' : ''}
-            </caption>
-            <thead>
-              <tr className="rotulo text-left">
-                <th scope="col" className="py-1.5 pl-3 font-normal">Jogador</th>
-                <th scope="col" className="px-2 text-right font-normal">K/D/A</th>
-                <th scope="col" className="px-2 text-right font-normal">ACS</th>
-                <th scope="col" className="px-2 text-right font-normal">FB</th>
-                <th scope="col" className="pr-3 text-right font-normal">Pontos</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
-              {[...equipa(p, eq)].sort((x, y) => (y.acs ?? 0) - (x.acs ?? 0)).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} />)}
-            </tbody>
-          </table>
-        </div>
+        <table key={eq} className="w-full min-w-[760px] table-fixed border-collapse">
+          <colgroup>
+            <col />
+            {COLUNAS.map((c) => <col key={c.rotulo} style={{ width: c.largura }} />)}
+          </colgroup>
+          <caption className={`pb-2 text-left font-mono text-[11px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>
+            EQUIPA {eq} · {p.resultadoA != null ? (eq === 'A' ? p.resultadoA : p.resultadoB) : '-'} RONDAS {p.vencedor === eq ? '· VITÓRIA' : ''}
+          </caption>
+          <thead>
+            <tr className="rotulo text-left">
+              <th scope="col" className="py-1.5 pl-3 font-normal">Jogador</th>
+              {COLUNAS.map((c, i) => (
+                <th key={c.rotulo} scope="col" title={c.titulo} className={`cursor-help text-right font-normal ${i === COLUNAS.length - 1 ? 'pr-3' : 'px-2'}`}>{c.rotulo}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
+            {[...equipa(p, eq)].sort((x, y) => (y.acs ?? 0) - (x.acs ?? 0)).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} />)}
+          </tbody>
+        </table>
       ))}
     </div>
   )

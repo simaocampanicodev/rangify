@@ -1,12 +1,18 @@
 // Estado 8 do PRD (PROCESSING_API): procura a partida personalizada no
 // histórico do Capitão A na Henrik Dev API, confirma o mapa e o resultado,
-// tira KDA, ACS e first bloods de cada jogador e fecha a partida com
+// tira KDA, ACS, first bloods, trades, HS% e KAST de cada jogador e fecha a partida com
 // aplicar_resultado. Se ainda não aparecer, devolve { pendente: true } e o
 // site volta a pedir; ao fim de 15 minutos a base de dados fecha sem estatísticas.
 import { ErroHenrik, admin, cors, enc, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
 
-interface JogadorHenrik { puuid: string; name: string; tag: string; team: string; stats: { score: number; kills: number; deaths: number; assists: number } }
-interface MorteHenrik { round: number; kill_time_in_round: number; killer_puuid: string }
+interface JogadorHenrik {
+  puuid: string; name: string; tag: string; team: string
+  stats: { score: number; kills: number; deaths: number; assists: number; headshots?: number; bodyshots?: number; legshots?: number }
+}
+interface MorteHenrik {
+  round: number; kill_time_in_round: number; killer_puuid: string; victim_puuid: string
+  assistants?: { assistant_puuid: string }[]
+}
 interface PartidaHenrik {
   metadata: { map: string; game_start: number; rounds_played: number; mode?: string }
   players: { all_players: JogadorHenrik[] }
@@ -15,17 +21,55 @@ interface PartidaHenrik {
   rounds?: { player_stats: { player_puuid: string; kill_events: MorteHenrik[] }[] }[]
 }
 
-/** First bloods: em cada ronda, quem fez a primeira morte. */
-function firstBloods(p: PartidaHenrik): Map<string, number> {
-  const contagem = new Map<string, number>()
-  const porRonda = new Map<number, MorteHenrik>()
-  const mortes = p.kills ?? (p.rounds ?? []).flatMap((r, i) => r.player_stats.flatMap((s) => s.kill_events.map((k) => ({ ...k, round: i }))))
-  for (const k of mortes) {
-    const atual = porRonda.get(k.round)
-    if (!atual || k.kill_time_in_round < atual.kill_time_in_round) porRonda.set(k.round, k)
+/** Uma troca vale se o assassino do colega morrer até 5 segundos depois. */
+const JANELA_TROCA_MS = 5000
+
+function mortes(p: PartidaHenrik): MorteHenrik[] {
+  return p.kills ?? (p.rounds ?? []).flatMap((r, i) => r.player_stats.flatMap((s) => s.kill_events.map((k) => ({ ...k, round: i }))))
+}
+
+/**
+ * First bloods, trades e KAST de cada jogador, a partir das mortes ronda a ronda.
+ * - First blood: a primeira morte da ronda.
+ * - Trade: matas quem matou um colega teu há menos de 5 s.
+ * - KAST: rondas em que tiveste kill, assistência, sobreviveste ou foste trocado.
+ */
+function estatisticasDasRondas(p: PartidaHenrik, equipaDe: Map<string, string>) {
+  const fb = new Map<string, number>()
+  const trades = new Map<string, number>()
+  const kast = new Map<string, number>()
+  const soma = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1)
+  const porRonda = new Map<number, MorteHenrik[]>()
+  for (const k of mortes(p)) porRonda.set(k.round, [...(porRonda.get(k.round) ?? []), k])
+  const rondas = Math.max(p.metadata.rounds_played || 0, porRonda.size)
+  // As rondas vêm numeradas a partir de 0; se a API as numerar a partir de 1, desloca.
+  const base = porRonda.size && !porRonda.has(0) && Math.min(...porRonda.keys()) === 1 ? 1 : 0
+
+  for (let r = base; r < rondas + base; r++) {
+    const lista = [...(porRonda.get(r) ?? [])].sort((a, b) => a.kill_time_in_round - b.kill_time_in_round)
+    if (lista[0]) soma(fb, lista[0].killer_puuid)
+    const contribuiu = new Set<string>()
+    const morreu = new Set<string>()
+    for (const [i, k] of lista.entries()) {
+      contribuiu.add(k.killer_puuid)
+      for (const a of k.assistants ?? []) contribuiu.add(a.assistant_puuid)
+      morreu.add(k.victim_puuid)
+      // A vítima desta morte tinha matado um colega do assassino há pouco? Então é uma troca.
+      const trocou = lista.slice(0, i).some((ant) =>
+        ant.killer_puuid === k.victim_puuid
+        && equipaDe.get(ant.victim_puuid) === equipaDe.get(k.killer_puuid)
+        && k.kill_time_in_round - ant.kill_time_in_round <= JANELA_TROCA_MS)
+      if (trocou) {
+        soma(trades, k.killer_puuid)
+        // E o colega que morreu antes foi trocado, o que também conta para o KAST dele.
+        for (const ant of lista.slice(0, i)) {
+          if (ant.killer_puuid === k.victim_puuid && k.kill_time_in_round - ant.kill_time_in_round <= JANELA_TROCA_MS) contribuiu.add(ant.victim_puuid)
+        }
+      }
+    }
+    for (const puuid of equipaDe.keys()) if (contribuiu.has(puuid) || !morreu.has(puuid)) soma(kast, puuid)
   }
-  for (const k of porRonda.values()) contagem.set(k.killer_puuid, (contagem.get(k.killer_puuid) ?? 0) + 1)
-  return contagem
+  return { fb, trades, kast, rondas: Math.max(1, rondas) }
 }
 
 Deno.serve(async (req) => {
@@ -65,15 +109,20 @@ Deno.serve(async (req) => {
       if (a !== m.score_a || b !== m.score_b) continue
 
       // É esta: estatísticas de cada um dos nossos jogadores.
-      const fb = firstBloods(p)
-      const rondas = Math.max(1, p.metadata.rounds_played || a + b)
+      const equipaDe = new Map(p.players.all_players.map((x) => [x.puuid, x.team.toLowerCase()]))
+      const ronda = estatisticasDasRondas(p, equipaDe)
+      const rondas = Math.max(1, p.metadata.rounds_played || a + b, ronda.rondas)
       const stats = jogadores.flatMap((j) => {
         const perfil = j.profiles as { riot_id: string | null; riot_puuid: string | null }
         const h = p.players.all_players.find((x) => mesmo(x, perfil.riot_id, perfil.riot_puuid))
         if (!h) return []
+        const tiros = (h.stats.headshots ?? 0) + (h.stats.bodyshots ?? 0) + (h.stats.legshots ?? 0)
         return [{
           perfilId: j.profile_id, kills: h.stats.kills, deaths: h.stats.deaths, assists: h.stats.assists,
-          acs: Math.round(h.stats.score / rondas), firstBloods: fb.get(h.puuid) ?? 0,
+          acs: Math.round(h.stats.score / rondas), firstBloods: ronda.fb.get(h.puuid) ?? 0,
+          trades: ronda.trades.get(h.puuid) ?? 0,
+          hsPct: tiros ? Math.round(((h.stats.headshots ?? 0) / tiros) * 100) : null,
+          kastPct: Math.round(((ronda.kast.get(h.puuid) ?? 0) / rondas) * 100),
         }]
       })
       const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: null, p_b: null, p_stats: stats })

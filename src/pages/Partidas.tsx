@@ -1,4 +1,4 @@
-import { Clock, Flag, Swords } from 'lucide-react'
+import { Clock, Flag, Swords, Trash } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { LinhaPartida } from '@/components/LinhaPartida'
@@ -7,31 +7,63 @@ import { Cabecalho, Carregando, Chip, LinhasEsqueleto, Modal, Painel, Segmentado
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type ResumoPartida } from '@/lib/dados'
+import { avisarMudanca, dados, type ResumoPartida } from '@/lib/dados'
 import { MAPAS } from '@/lib/mapas'
 import { dataHora } from '@/lib/tempo'
 
 function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) {
-  const { perfil } = useSessao()
+  const { perfil, podeTestar } = useSessao()
+  const acao = useAcao()
+  const [aRemover, setARemover] = useState(false)
   const p = useCarregar(() => (id ? dados.partida(id) : Promise.resolve(null)), [id])
   const partida = p.valor
+
+  // Owner e Dev podem tirar uma partida do histórico; numa partida real, os pontos dela voltam atrás.
+  const remover = async () => {
+    if (!partida) return
+    const aviso = partida.simulada
+      ? 'Remover esta partida simulada do histórico?'
+      : 'Remover esta partida do histórico? Os pontos, as vitórias e as derrotas que ela deu são devolvidos aos 10 jogadores.'
+    if (!window.confirm(aviso)) return
+    setARemover(true)
+    const ok = await acao(async () => { await dados.removerPartida(partida.id); return true }, 'Partida removida do histórico.')
+    setARemover(false)
+    if (ok) {
+      avisarMudanca('partida')
+      onFechar()
+    }
+  }
+
   return (
-    <Modal aberto={!!id} onFechar={onFechar} titulo={partida ? `${partida.mapa} · ${partida.resultadoA}-${partida.resultadoB}` : 'Partida'} eyebrow={partida ? `PARTIDA ${partida.codigo}` : undefined} largura={760}>
+    <Modal aberto={!!id} onFechar={onFechar} titulo={partida ? `${partida.mapa} · ${partida.resultadoA}-${partida.resultadoB}` : 'Partida'} eyebrow={partida ? `PARTIDA ${partida.codigo}` : undefined} largura={980}>
       {!partida ? <Carregando /> : (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {partida.terminouEm && <Chip><Clock size={12} aria-hidden />{dataHora(partida.terminouEm)}</Chip>}
             {partida.simulada && <Chip tom="laranja">Simulada, não conta</Chip>}
             {!partida.estatisticas && <Chip>Sem estatísticas da API</Chip>}
+            {podeTestar && (
+              <button type="button" disabled={aRemover} onClick={remover} className="btn btn-fantasma ml-auto !min-h-8 !px-3 !text-[12.5px]">
+                <Trash size={14} className="text-laranja" aria-hidden />Remover partida
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-1.5" aria-label="Bans de mapas">
-            {partida.bans.map((b) => (
-              <span key={b.ordem} className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.03] px-2 font-mono text-[11px] text-suave">
-                <span className={b.equipa === 'A' ? 'text-laranja' : 'text-marfim'}>{b.equipa}</span>{b.mapa}
+          {/* Os bans numa linha só: a cor diz que equipa baniu cada mapa. */}
+          {partida.bans.length > 0 && (
+            <p className="m-0 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-[12px] leading-relaxed" aria-label="Bans de mapas">
+              <span className="rotulo mr-1">Bans</span>
+              {partida.bans.map((b, i) => (
+                <span key={b.ordem} className={b.equipa === 'A' ? 'text-laranja-claro' : 'text-marfim'} title={`Banido pela Equipa ${b.equipa}`}>
+                  {b.mapa}{i < partida.bans.length - 1 && <span className="text-white/20"> ·</span>}
+                </span>
+              ))}
+              {partida.mapa && <span className="ml-1 font-bold text-pessego">→ {partida.mapa}</span>}
+              <span className="ml-auto flex gap-3 text-[11px] text-mudo">
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-laranja-claro" />Equipa A</span>
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-marfim" />Equipa B</span>
               </span>
-            ))}
-            {partida.mapa && <span className="inline-flex h-7 items-center rounded-lg border border-laranja/40 bg-laranja/12 px-2 font-mono text-[11px] font-bold text-pessego">DECISIVO {partida.mapa.toUpperCase()}</span>}
-          </div>
+            </p>
+          )}
           <TabelaPartida p={partida} eu={perfil?.id ?? ''} />
         </div>
       )}

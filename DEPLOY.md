@@ -51,7 +51,7 @@ Se algum dia fizeres commit de um segredo: apagar o ficheiro não chega, porque 
 
 1. Em https://supabase.com, **New project**. Escolhe a região mais perto dos jogadores (por exemplo, Frankfurt ou Paris para a Europa) e guarda a palavra-passe da base de dados num gestor de palavras-passe.
 2. Quando o projeto estiver pronto, abre **SQL Editor > New query**, cola o conteúdo de `supabase/migrations/0001_schema.sql` e carrega em **Run**.
-3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP).
+3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP) e depois com `0003_estatisticas.sql` (Trades, HS% e KAST, remover partidas e acertar pontos).
 4. Em **Project Settings > API Keys** (ou **Settings > API**), copia:
    - o **Project URL**;
    - a chave **publishable** (`sb_publishable_...`) ou, se o projeto mostrar as chaves antigas, a **anon public**.
