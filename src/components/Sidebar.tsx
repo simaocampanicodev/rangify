@@ -10,6 +10,18 @@ import { caminhoPerfil, nomeJogador } from '@/lib/partida'
 import { Marca } from './Marca'
 import { Avatar } from './ui'
 
+/** A mesma curva em tudo o que abre e fecha com o menu. */
+const ANIM = 'duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none'
+
+/** Texto que encolhe até zero quando o menu recolhe (continua lá para os leitores de ecrã). */
+function Rotulo({ recolhido, children }: { recolhido: boolean; children: ReactNode }) {
+  return (
+    <span className={`flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] ${ANIM} ${recolhido ? 'ml-0 max-w-0 opacity-0' : 'ml-3 max-w-[190px] flex-1 opacity-100'}`}>
+      {children}
+    </span>
+  )
+}
+
 interface Item { para: string; texto: string; icone: ReactNode; tour: string; extra?: ReactNode; fim?: boolean }
 
 function lerRecolhido() {
@@ -25,14 +37,16 @@ function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean;
       onClick={onClick}
       title={recolhido ? item.texto : undefined}
       className={({ isActive }) =>
-        `relative flex min-h-11 items-center gap-3 rounded-[10px] border px-3 text-[14.5px] no-underline transition-colors ${recolhido ? 'justify-center !px-0' : ''} ${
+        `relative flex min-h-11 items-center rounded-[10px] border text-[14.5px] no-underline transition-[padding,background-color,color,border-color] ${ANIM} ${recolhido ? 'px-[20px]' : 'px-3'} ${
           isActive ? 'cantos border-white/9 bg-white/5 font-semibold text-texto' : 'border-transparent font-medium text-suave hover:bg-white/[0.045] hover:text-texto'
         }`
       }
     >
-      <span className="inline-flex text-laranja">{item.icone}</span>
-      {recolhido ? <span className="so-leitores">{item.texto}</span> : item.texto}
-      {!recolhido && item.extra}
+      <span className="inline-flex shrink-0 text-laranja">{item.icone}</span>
+      <Rotulo recolhido={recolhido}>
+        <span className="truncate">{item.texto}</span>
+        {item.extra}
+      </Rotulo>
     </NavLink>
   )
 }
@@ -107,6 +121,7 @@ export function Sidebar() {
     const rec = recolhido && !movel
     return (
       <>
+        {/* Ao recolher, o nome encolhe e o botão passa para baixo do símbolo. */}
         <div className={`flex items-center gap-2.5 ${rec ? 'flex-col' : 'justify-between pr-1 pl-2'}`}>
           <Link to="/" aria-label="Rangify, ir para o dashboard" className="no-underline"><Marca compacta={rec} /></Link>
           {movel ? (
@@ -122,7 +137,9 @@ export function Sidebar() {
         <nav aria-label="Navegação principal" className="flex flex-col gap-[18px]">
           {grupos.map((g) => (
             <div key={g.titulo} className="flex flex-col gap-1">
-              {!rec && <span className="px-3 pb-1.5 font-mono text-[10.5px] font-semibold tracking-[0.16em] text-mudo">{g.titulo}</span>}
+              <div aria-hidden={rec} className={`grid transition-[grid-template-rows,opacity] ${ANIM} ${rec ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}>
+                <div className="min-h-0 overflow-hidden"><span className="block px-3 pb-1.5 font-mono text-[10.5px] font-semibold tracking-[0.16em] whitespace-nowrap text-mudo">{g.titulo}</span></div>
+              </div>
               {g.itens.map((i) => <ItemNav key={i.texto} item={i} recolhido={rec} />)}
             </div>
           ))}
@@ -130,27 +147,25 @@ export function Sidebar() {
             type="button"
             onClick={sair}
             title={rec ? 'Terminar sessão' : undefined}
-            className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] border border-transparent bg-transparent px-3 text-left text-[14.5px] font-medium text-suave transition-colors hover:bg-white/[0.045] hover:text-texto ${rec ? 'justify-center !px-0' : ''}`}
+            className={`flex min-h-11 cursor-pointer items-center rounded-[10px] border border-transparent bg-transparent text-left text-[14.5px] font-medium text-suave transition-[padding,background-color,color] hover:bg-white/[0.045] hover:text-texto ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
           >
-            <LogOut size={18} className="text-laranja" aria-hidden />
-            {rec ? <span className="so-leitores">Terminar sessão</span> : 'Terminar sessão'}
+            <LogOut size={18} className="shrink-0 text-laranja" aria-hidden />
+            <Rotulo recolhido={rec}>Terminar sessão</Rotulo>
           </button>
         </nav>
         {perfil && (
           <Link
             to={perfil.riotId ? caminhoPerfil(perfil.riotId) : '/definicoes'}
-            className={`mt-auto flex items-center gap-[11px] rounded-xl border border-white/7 bg-white/[0.025] p-2.5 text-texto no-underline transition-colors hover:bg-white/[0.045] ${rec ? 'justify-center' : ''}`}
+            className={`mt-auto flex items-center rounded-xl border border-white/7 bg-white/[0.025] text-texto no-underline transition-[padding,background-color] hover:bg-white/[0.045] ${ANIM} ${rec ? 'p-[10px]' : 'p-2.5'}`}
           >
             <Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} destaque />
-            {!rec && (
-              <>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-[14px] font-semibold">{nomeJogador(perfil)}</span>
-                  <span className="truncate font-mono text-[11px] text-mudo">{perfil.riotId ?? perfil.utilizador}</span>
-                </span>
-                <span className="font-mono text-[12px] font-semibold text-pessego">{perfil.pontos}</span>
-              </>
-            )}
+            <Rotulo recolhido={rec}>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-[14px] font-semibold">{nomeJogador(perfil)}</span>
+                <span className="truncate font-mono text-[11px] text-mudo">{perfil.riotId ?? perfil.utilizador}</span>
+              </span>
+              <span className="font-mono text-[12px] font-semibold text-pessego">{perfil.pontos}</span>
+            </Rotulo>
           </Link>
         )}
       </>
@@ -175,7 +190,7 @@ export function Sidebar() {
         </div>
       )}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-[22px] overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.64)] pt-[22px] pb-4 backdrop-blur-[18px] lg:flex ${recolhido ? 'w-[84px] px-3' : 'w-[248px] px-3.5'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-[22px] overflow-x-hidden overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.64)] px-3 pt-[22px] pb-4 backdrop-blur-[18px] transition-[width] lg:flex ${ANIM} ${recolhido ? 'w-[84px]' : 'w-[248px]'}`}
       >
         {conteudo(false)}
       </aside>

@@ -23,9 +23,10 @@ export function NomeRangify({ className = '' }: { className?: string }) {
 
 export function Marca({ compacta = false }: { compacta?: boolean }) {
   return (
-    <span className="flex items-center gap-2.5 text-texto">
+    <span className="flex items-center text-texto">
       <Simbolo className="shrink-0 text-laranja" />
-      {!compacta && (
+      {/* O nome encolhe em vez de desaparecer, para o menu recolher com animação. */}
+      <span aria-hidden={compacta} className={`overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${compacta ? 'ml-0 max-w-0 opacity-0' : 'ml-2.5 max-w-[160px] opacity-100'}`}>
         <span className="flex flex-col gap-[3px]">
           <span className="flex items-center gap-[7px]">
             <span className="text-[23px] leading-none whitespace-nowrap text-laranja">
@@ -34,9 +35,9 @@ export function Marca({ compacta = false }: { compacta?: boolean }) {
             </span>
             <span className="rounded-[4px] bg-laranja px-[5px] py-[2px] font-mono text-[9.5px] font-bold tracking-[0.04em] text-escuro-laranja">HUB</span>
           </span>
-          <span className="font-mono text-[10.5px] text-mudo">v0.1.0 · beta</span>
+          <span className="font-mono text-[10.5px] whitespace-nowrap text-mudo">v0.1.0 · beta</span>
         </span>
-      )}
+      </span>
     </span>
   )
 }
