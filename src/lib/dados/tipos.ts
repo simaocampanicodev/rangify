@@ -393,6 +393,9 @@ export interface Dados {
   sugestoes(ordem: 'votos' | 'recentes'): Promise<Sugestao[]>
   criarSugestao(s: { titulo: string; categoria: string; descricao: string }): Promise<void>
   votar(id: string): Promise<void>
+  /** Staff: muda o estado de uma sugestão ou apaga-a. */
+  definirEstadoSugestao(id: string, estado: EstadoSugestao): Promise<void>
+  apagarSugestao(id: string): Promise<void>
 
   // Denúncias
   denunciar(perfilId: string, motivo: string, detalhes: string): Promise<void>

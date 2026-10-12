@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -462,6 +462,21 @@ await raiz(`update matches set ready_deadline = now() - interval '1 second' wher
 const s3 = await rpc(uids[0], 'situacao', { p_partida: ativaAgora })
 ok(s3.partida?.id === ativaAgora && s3.partida.estado === 'DRAFT_PHASE', 'e avança a partida na mesma chamada (todos aceitaram: draft)')
 await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [ativaAgora])
+
+// ------------------------------------------------------------ sugestões na staff
+console.log('\nSugestões na staff')
+await rpc(uids[5], 'criar_sugestao', { p_titulo: 'Modo torneio semanal', p_categoria: 'Eventos', p_descricao: 'Um torneio ao fim de semana com equipas fixas.' })
+const alvoSug = (await rpc(uids[4], 'sugestoes', { p_ordem: 'recentes' }))[0]
+await rpc(uids[4], 'votar', { p_sugestao: alvoSug.id })
+await falha(rpc(uids[4], 'definir_estado_sugestao', { p_id: alvoSug.id, p_estado: 'planeada' }), 'equipa do Rangify', 'um jogador normal não muda o estado das sugestões')
+await falha(rpc(uids[4], 'apagar_sugestao', { p_id: alvoSug.id }), 'equipa do Rangify', 'um jogador normal não apaga sugestões')
+await rpc(uids[0], 'definir_estado_sugestao', { p_id: alvoSug.id, p_estado: 'planeada' })
+ok((await rpc(uids[4], 'sugestoes', { p_ordem: 'recentes' })).find((s) => s.id === alvoSug.id).estado === 'planeada', 'a staff muda o estado e toda a gente o vê')
+await falha(rpc(uids[0], 'definir_estado_sugestao', { p_id: alvoSug.id, p_estado: 'inventado' }), 'desconhecido', 'não aceita estados inventados')
+await rpc(uids[0], 'apagar_sugestao', { p_id: alvoSug.id })
+ok(!(await rpc(uids[4], 'sugestoes', { p_ordem: 'recentes' })).some((s) => s.id === alvoSug.id), 'a staff apaga a sugestão')
+ok((await raiz('select count(*)::int as n from suggestion_votes where suggestion_id = $1', [alvoSug.id]))[0].n === 0, 'e os votos dela saem da base de dados')
+await falha(rpc(uids[0], 'apagar_sugestao', { p_id: alvoSug.id }), 'já não existe', 'apagar duas vezes avisa que já não existe')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

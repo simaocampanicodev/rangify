@@ -6,6 +6,7 @@
  * passa pelas Edge Functions.
  */
 import { supabase } from '../supabase'
+import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
   Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
@@ -202,6 +203,8 @@ export const dadosSupabase: Dados = {
   sugestoes: (ordem) => rpc<Sugestao[]>('sugestoes', { p_ordem: ordem }),
   async criarSugestao({ titulo, categoria, descricao }) { await rpc('criar_sugestao', { p_titulo: titulo, p_categoria: categoria, p_descricao: descricao }) },
   async votar(id) { await rpc('votar', { p_sugestao: id }) },
+  async definirEstadoSugestao(id, estado) { await rpc('definir_estado_sugestao', { p_id: id, p_estado: estado }) },
+  async apagarSugestao(id) { await rpc('apagar_sugestao', { p_id: id }) },
   async denunciar(perfilId, motivo, detalhes) { await rpc('denunciar', { p_alvo: perfilId, p_motivo: motivo, p_detalhes: detalhes }) },
 
   novidades: (limite = 5) => rpc<Novidade[]>('novidades', { p_limite: limite }),
@@ -222,6 +225,34 @@ export const dadosSupabase: Dados = {
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
   pesquisarJogadores: (q) => rpc<Perfil[]>('pesquisar_jogadores', { p_q: q }),
   async definirFuncao(perfilId, f) { await rpc('definir_funcao', { p_perfil: perfilId, p_funcao: f }) },
+}
+
+/**
+ * Depois de cada ação que muda dados, avisa as páginas que os mostram, como faz o
+ * modo demo. Sem isto, o que acabaste de fazer (publicar uma sugestão, votar,
+ * resolver uma disputa, aceitar um amigo...) só aparecia depois de recarregar.
+ */
+const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
+  definirPassword: ['perfil'], ligarRiotId: ['perfil'], definirAvatar: ['perfil'], atualizarPerfil: ['perfil'],
+  marcarTourVisto: ['perfil'], sincronizarRank: ['perfil'],
+  entrarFila: ['fila'], sairFila: ['fila'],
+  responderConfirmacao: ['partida'], escolherJogador: ['partida'], banirMapa: ['partida'], definirCodigo: ['partida'],
+  submeterResultado: ['partida'], devEncherFila: ['partida'], devCompletarFila: ['partida'], devSimularPartida: ['partida'],
+  devSaltarBloqueio: ['partida'], devAcelerar: ['partida'],
+  pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],
+  criarSugestao: ['sugestoes'], votar: ['sugestoes'], definirEstadoSugestao: ['sugestoes', 'staff'], apagarSugestao: ['sugestoes', 'staff'], denunciar: ['staff'],
+  criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], resetarMissoes: ['staff'],
+  resolverDisputa: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'],
+  definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
+}
+for (const [nome, tipos] of Object.entries(AVISOS)) {
+  const tabela = dadosSupabase as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>
+  const original = tabela[nome]
+  tabela[nome] = async (...args) => {
+    const r = await original.apply(dadosSupabase, args)
+    tipos.forEach(avisarMudanca)
+    return r
+  }
 }
 
 type PaginaLinhas = Awaited<ReturnType<Dados['ranking']>>['linhas']

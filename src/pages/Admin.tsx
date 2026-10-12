@@ -1,7 +1,7 @@
 import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { NovidadesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { NovidadesStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -192,7 +192,7 @@ export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'mapas' | 'novidades' | 'api' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
@@ -205,7 +205,7 @@ export function Admin() {
       <Cabecalho
         migalhas={[tx('Conta', 'Account'), 'Staff']}
         titulo={tx('Área de staff', 'Staff area')}
-        descricao={tx('Disputas de resultado, partidas encravadas, denúncias, rotação de mapas, novidades e funções dos jogadores.', 'Result disputes, stuck matches, reports, map rotation, news and player roles.')}
+        descricao={tx('Disputas de resultado, partidas encravadas, denúncias, sugestões, rotação de mapas, novidades e funções dos jogadores.', 'Result disputes, stuck matches, reports, suggestions, map rotation, news and player roles.')}
         acoes={<BotaoAjuda topico="funcoes">{tx('Funções no Rangify', 'Roles on Rangify')}</BotaoAjuda>}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
@@ -225,7 +225,7 @@ export function Admin() {
           rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
+          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
@@ -267,6 +267,12 @@ export function Admin() {
                 ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? tx('Resolvida', 'Resolved') : tx('Arquivada', 'Archived')}</span>}
               </article>
             )) : <Vazio icone={<Flag size={22} />} titulo={tx('Sem denúncias', 'No reports')} />}
+          </div>
+        )}
+        {aba === 'sugestoes' && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('SUGESTÕES', 'SUGGESTIONS')} titulo={tx('Ideias da comunidade', 'Community ideas')} />
+            <SugestoesStaff />
           </div>
         )}
         {aba === 'novidades' && (

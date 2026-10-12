@@ -29,6 +29,8 @@ const EN: Record<string, string> = {
   'Esta confirmação já terminou.': 'This ready check has already ended.',
   'Esta disputa já foi resolvida.': 'This dispute has already been resolved.',
   'Esta novidade já não existe.': 'This news item no longer exists.',
+  'Esta sugestão já não existe.': 'This suggestion no longer exists.',
+  'Estado de sugestão desconhecido.': 'Unknown suggestion status.',
   'Esta partida já não aceita resultados.': 'This match no longer accepts results.',
   'Esta partida já não existe.': 'This match no longer exists.',
   'Esta partida já terminou.': 'This match has already ended.',

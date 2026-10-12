@@ -1,11 +1,11 @@
-import { CircleAlert, Megaphone, PlugZap, Trash } from 'lucide-react'
+import { ChevronUp, CircleAlert, Lightbulb, Megaphone, PlugZap, Trash } from 'lucide-react'
 import { useState } from 'react'
-import { useAcao } from '@/contexts/Avisos'
+import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type TesteApi } from '@/lib/dados'
+import { dados, type EstadoSugestao, type TesteApi } from '@/lib/dados'
 import { l, locale } from '@/lib/idioma'
-import { diaCurto } from '@/lib/tempo'
-import { Carregando, Chip, Vazio } from './ui'
+import { diaCurto, haQuanto } from '@/lib/tempo'
+import { BotaoSegurar, Carregando, Chip, Vazio } from './ui'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
 
@@ -149,6 +149,70 @@ export function TesteApiStaff() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const ESTADOS_SUGESTAO: EstadoSugestao[] = ['recebida', 'analise', 'planeada', 'feita']
+const nomeEstado = (e: EstadoSugestao) => ({
+  recebida: l('Recebida', 'Received'), analise: l('Em análise', 'Under review'), planeada: l('Planeada', 'Planned'), feita: l('Feita', 'Done'),
+})[e]
+
+/** Owner, Dev e Mod: mudar o estado das sugestões e apagar as que não fazem sentido. */
+export function SugestoesStaff() {
+  const acao = useAcao()
+  const avisar = useAvisos()
+  const lista = useCarregar(() => dados.sugestoes('recentes'), [], ['sugestoes', 'staff'])
+  const [filtro, setFiltro] = useState<EstadoSugestao | 'todas'>('todas')
+  const visiveis = (lista.valor ?? []).filter((s) => filtro === 'todas' || s.estado === filtro)
+
+  const mudarEstado = (id: string, estado: EstadoSugestao) =>
+    acao(() => dados.definirEstadoSugestao(id, estado), l(`Estado mudado para "${nomeEstado(estado)}".`, `Status changed to "${nomeEstado(estado)}".`))
+  const apagar = (id: string) => acao(() => dados.apagarSugestao(id), l('Sugestão apagada.', 'Suggestion deleted.'))
+  const dica = () => avisar(l('Mantém o botão premido até encher para apagar.', 'Hold the button until it fills to delete.'))
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-[13px] text-mudo">
+        {l('O estado aparece a toda a gente na página das Sugestões. Para apagar, mantém o botão do lixo premido até encher; os votos saem com a sugestão.', 'The status shows to everyone on the Suggestions page. To delete, hold the bin button until it fills; the votes go with the suggestion.')}
+      </p>
+      <div role="group" aria-label={l('Filtrar por estado', 'Filter by status')} className="flex flex-wrap gap-1.5">
+        {(['todas', ...ESTADOS_SUGESTAO] as const).map((e) => (
+          <button key={e} type="button" aria-pressed={filtro === e} onClick={() => setFiltro(e)} className={`h-8 cursor-pointer rounded-lg border px-3 text-[12.5px] font-semibold ${filtro === e ? 'border-laranja/40 bg-laranja/14 text-pessego-claro' : 'border-white/8 bg-white/[0.03] text-suave hover:text-texto'}`}>
+            {e === 'todas' ? l('Todas', 'All') : nomeEstado(e)}
+          </button>
+        ))}
+      </div>
+      {lista.carregando && !lista.valor ? <Carregando /> : visiveis.length ? (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {visiveis.map((s) => (
+            <li key={s.id} className="flex flex-wrap items-start gap-3 rounded-[14px] border border-white/7 bg-white/[0.02] p-4">
+              <span className="flex w-12 shrink-0 flex-col items-center gap-0.5 rounded-xl border border-white/8 py-1.5 text-suave">
+                <ChevronUp size={15} aria-hidden /><span className="font-mono text-[13px] font-semibold">{s.votos}</span>
+              </span>
+              <span className="flex min-w-[220px] flex-1 flex-col gap-1">
+                <span className="text-[14.5px] font-bold">{s.titulo}</span>
+                <span className="text-[13px] leading-normal text-suave">{s.descricao}</span>
+                <span className="text-[12px] text-mudo">{s.categoria} · {l('por', 'by')} {s.autor} · {haQuanto(s.criadaEm)}</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <label className="so-leitores" htmlFor={`est-${s.id}`}>{l('Estado de', 'Status of')} {s.titulo}</label>
+                <select id={`est-${s.id}`} className="campo !h-10 !w-auto !text-[13px]" value={s.estado} onChange={(e) => mudarEstado(s.id, e.target.value as EstadoSugestao)}>
+                  {ESTADOS_SUGESTAO.map((e) => <option key={e} value={e}>{nomeEstado(e)}</option>)}
+                </select>
+                <BotaoSegurar
+                  rotulo={l(`Segura para apagar "${s.titulo}"`, `Hold to delete "${s.titulo}"`)}
+                  onConfirmar={() => apagar(s.id)}
+                  aoLargarCedo={dica}
+                  className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-white/8 bg-transparent text-mudo hover:border-derrota/40 hover:text-derrota"
+                >
+                  <Trash size={15} aria-hidden />
+                </BotaoSegurar>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <Vazio icone={<Lightbulb size={22} />} titulo={l('Sem sugestões', 'No suggestions')} texto={l('Quando a comunidade propuser ideias, aparecem aqui.', 'When the community suggests ideas, they show up here.')} />}
     </div>
   )
 }

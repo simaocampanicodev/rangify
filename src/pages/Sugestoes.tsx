@@ -1,5 +1,5 @@
 import { ChevronUp, Lightbulb, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Cabecalho, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -61,6 +61,20 @@ export function Sugestoes() {
   const [ordem, setOrdem] = useState<'votos' | 'recentes'>('votos')
   const [estado, setEstado] = useState<EstadoSugestao | 'todas'>('todas')
   const lista = useCarregar(() => dados.sugestoes(ordem), [ordem], ['sugestoes'])
+  // As sugestões e os votos dos outros aparecem sozinhos, a cada 30 s.
+  const { recarregar } = lista
+  useEffect(() => {
+    const t = window.setInterval(recarregar, 30_000)
+    return () => window.clearInterval(t)
+  }, [recarregar])
+
+  /** O voto muda logo no ecrã; se o servidor recusar, volta atrás. */
+  const votar = async (id: string) => {
+    const antes = lista.valor
+    lista.setValor((atual) => atual && atual.map((s) => (s.id === id ? { ...s, votei: !s.votei, votos: s.votos + (s.votei ? -1 : 1) } : s)))
+    const ok = await acao(async () => { await dados.votar(id); return true })
+    if (!ok) lista.setValor(antes)
+  }
   const filtradas = (lista.valor ?? []).filter((s) => estado === 'todas' || s.estado === estado)
 
   return (
@@ -93,7 +107,7 @@ export function Sugestoes() {
                   type="button"
                   aria-pressed={s.votei}
                   aria-label={`${s.votei ? l('Retirar voto de', 'Remove vote from') : l('Votar em', 'Vote for')} ${s.titulo}, ${s.votos} ${l('votos', 'votes')}`}
-                  onClick={() => acao(() => dados.votar(s.id))}
+                  onClick={() => votar(s.id)}
                   className={`flex w-14 shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-xl border py-2 transition-colors ${s.votei ? 'border-laranja/50 bg-laranja/15 text-pessego-claro' : 'border-white/10 bg-white/[0.03] text-suave hover:border-laranja/40'}`}
                 >
                   <ChevronUp size={18} className={s.votei ? 'text-laranja' : ''} aria-hidden />

@@ -1275,6 +1275,27 @@ export const dadosLocais: Dados = {
     avisarMudanca('sugestoes')
   },
 
+  async definirEstadoSugestao(id, estado) {
+    const e = await carregar()
+    exigirStaff(e)
+    const s = e.sugestoes.find((x) => x.id === id)
+    if (!s) throw new Error('Esta sugestão já não existe.')
+    s.estado = estado
+    guardar()
+    avisarMudanca('sugestoes')
+    avisarMudanca('staff')
+  },
+
+  async apagarSugestao(id) {
+    const e = await carregar()
+    exigirStaff(e)
+    if (!e.sugestoes.some((x) => x.id === id)) throw new Error('Esta sugestão já não existe.')
+    e.sugestoes = e.sugestoes.filter((x) => x.id !== id)
+    guardar()
+    avisarMudanca('sugestoes')
+    avisarMudanca('staff')
+  },
+
   async denunciar(perfilId, motivo, detalhes) {
     const e = await carregar()
     const me = eu(e)
