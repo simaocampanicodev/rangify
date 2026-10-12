@@ -12,7 +12,7 @@ import { dados } from '@/lib/dados'
 import { nomeJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
-import { MAPAS } from '@/lib/mapas'
+import { ROTACAO_PADRAO } from '@/lib/mapas'
 import { NOMES_ESTADO, SEGUNDOS_CONFIRMAR } from '@/lib/regras'
 import { duracaoAte, fimDaSemana, haQuanto, relogio } from '@/lib/tempo'
 
@@ -52,6 +52,7 @@ export function Dashboard() {
   const forma = useCarregar(() => dados.forma(id, 10), [id], ['partida'])
   const historico = useCarregar(() => dados.partidas({ minhas: minhas === 'minhas' }), [minhas], ['partida'], { minimo: 350 })
   const missoes = useCarregar(() => dados.missoes(), [], ['partida'])
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
   if (!perfil) return <Carregando />
 
   const nome = nomeJogador(perfil)
@@ -114,7 +115,7 @@ export function Dashboard() {
             <div className="flex flex-wrap gap-2">
               <EtiquetaHub regiao={fila.regiao} />
               <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">{SEGUNDOS_CONFIRMAR} s para aceitar</span>
-              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">2 capitães · {MAPAS.length} mapas</span>
+              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">2 capitães · {(rotacao.valor ?? ROTACAO_PADRAO).length} mapas</span>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 pt-1">
               {ativa

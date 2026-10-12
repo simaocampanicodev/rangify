@@ -8,7 +8,7 @@ import { dados } from '@/lib/dados'
 
 /**
  * Ferramentas de teste: só aparecem a Owner e Dev. As partidas criadas aqui
- * ficam marcadas como simuladas e não mexem nos pontos reais.
+ * ficam marcadas como simuladas, mas contam como as outras: removê-las devolve tudo.
  */
 export function FerramentasDev() {
   const { podeTestar, perfil } = useSessao()
@@ -36,7 +36,7 @@ export function FerramentasDev() {
           <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><FlaskConical size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
             <h2 id="rg-dev" className="m-0 text-[16px] font-bold">Ferramentas de teste</h2>
-            <span className="text-[12.5px] text-mudo">Só visível para Owner e Dev ({perfil?.funcao}). Partidas simuladas não contam para o ranking.</span>
+            <span className="text-[12.5px] text-mudo">Só visível para Owner e Dev ({perfil?.funcao}). As partidas de teste contam pontos e estatísticas; remove-as na página da partida para voltar atrás.</span>
           </div>
         </div>
       </div>

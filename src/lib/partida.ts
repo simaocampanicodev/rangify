@@ -1,5 +1,5 @@
 /** Leituras sobre uma partida que várias fases do ecrã precisam. */
-import { TOTAL_BANS, equipaDoBan } from './mapas'
+import { equipaDoBan, totalBans } from './mapas'
 import { equipaDaEscolha } from './regras'
 import type { Equipa, JogadorPartida, Partida } from './dados'
 
@@ -10,7 +10,7 @@ export function escolhidos(p: Partida) {
 /** De que equipa é a vez no draft ou nos bans. */
 export function vezDe(p: Partida): Equipa | null {
   if (p.estado === 'DRAFT_PHASE') return equipaDaEscolha(escolhidos(p))
-  if (p.estado === 'MAP_BAN' && p.bans.length < TOTAL_BANS) return equipaDoBan(p.bans.length)
+  if (p.estado === 'MAP_BAN' && p.bans.length < totalBans(p.pool)) return equipaDoBan(p.bans.length)
   return null
 }
 

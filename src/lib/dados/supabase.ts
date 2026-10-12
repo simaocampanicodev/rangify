@@ -181,6 +181,9 @@ export const dadosSupabase: Dados = {
   async votar(id) { await rpc('votar', { p_sugestao: id }) },
   async denunciar(perfilId, motivo, detalhes) { await rpc('denunciar', { p_alvo: perfilId, p_motivo: motivo, p_detalhes: detalhes }) },
 
+  poolMapas: () => rpc<string[]>('pool_mapas'),
+  definirPoolMapas: (mapas) => rpc<string[]>('definir_pool_mapas', { p_mapas: mapas }),
+
   disputas: () => rpc<Partida[]>('disputas'),
   async resolverDisputa(id, r) { await rpc('resolver_disputa', { p_match: id, p_a: r?.a ?? null, p_b: r?.b ?? null }) },
   partidasEncravadas: () => rpc<Partida[]>('partidas_encravadas'),

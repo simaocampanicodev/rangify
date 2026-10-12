@@ -4,7 +4,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useAgora } from '@/hooks/useAgora'
 import { dados, type Partida } from '@/lib/dados'
-import { MAPAS, TOTAL_BANS, equipaDoBan } from '@/lib/mapas'
+import { MAPAS, equipaDoBan, mapasDaPool, totalBans } from '@/lib/mapas'
 import { capitao, nomeJogador, vezDe } from '@/lib/partida'
 import { SEGUNDOS_BAN } from '@/lib/regras'
 import { emFalta } from '@/lib/tempo'
@@ -19,6 +19,9 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
   const cap = capitao(p, vez)
   const souEu = cap?.perfilId === eu && !p.automatica
   const n = p.bans.length
+  // Só entram nos bans os mapas que estavam na rotação quando a partida nasceu.
+  const pool = mapasDaPool(p.pool)
+  const bans = totalBans(p.pool)
 
   const banir = async (mapa: string) => {
     setABanir(mapa)
@@ -33,7 +36,7 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
         <div className="flex min-w-0 items-center gap-[18px]">
           <Relogio restante={emFalta(p.prazoFase, agora)} total={SEGUNDOS_BAN} tamanho={84} cor={vez === 'A' ? '#ff5b1f' : '#e6e1da'} />
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${vez === 'A' ? 'text-laranja' : 'text-marfim'}`}>BAN {n + 1} DE {TOTAL_BANS} · EQUIPA {vez}</span>
+            <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${vez === 'A' ? 'text-laranja' : 'text-marfim'}`}>BAN {n + 1} DE {bans} · EQUIPA {vez}</span>
             <h1 id="rg-ban-titulo" className="m-0 text-[26px] leading-[1.1] font-extrabold tracking-[-0.03em]">
               {souEu ? 'Escolhe um mapa para banir' : `${cap ? nomeJogador(cap) : 'O capitão'} está a banir um mapa`}
             </h1>
@@ -41,10 +44,10 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
           </div>
         </div>
         <div role="list" aria-label="Ordem dos bans" className="flex flex-wrap gap-1.5 border-t border-white/7 pt-4">
-          {Array.from({ length: TOTAL_BANS + 1 }, (_, i) => {
+          {Array.from({ length: bans + 1 }, (_, i) => {
             const b = p.bans[i]
             const mapa = b ? MAPAS.find((m) => m.nome === b.mapa) : null
-            const decisivo = i === TOTAL_BANS
+            const decisivo = i === bans
             const atual = i === n
             return (
               <div key={i} role="listitem" className="flex w-[58px] flex-col items-center gap-1.5">
@@ -69,7 +72,7 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
       </section>
 
       <section aria-label="Mapas da pool" className="ban-linha">
-        {MAPAS.map((m) => {
+        {pool.map((m) => {
           const ban = p.bans.find((b) => b.mapa === m.nome)
           const decisivo = !!p.mapa && p.mapa === m.nome
           const pode = souEu && !ban && !aBanir

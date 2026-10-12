@@ -1,4 +1,4 @@
-import { Ban, Flag, Gavel, Hourglass, Scale, Search, ShieldCheck } from 'lucide-react'
+import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -6,6 +6,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type Funcao, type Partida, type Perfil } from '@/lib/dados'
+import { MAPAS, ROTACAO_PADRAO } from '@/lib/mapas'
 import { capitao, nomeJogador } from '@/lib/partida'
 import { NOMES_ESTADO, validarResultado } from '@/lib/regras'
 import { haQuanto } from '@/lib/tempo'
@@ -62,10 +63,78 @@ function CampoPontos({ p, onGuardado }: { p: Perfil; onGuardado: () => void }) {
   return (
     <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (mudou) guardar() }}>
       <label className="so-leitores" htmlFor={`pts-${p.id}`}>Pontos de {p.utilizador}</label>
-      <input id={`pts-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/D/g, '').slice(0, 5))} />
+      <input id={`pts-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, '').slice(0, 5))} />
       <span className="text-[12px] text-mudo">pts</span>
       {mudou && <button type="submit" className="btn btn-suave !min-h-9 !px-3 !text-[12.5px]">Guardar</button>}
     </form>
+  )
+}
+
+/** A rotação de mapas: só entram nos bans das próximas partidas os mapas escolhidos aqui. */
+function Rotacao() {
+  const acao = useAcao()
+  const { perfil: eu } = useSessao()
+  const podeEditar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
+  const atual = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const [escolha, setEscolha] = useState<string[] | null>(null)
+  const guardada = atual.valor ?? []
+  const lista = escolha ?? guardada
+  const mudou = escolha !== null && (escolha.length !== guardada.length || escolha.some((m) => !guardada.includes(m)))
+  const alternar = (nome: string) => {
+    if (!podeEditar) return
+    setEscolha(lista.includes(nome) ? lista.filter((m) => m !== nome) : [...lista, nome])
+  }
+  const guardar = async () => {
+    const ok = await acao(async () => { await dados.definirPoolMapas(lista); return true }, `Rotação guardada com ${lista.length} mapas. Vale a partir da próxima partida.`)
+    if (ok) { setEscolha(null); atual.recarregar() }
+  }
+  if (atual.carregando) return <Carregando />
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-[13px] text-mudo">
+        {podeEditar ? 'Toca num mapa para o tirar ou meter na rotação. ' : 'Só Owner e Dev mudam a rotação. '}
+        As partidas que já começaram ficam com os mapas que tinham; as próximas usam esta lista. Mínimo de 3 mapas.
+      </p>
+      {/* 7 por linha em ecrãs largos; a última linha estica para nunca ficar um buraco. */}
+      <ul className="m-0 flex list-none flex-wrap gap-2.5 p-0">
+        {MAPAS.map((m) => {
+          const dentro = lista.includes(m.nome)
+          return (
+            <li key={m.nome} className="min-w-[120px] flex-[1_1_calc((100%-60px)/7)]">
+              <button
+                type="button"
+                aria-pressed={dentro}
+                disabled={!podeEditar}
+                onClick={() => alternar(m.nome)}
+                className={`group relative flex h-[96px] w-full items-end overflow-hidden rounded-[14px] border p-3 text-left transition-colors ${podeEditar ? 'cursor-pointer' : 'cursor-default'} ${dentro ? 'border-laranja/70' : 'border-white/8'}`}
+              >
+                <span aria-hidden className="mapa absolute inset-0 transition-[filter,transform] duration-300 group-hover:scale-[1.04]" style={{ backgroundImage: `url(${m.imagem})`, filter: dentro ? undefined : 'grayscale(1) brightness(0.4)' }} />
+                <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-[rgba(9,9,11,0.92)] via-[rgba(9,9,11,0.25)] to-transparent" />
+                <span className={`absolute top-2.5 right-2.5 grid size-6 place-items-center rounded-full border ${dentro ? 'border-laranja bg-laranja text-escuro-laranja' : 'border-white/25 bg-[rgba(9,9,11,0.55)] text-transparent'}`}>
+                  <Check size={14} strokeWidth={3} aria-hidden />
+                </span>
+                <span className="relative flex flex-col">
+                  <span className={`text-[15px] font-extrabold tracking-[-0.01em] uppercase ${dentro ? 'text-marfim' : 'text-mudo'}`}>{m.nome}</span>
+                  <span className="font-mono text-[10.5px] text-mudo">{dentro ? 'NA ROTAÇÃO' : 'FORA'}</span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      {podeEditar && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/7 pt-3">
+          <span className={`mr-auto text-[13px] ${lista.length < 3 ? 'text-pessego' : 'text-suave'}`}>
+            {lista.length} {lista.length === 1 ? 'mapa' : 'mapas'} na rotação · {Math.max(0, lista.length - 1)} bans por partida
+            {lista.length < 3 && ' · escolhe pelo menos 3'}
+          </span>
+          <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha([...ROTACAO_PADRAO])}><RotateCcw size={15} aria-hidden />Repor a de origem</button>
+          {mudou && <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha(null)}>Desfazer</button>}
+          <button type="button" className="btn btn-primario !min-h-10" disabled={!mudou || lista.length < 3} onClick={guardar}>Guardar rotação</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -120,7 +189,7 @@ function Jogadores() {
 export function Admin() {
   const { eStaff, carregando } = useSessao()
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'mapas' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
@@ -133,7 +202,7 @@ export function Admin() {
       <Cabecalho
         migalhas={['Conta', 'Staff']}
         titulo="Área de staff"
-        descricao="Disputas de resultado, partidas encravadas, denúncias e funções dos jogadores."
+        descricao="Disputas de resultado, partidas encravadas, denúncias, rotação de mapas e funções dos jogadores."
         acoes={<BotaoAjuda topico="funcoes">Funções no Rangify</BotaoAjuda>}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
@@ -153,7 +222,7 @@ export function Admin() {
           rotulo="Secção"
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: 'Disputas' }, { valor: 'partidas', texto: 'Partidas' }, { valor: 'denuncias', texto: 'Denúncias' }, { valor: 'jogadores', texto: 'Jogadores' }]}
+          opcoes={[{ valor: 'disputas', texto: 'Disputas' }, { valor: 'partidas', texto: 'Partidas' }, { valor: 'denuncias', texto: 'Denúncias' }, { valor: 'mapas', texto: 'Mapas' }, { valor: 'jogadores', texto: 'Jogadores' }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
@@ -195,6 +264,12 @@ export function Admin() {
                 ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? 'Resolvida' : 'Arquivada'}</span>}
               </article>
             )) : <Vazio icone={<Flag size={22} />} titulo="Sem denúncias" />}
+          </div>
+        )}
+        {aba === 'mapas' && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow="ROTAÇÃO" titulo="Mapas que se podem jogar" />
+            <Rotacao />
           </div>
         )}
         {aba === 'jogadores' && (

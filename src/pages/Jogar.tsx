@@ -9,8 +9,9 @@ import { Resultado } from '@/components/partida/Resultado'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import type { EstadoPartida, Partida } from '@/lib/dados'
-import { TOTAL_BANS } from '@/lib/mapas'
+import { dados, type EstadoPartida, type Partida } from '@/lib/dados'
+import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
+import { useCarregar } from '@/hooks/useCarregar'
 import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 
@@ -51,10 +52,12 @@ function Progresso({ p }: { p: Partida }) {
 }
 
 function ComoFunciona() {
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const bans = totalBans(rotacao.valor ?? ROTACAO_PADRAO)
   const passos = [
     { icone: <Users size={18} />, titulo: 'Fila e confirmação', texto: `10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, topico: 'fila' as const },
     { icone: <Crown size={18} />, titulo: 'Draft', texto: `2 capitães escolhem à vez, ${SEGUNDOS_ESCOLHA} s por escolha.`, topico: 'draft' as const },
-    { icone: <Ban size={18} />, titulo: 'Ban de mapas', texto: `${TOTAL_BANS} bans de ${SEGUNDOS_BAN} s, sobra o decisivo.`, topico: 'mapas' as const },
+    { icone: <Ban size={18} />, titulo: 'Ban de mapas', texto: `${bans} bans de ${SEGUNDOS_BAN} s, sobra o decisivo.`, topico: 'mapas' as const },
     { icone: <ClipboardPaste size={18} />, titulo: 'Código do grupo', texto: `O Capitão A partilha, bloqueio de ${MINUTOS_BLOQUEIO} min.`, topico: 'codigo' as const },
     { icone: <Flag size={18} />, titulo: 'Resultado', texto: 'Os capitães submetem e a API confirma.', topico: 'resultado' as const },
   ]

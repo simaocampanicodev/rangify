@@ -105,7 +105,7 @@ const TOPICOS: Record<TopicoAjuda, Topico> = {
     intro: <>Cada conta tem uma função, que decide o que pode fazer.</>,
     passos: [
       { titulo: 'Owner', texto: 'Tudo. É o único que atribui ou retira as funções Owner e Dev.' },
-      { titulo: 'Dev', texto: 'Área de staff e ferramentas de teste: simular fila cheia e simular partidas, que não mexem nos pontos reais.' },
+      { titulo: 'Dev', texto: 'Área de staff e ferramentas de teste: simular fila cheia e simular partidas. As partidas de teste contam como as outras; remover uma partida devolve os pontos e tira as estatísticas.' },
       { titulo: 'Mod', texto: 'Resolve disputas, cancela partidas encravadas e trata denúncias.' },
       { titulo: 'Verificado e Jogador', texto: 'Jogam, sugerem e votam. O Verificado tem um selo no perfil.' },
     ],

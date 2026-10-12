@@ -23,8 +23,18 @@ export function imagemMapa(nome: string | null | undefined): string | undefined 
   return MAPAS.find((m) => m.nome === nome)?.imagem
 }
 
-/** Os capitães banem à vez (A, B, A, B...) até sobrar um mapa, que é o da partida. */
-export const TOTAL_BANS = MAPAS.length - 1
+/** A rotação de origem; a staff muda-a na área de Staff. */
+export const ROTACAO_PADRAO = ['Abyss', 'Ascent', 'Bind', 'Haven', 'Lotus', 'Split', 'Sunset']
+
+/** Os capitães banem à vez (A, B, A, B...) até sobrar um mapa da pool da partida. */
+export function totalBans(pool: string[]) {
+  return Math.max(0, pool.length - 1)
+}
+
+/** Os mapas de uma pool, pela ordem do jogo. */
+export function mapasDaPool(pool: string[]) {
+  return MAPAS.filter((m) => pool.includes(m.nome))
+}
 export function equipaDoBan(n: number): 'A' | 'B' {
   return n % 2 === 0 ? 'A' : 'B'
 }

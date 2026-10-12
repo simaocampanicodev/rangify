@@ -3,7 +3,7 @@
  * do último mês já com pontos aplicados, amizades, sugestões e denúncias.
  * Gerada com um gerador determinístico, por isso é sempre igual.
  */
-import { NOMES_MAPAS, TOTAL_BANS, equipaDoBan } from '../mapas'
+import { ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
 import { PONTOS_INICIAIS } from '../pontos'
 import { equipaDaEscolha } from '../regras'
 import {
@@ -75,7 +75,7 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
   const p: PartidaGuardada = {
     id: `h-${Math.floor(rng() * 1e9).toString(36)}-${ids.length}`,
     codigo: codigoPartida(rng), estado: 'IN_PROGRESS', regiao: 'eu', mapa: null, capitaoA: null, capitaoB: null,
-    codigoGrupo: codigoGrupo(rng), resultadoA: null, resultadoB: null, vencedor: null, simulada: false, automatica: false,
+    codigoGrupo: codigoGrupo(rng), resultadoA: null, resultadoB: null, vencedor: null, simulada: false, pool: [...ROTACAO_PADRAO], automatica: false,
     prazoConfirmacao: null, inicioFase: null, prazoFase: null, comecouEm: new Date(quando + 6 * 60_000).toISOString(), terminouEm: null,
     estatisticas: false, criadaEm: inicio, atualizadaEm: fim, jogadores: ids.map((id) => ({ ...novoJogador(perfis[id]), aceitou: true })), bans: [], submissoes: [],
   }
@@ -85,9 +85,10 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
     j.equipa = equipaDaEscolha(n)
     j.ordemEscolha = n + 1
   }
-  const pool = baralhar(rng, NOMES_MAPAS)
-  for (let n = 0; n < TOTAL_BANS; n++) p.bans.push({ mapa: pool[n], equipa: equipaDoBan(n), ordem: n + 1 })
-  p.mapa = pool[TOTAL_BANS]
+  const pool = baralhar(rng, ROTACAO_PADRAO)
+  const bans = totalBans(pool)
+  for (let n = 0; n < bans; n++) p.bans.push({ mapa: pool[n], equipa: equipaDoBan(n), ordem: n + 1 })
+  p.mapa = pool[bans]
   const tiers = (eq: 'A' | 'B') => p.jogadores.filter((j) => j.equipa === eq).map((j) => j.tier)
   let r = gerarResultado(rng, tiers('A'), tiers('B'))
   // A conta de exemplo segue uma subida tranquila (cerca de +4 por partida),

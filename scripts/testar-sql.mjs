@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -148,14 +148,15 @@ ok(partida.jogadores.filter((j) => j.equipa === 'A').length === 5 && partida.jog
 
 // ------------------------------------------------------------ bans
 console.log('\nBans')
-const pool = ['Abyss', 'Ascent', 'Bind', 'Breeze', 'Corrode', 'Fracture', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split', 'Summit']
+// A rotação de origem tem 7 mapas: 6 bans e sobra o Sunset.
+const pool = ['Abyss', 'Ascent', 'Bind', 'Haven', 'Lotus', 'Split']
 for (let n = 0; n < pool.length; n++) {
   const quem = n % 2 === 0 ? uids[0] : uids[1]
   if (n === 1) await falha(rpc(quem, 'banir_mapa', { p_match: mid, p_mapa: 'Abyss' }), 'não está disponível', 'não se bane um mapa já banido')
   await rpc(quem, 'banir_mapa', { p_match: mid, p_mapa: pool[n] })
 }
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-ok(partida.estado === 'LOBBY_CREATION' && partida.mapa === 'Sunset', '12 bans: sobra o Sunset e passa a LOBBY_CREATION')
+ok(partida.estado === 'LOBBY_CREATION' && partida.mapa === 'Sunset', '6 bans na rotação de 7: sobra o Sunset e passa a LOBBY_CREATION')
 
 // ------------------------------------------------------------ código
 console.log('\nCódigo do grupo')
@@ -266,8 +267,8 @@ for (let i = 0; i < 40 && sim.estado !== 'COMPLETED'; i++) {
     phase_deadline = case when state in ('IN_PROGRESS', 'PROCESSING_API') then now() - interval '1 second' else phase_deadline end where id = $1`, [sim.id])
   sim = await rpc(uids[0], 'avancar_partida', { p_match: sim.id })
 }
-ok(sim.estado === 'COMPLETED' && sim.estatisticas && sim.bans.length === 12 && sim.codigoGrupo, 'a simulação corre sozinha até ao fim, com bans, código e estatísticas')
-ok((await rpc(uids[0], 'meu_perfil')).pontos === antes, 'a simulação não mexe nos pontos reais')
+ok(sim.estado === 'COMPLETED' && sim.estatisticas && sim.bans.length === 6 && sim.codigoGrupo, 'a simulação corre sozinha até ao fim, com bans, código e estatísticas')
+ok((await rpc(uids[0], 'meu_perfil')).pontos !== antes, 'a partida de teste também dá pontos')
 ok((await rpc(uids[0], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: '' })).total === 11, 'os bots não aparecem no ranking')
 await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: true })
 sim = await rpc(uids[0], 'partida_ativa')
@@ -349,6 +350,36 @@ ok(comAmigo?.simulada && comAmigo.jogadores.length === 10, 'cria uma partida sim
 ok(comAmigo.jogadores.some((j) => j.perfilId === pid(2)) && comAmigo.jogadores.filter((j) => j.bot).length === 8, 'entra o amigo e o resto são 8 bots')
 ok(!comAmigo.jogadores.some((j) => j.perfilId === pid(7)) && (await rpc(uids[7], 'estado_fila')).naFila, 'o estranho fica na fila, fora da partida')
 ok((await rpc(uids[2], 'partida_ativa'))?.id === comAmigo.id, 'o amigo vê a mesma partida')
+await rpc(uids[0], 'cancelar_partida', { p_match: comAmigo.id })
+
+// ------------------------------------------------------------ rotação de mapas
+console.log('\nRotação de mapas')
+ok((await rpc(uids[4], 'pool_mapas')).length === 7, 'a rotação começa com 7 mapas')
+await falha(rpc(uids[4], 'definir_pool_mapas', { p_mapas: ['Ascent', 'Bind', 'Icebox'] }), 'Owner e Dev', 'um jogador normal não muda a rotação')
+await falha(rpc(uids[0], 'definir_pool_mapas', { p_mapas: ['Ascent', 'Bind'] }), 'pelo menos 3', 'a rotação tem pelo menos 3 mapas')
+await falha(rpc(uids[0], 'definir_pool_mapas', { p_mapas: ['Ascent', 'Bind', 'Inventado'] }), 'não existe', 'não aceita mapas inventados')
+await rpc(uids[0], 'definir_pool_mapas', { p_mapas: ['Pearl', 'Ascent', 'Icebox', 'Bind'] })
+ok((await rpc(uids[4], 'pool_mapas')).join() === 'Ascent,Bind,Icebox,Pearl', 'a staff troca os mapas da rotação')
+const pontosAntesTeste = (await rpc(uids[0], 'meu_perfil')).pontos
+await rpc(uids[0], 'dev_simular_partida')
+let rot = await rpc(uids[0], 'partida_ativa')
+ok(rot.pool.join() === 'Ascent,Bind,Icebox,Pearl', 'a partida nova usa a rotação nova')
+for (let i = 0; i < 40 && rot.estado !== 'COMPLETED'; i++) {
+  await raiz(`update match_players set accept_at = now() - interval '1 second' where match_id = $1 and accept_at > now()`, [rot.id])
+  await raiz(`update matches set bot_move_at = least(bot_move_at, now() - interval '1 second'),
+    phase_deadline = case when state in ('IN_PROGRESS', 'PROCESSING_API') then now() - interval '1 second' else phase_deadline end where id = $1`, [rot.id])
+  rot = await rpc(uids[0], 'avancar_partida', { p_match: rot.id })
+}
+ok(rot.estado === 'COMPLETED' && rot.bans.length === 3 && ['Ascent', 'Bind', 'Icebox', 'Pearl'].includes(rot.mapa) && !rot.bans.some((b) => b.mapa === 'Sunset'), 'só os mapas da rotação entram nos bans (3 bans em 4 mapas)')
+const delta = rot.jogadores.find((j) => j.perfilId === pid(0)).deltaPontos
+ok((await rpc(uids[0], 'meu_perfil')).pontos === pontosAntesTeste + delta, 'os pontos da partida de teste entram no perfil')
+const hist = await rpc(uids[0], 'historico', { p_perfil: pid(0), p_minhas: true, p_mapa: null, p_offset: 0 })
+ok(hist.linhas.some((l) => l.id === rot.id), 'e a partida de teste aparece no histórico de quem a vê')
+const jogosAntes = (await rpc(uids[0], 'estatisticas_perfil', { p_perfil: pid(0) })).partidas
+await rpc(uids[0], 'remover_partida', { p_match: rot.id })
+ok((await rpc(uids[0], 'meu_perfil')).pontos === pontosAntesTeste, 'remover a partida de teste devolve os pontos')
+ok((await rpc(uids[0], 'estatisticas_perfil', { p_perfil: pid(0) })).partidas === jogosAntes - 1, 'e as estatísticas dela saem do perfil')
+ok((await raiz('select count(*)::int as n from match_players where match_id = $1', [rot.id]))[0].n === 0, 'e saem da base de dados')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

@@ -18,12 +18,12 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
   const p = useCarregar(() => (id ? dados.partida(id) : Promise.resolve(null)), [id])
   const partida = p.valor
 
-  // Owner e Dev podem tirar uma partida do histórico; numa partida real, os pontos dela voltam atrás.
+  // Owner e Dev podem tirar uma partida do histórico; os pontos e as estatísticas dela voltam atrás.
   const remover = async () => {
     if (!partida) return
-    const aviso = partida.simulada
-      ? 'Remover esta partida simulada do histórico?'
-      : 'Remover esta partida do histórico? Os pontos, as vitórias e as derrotas que ela deu são devolvidos aos 10 jogadores.'
+    const aviso = partida.estado === 'COMPLETED'
+      ? 'Remover esta partida do histórico? Os pontos, as vitórias, as derrotas e as estatísticas que ela deu saem dos perfis dos 10 jogadores.'
+      : 'Remover esta partida do histórico?'
     if (!window.confirm(aviso)) return
     setARemover(true)
     const ok = await acao(async () => { await dados.removerPartida(partida.id); return true }, 'Partida removida do histórico.')
@@ -40,7 +40,7 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
             {partida.terminouEm && <Chip><Clock size={12} aria-hidden />{dataHora(partida.terminouEm)}</Chip>}
-            {partida.simulada && <Chip tom="laranja">Simulada, não conta</Chip>}
+            {partida.simulada && <Chip tom="laranja">Partida de teste</Chip>}
             {!partida.estatisticas && <Chip>Sem estatísticas da API</Chip>}
             {podeTestar && (
               <button type="button" disabled={aRemover} onClick={remover} className="btn btn-fantasma ml-auto !min-h-8 !px-3 !text-[12.5px]">
@@ -93,7 +93,7 @@ export function Partidas() {
     setMais(false)
   }
 
-  const minhas = ambito === 'minhas' ? linhas.filter((l) => l.minha && !l.simulada) : []
+  const minhas = ambito === 'minhas' ? linhas.filter((l) => l.minha) : []
   const vit = minhas.filter((l) => l.minha!.venceu).length
   const saldo = minhas.reduce((s, l) => s + (l.minha!.deltaPontos ?? 0), 0)
 

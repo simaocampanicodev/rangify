@@ -247,11 +247,11 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
           p={p}
           eyebrow={`TERMINADA · ${p.mapa?.toUpperCase()}${min ? ` · ${min} MIN` : ''}${p.simulada ? ' · SIMULAÇÃO' : ''}`}
           titulo={venci ? `Vitória, ${placar}` : `Derrota, ${placar}`}
-          texto={p.simulada ? 'Partida simulada: os pontos são calculados, mas não entram no ranking.' : 'Resultado confirmado. Os pontos já estão no ranking.'}
+          texto={p.simulada ? 'Partida de teste: os pontos e as estatísticas contam. Remove-a para voltar tudo atrás.' : 'Resultado confirmado. Os pontos já estão no ranking.'}
           direita={minha?.deltaPontos != null && (
             <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-5 py-3">
-              <span className="rotulo">{p.simulada ? 'Pontos (não contam)' : 'Os teus pontos'}</span>
-              <span className={`font-mono text-[34px] leading-none font-semibold ${minha.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'} ${p.simulada ? 'line-through decoration-2 opacity-70' : ''}`}>{comSinal(minha.deltaPontos)}</span>
+              <span className="rotulo">Os teus pontos</span>
+              <span className={`font-mono text-[34px] leading-none font-semibold ${minha.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(minha.deltaPontos)}</span>
             </div>
           )}
         />

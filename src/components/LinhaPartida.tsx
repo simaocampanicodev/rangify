@@ -30,7 +30,7 @@ export function LinhaPartida({ m, onClick, i }: { m: ResumoPartida; onClick?: ()
         </span>
       </span>
       <span className="flex shrink-0 flex-wrap gap-1.5">
-        {m.simulada && <Chip tom="laranja">Simulada</Chip>}
+        {m.simulada && <Chip tom="laranja">Teste</Chip>}
         {minha?.mvp && <SeloMvp tamanho={26} />}
         {minha && minha.kills != null && <Chip>{minha.kills}/{minha.deaths}/{minha.assists}</Chip>}
         {!minha && m.mvp && <span className="flex items-center gap-1.5 text-[12.5px] text-suave"><SeloMvp tamanho={22} />{m.mvp}</span>}
@@ -38,7 +38,7 @@ export function LinhaPartida({ m, onClick, i }: { m: ResumoPartida; onClick?: ()
       <span className="flex w-[76px] shrink-0 flex-col items-end gap-0.5">
         {minha ? (
           <>
-            <span className={`font-mono text-[19px] font-semibold ${(minha.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'} ${m.simulada ? 'line-through opacity-60' : ''}`}>
+            <span className={`font-mono text-[19px] font-semibold ${(minha.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>
               {minha.deltaPontos != null ? comSinal(minha.deltaPontos) : '-'}
             </span>
             <span className="text-[11px] text-mudo">{minha.acs != null ? `${minha.acs} ACS` : 'pontos'}</span>

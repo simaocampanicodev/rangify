@@ -7,7 +7,7 @@
  * banem, criam o grupo e confirmam o resultado. A palavra-passe fica só como
  * hash SHA-256, mas isto continua a ser um modo de demonstração.
  */
-import { NOMES_MAPAS, TOTAL_BANS, equipaDoBan } from '../mapas'
+import { NOMES_MAPAS, ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
 import { PONTOS_INICIAIS } from '../pontos'
 import { divisao, mediaDivisoes } from '../ranks'
 import {
@@ -30,8 +30,8 @@ import type {
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
-// v3: Trades, HS% e KAST nas partidas; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v3'
+// v4: rotação de mapas editável e partidas de teste que contam; os dados de exemplo voltam a ser gerados.
+const CHAVE = 'rangify:demo:v4'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -41,7 +41,7 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 3
+  versao: 4
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -54,6 +54,7 @@ interface Estado {
   denuncias: DenunciaGuardada[]
   sessao: Sessao | null
   serCapitao: boolean
+  poolMapas: string[]
 }
 
 let estado: Estado | null = null
@@ -108,15 +109,16 @@ async function carregar(): Promise<Estado> {
     try {
       localStorage.removeItem('rangify:demo:v1')
       localStorage.removeItem('rangify:demo:v2')
+      localStorage.removeItem('rangify:demo:v3')
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 3) {
+    if (!lido || lido.versao !== 4) {
       const s = gerarSemente()
       lido = {
-        versao: 3, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        versao: 4, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
-        amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false,
+        amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false, poolMapas: [...ROTACAO_PADRAO],
       }
     }
     estado = lido
@@ -211,8 +213,9 @@ function publica(e: Estado, p: PartidaGuardada): Partida {
   return { ...p, bans: [...p.bans], submissoes: [...p.submissoes], jogadores: p.jogadores.map((j) => jogadorPublico(e, j)) }
 }
 
-function terminadas(e: Estado, incluirSimuladas = false) {
-  return e.partidas.filter((p) => p.estado === 'COMPLETED' && (incluirSimuladas || !p.simulada))
+// As partidas de teste contam como as outras.
+function terminadas(e: Estado) {
+  return e.partidas.filter((p) => p.estado === 'COMPLETED')
 }
 
 function tiersDe(p: PartidaGuardada, eq: Equipa) {
@@ -270,7 +273,7 @@ function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; autom
   const p: PartidaGuardada = {
     id: novoId(), codigo: codigoPartida(Math.random), estado: 'READY_CHECK', regiao: e.perfis[ids[0]]?.regiao ?? 'eu',
     mapa: null, capitaoA: null, capitaoB: null, codigoGrupo: null, resultadoA: null, resultadoB: null, vencedor: null,
-    simulada: opts.simulada, automatica: opts.automatica,
+    simulada: opts.simulada, automatica: opts.automatica, pool: [...e.poolMapas],
     prazoConfirmacao: iso(agora + SEGUNDOS_CONFIRMAR * 1000), inicioFase: iso(agora), prazoFase: iso(agora + SEGUNDOS_CONFIRMAR * 1000),
     comecouEm: null, terminouEm: null, estatisticas: false, criadaEm: iso(agora), atualizadaEm: iso(agora),
     jogadores: ids.map((id) => novoJogador(e.perfis[id])), bans: [], submissoes: [],
@@ -360,12 +363,12 @@ function escolher(e: Estado, p: PartidaGuardada, perfilId: string, agora: number
 }
 
 function banir(e: Estado, p: PartidaGuardada, mapa: string, agora: number) {
-  if (!NOMES_MAPAS.includes(mapa) || p.bans.some((b) => b.mapa === mapa)) throw new Error('Esse mapa já não está disponível.')
+  if (!p.pool.includes(mapa) || p.bans.some((b) => b.mapa === mapa)) throw new Error('Esse mapa já não está disponível.')
   const n = p.bans.length
   p.bans.push({ mapa, equipa: equipaDoBan(n), ordem: n + 1 })
   p.inicioFase = iso(agora)
-  if (n + 1 >= TOTAL_BANS) {
-    p.mapa = NOMES_MAPAS.find((m) => !p.bans.some((b) => b.mapa === m)) ?? null
+  if (n + 1 >= totalBans(p.pool)) {
+    p.mapa = p.pool.find((m) => !p.bans.some((b) => b.mapa === m)) ?? null
     p.estado = 'LOBBY_CREATION'
     p.prazoFase = iso(agora + 10 * 60_000)
     motor(e, p).jogadaEm = agora + (p.automatica ? 800 : aleatorio(3500, 5500))
@@ -449,7 +452,7 @@ function passoPartida(e: Estado, p: PartidaGuardada, agora: number): boolean {
     case 'MAP_BAN': {
       const cap = equipaDoBan(p.bans.length) === 'A' ? p.capitaoA : p.capitaoB
       if (agora >= ms(p.prazoFase) || (auto(cap) && m.jogadaEm != null && agora >= m.jogadaEm)) {
-        const livres = NOMES_MAPAS.filter((x) => !p.bans.some((b) => b.mapa === x))
+        const livres = p.pool.filter((x) => !p.bans.some((b) => b.mapa === x))
         banir(e, p, livres[Math.floor(Math.random() * livres.length)], agora)
         return true
       }
@@ -1037,8 +1040,6 @@ export const dadosLocais: Dados = {
     const ref = perfilId ?? (minhas ? e.sessao?.perfilId ?? null : null)
     let lista = e.partidas.filter((p) => p.estado === 'COMPLETED')
     if (ref) lista = lista.filter((p) => p.jogadores.some((j) => j.perfilId === ref && j.equipa))
-    // As simuladas só aparecem no histórico de quem as jogou.
-    if (!minhas || perfilId) lista = lista.filter((p) => !p.simulada)
     if (mapa) lista = lista.filter((p) => p.mapa === mapa)
     lista.sort((x, y) => ms(y.terminouEm) - ms(x.terminouEm))
     const inicio = cursor ? Number(cursor) : 0
@@ -1068,7 +1069,7 @@ export const dadosLocais: Dados = {
       if (ativa(p.estado) && p.estado !== 'DISPUTE' && ms(p.atualizadaEm) > recente) p.jogadores.forEach((j) => emJogo.add(j.perfilId))
     }
     const ultima = new Map<string, string>()
-    for (const p of terminadas(e, true)) for (const j of p.jogadores) {
+    for (const p of terminadas(e)) for (const j of p.jogadores) {
       if (!ultima.has(j.perfilId) || ms(ultima.get(j.perfilId)) < ms(p.terminouEm)) ultima.set(j.perfilId, p.terminouEm!)
     }
     return e.amizades
@@ -1163,6 +1164,24 @@ export const dadosLocais: Dados = {
     avisarMudanca('staff')
   },
 
+  async poolMapas() {
+    const e = await carregar()
+    return NOMES_MAPAS.filter((m) => e.poolMapas.includes(m))
+  },
+
+  async definirPoolMapas(mapas) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    if (mapas.some((m) => !NOMES_MAPAS.includes(m))) throw new Error('Há um mapa que não existe no Valorant.')
+    const pool = NOMES_MAPAS.filter((m) => mapas.includes(m))
+    if (pool.length < 3) throw new Error('A rotação precisa de pelo menos 3 mapas.')
+    e.poolMapas = pool
+    guardar()
+    avisarMudanca('staff')
+    return [...pool]
+  },
+
   async disputas() {
     const e = await pronto()
     exigirStaff(e)
@@ -1216,8 +1235,8 @@ export const dadosLocais: Dados = {
     if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
     const p = obterPartida(e, id)
     if (p.estado !== 'COMPLETED' && p.estado !== 'CANCELLED') throw new Error('Cancela a partida antes de a remover.')
-    // Numa partida real terminada, devolve os pontos, as vitórias e as derrotas.
-    if (p.estado === 'COMPLETED' && !p.simulada) {
+    // Numa partida terminada que deu pontos (também as de teste), devolve os pontos, as vitórias e as derrotas.
+    if (p.estado === 'COMPLETED' && (p.pontosAplicados ?? !p.simulada)) {
       for (const j of p.jogadores) {
         const perfil = e.perfis[j.perfilId]
         if (!perfil || !j.equipa || j.deltaPontos == null) continue

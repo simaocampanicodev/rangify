@@ -57,7 +57,7 @@ export interface JogadorGuardado {
   kastPct?: number | null
 }
 
-export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[] }
+export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[]; pontosAplicados?: boolean }
 
 export function novoJogador(p: Perfil): JogadorGuardado {
   return {
@@ -151,14 +151,13 @@ export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perf
     j.deltaPontos = r.total
     const perfil = perfis[j.perfilId]
     if (!perfil) continue
-    // As partidas simuladas mostram o cálculo, mas não mexem nos pontos reais.
-    if (!p.simulada) {
-      perfil.pontos += r.total
-      if (venceu) perfil.vitorias++
-      else perfil.derrotas++
-    }
+    // Todas as partidas contam, também as de teste: remover a partida devolve tudo.
+    perfil.pontos += r.total
+    if (venceu) perfil.vitorias++
+    else perfil.derrotas++
     j.pontosDepois = perfil.pontos
   }
+  p.pontosAplicados = true
   p.estado = 'COMPLETED'
   p.terminouEm = agora
   p.atualizadaEm = agora

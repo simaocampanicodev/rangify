@@ -87,6 +87,8 @@ export interface Partida {
   resultadoB: number | null
   vencedor: Equipa | null
   simulada: boolean
+  /** Os mapas da rotação quando a partida nasceu: os bans vão até sobrar um destes. */
+  pool: string[]
   /** Simulação de teste em que o motor joga também pelo utilizador. */
   automatica: boolean
   prazoConfirmacao: string | null
@@ -331,6 +333,10 @@ export interface Dados {
 
   // Denúncias
   denunciar(perfilId: string, motivo: string, detalhes: string): Promise<void>
+
+  // Rotação de mapas (ler: todos; mudar: Owner e Dev)
+  poolMapas(): Promise<string[]>
+  definirPoolMapas(mapas: string[]): Promise<string[]>
 
   // Staff
   disputas(): Promise<Partida[]>
