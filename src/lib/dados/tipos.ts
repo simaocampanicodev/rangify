@@ -241,6 +241,34 @@ export interface LinhaNivel {
   xpParaProximo: number
 }
 
+/** Novidade do Dashboard, publicada pela staff. */
+export interface Novidade {
+  id: string
+  /** Dia mostrado no canto (AAAA-MM-DD). */
+  data: string
+  titulo: string
+  texto: string
+  criadaEm: string
+}
+
+/** O que a Henrik Dev API devolveu do último jogo personalizado (teste da Staff). */
+export interface TesteApi {
+  riotId: string
+  encontrado: boolean
+  modo?: string | null
+  mapa?: string
+  inicio?: string
+  /** Rondas da equipa vermelha e da azul, "13-7". */
+  resultado?: string
+  rondas?: number
+  mortes?: number
+  jogadores: {
+    riotId: string; equipa: string; kills: number; deaths: number; assists: number; acs: number
+    firstBloods: number; trades: number; hsPct: number | null; kastPct: number
+  }[]
+  avisos: string[]
+}
+
 export type EstadoAmizade = 'pendente' | 'aceite'
 
 export interface Amizade {
@@ -367,6 +395,13 @@ export interface Dados {
   // Rotação de mapas (ler: todos; mudar: Owner e Dev)
   poolMapas(): Promise<string[]>
   definirPoolMapas(mapas: string[]): Promise<string[]>
+
+  // Novidades (ler: todos; publicar e apagar: Owner e Dev)
+  novidades(limite?: number): Promise<Novidade[]>
+  criarNovidade(n: { data: string; titulo: string; texto: string }): Promise<Novidade[]>
+  apagarNovidade(id: string): Promise<Novidade[]>
+  /** Owner e Dev: lê o último jogo personalizado da própria conta na Henrik Dev API. */
+  testarApi(): Promise<TesteApi>
 
   // Staff
   disputas(): Promise<Partida[]>

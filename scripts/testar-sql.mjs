@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -423,6 +423,28 @@ ok(exp1.total === 11 && exp1.xpSemana >= 100, 'experiência com o total de jogad
 await rpc(uids[0], 'remover_partida', { p_match: xpm.id })
 ok((await rpc(uids[0], 'experiencia')).xp === xpAntesReset, 'remover a partida tira o XP das missões que ela completou')
 ok(!(await rpc(uids[0], 'missoes')).find((m) => m.id === 'd-jogar').concluida, 'e a missão volta a estar por fazer')
+
+// ------------------------------------------------------------ novidades e API
+console.log('\nNovidades e Henrik Dev API')
+const nov0 = await rpc(uids[4], 'novidades', { p_limite: 5 })
+ok(nov0.length === 1 && nov0[0].titulo.includes('Temporada 1') && nov0[0].data === '2026-09-01', 'há uma novidade de origem')
+await falha(rpc(uids[4], 'criar_novidade', { p_data: '2026-10-12', p_titulo: 'Olá a todos', p_texto: 'Texto de teste.' }), 'Owner e Dev', 'um jogador normal não publica novidades')
+await falha(rpc(uids[0], 'criar_novidade', { p_data: '2026-10-12', p_titulo: 'Oi', p_texto: 'Texto de teste.' }), 'título', 'o título tem pelo menos 3 caracteres')
+const nov1 = await rpc(uids[0], 'criar_novidade', { p_data: '2026-10-12', p_titulo: 'Missões diárias chegaram', p_texto: 'Agora há XP e níveis.' })
+ok(nov1.length === 2 && nov1[0].titulo === 'Missões diárias chegaram' && nov1[0].data === '2026-10-12', 'a staff publica uma novidade e ela aparece primeiro')
+const nov2 = await rpc(uids[0], 'apagar_novidade', { p_id: nov1[0].id })
+ok(nov2.length === 1, 'e pode apagá-la')
+await como(uids[1], 'update matches set api_checked_at = now()').catch(() => null)
+ok((await raiz(`select count(*)::int as n from matches where api_checked_at is not null`))[0].n === 0, 'o browser não mexe na marca da última consulta à API')
+
+// Uma partida real à espera da API fica 30 minutos antes de fechar sem estatísticas.
+for (let i = 0; i < 10; i++) await rpc(uids[i], 'entrar_fila')
+const real = (await rpc(uids[0], 'partida_ativa')).id
+await raiz(`update matches set state = 'RESULT_SUBMISSION', score_a = null, score_b = null where id = $1`, [real])
+await raiz(`update matches set state = 'PROCESSING_API', score_a = 13, score_b = 5 where id = $1`, [real])
+const prazo = (await raiz(`select extract(epoch from phase_deadline - now())::int as s, simulated from matches where id = $1`, [real]))[0]
+ok(!prazo.simulated && prazo.s > 29 * 60 && prazo.s <= 30 * 60, 'à espera da API: 30 minutos de prazo numa partida real')
+await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [real])
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

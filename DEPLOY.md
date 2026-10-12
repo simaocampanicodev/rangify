@@ -51,7 +51,7 @@ Se algum dia fizeres commit de um segredo: apagar o ficheiro não chega, porque 
 
 1. Em https://supabase.com, **New project**. Escolhe a região mais perto dos jogadores (por exemplo, Frankfurt ou Paris para a Europa) e guarda a palavra-passe da base de dados num gestor de palavras-passe.
 2. Quando o projeto estiver pronto, abre **SQL Editor > New query**, cola o conteúdo de `supabase/migrations/0001_schema.sql` e carrega em **Run**.
-3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP) depois com `0003_estatisticas.sql` (Trades, HS% e KAST, remover partidas e acertar pontos) depois com `0004_fila_amigos.sql` (testar a fila com amigos e bots), com `0005_perfil_estatisticas.sql` (estatísticas completas no perfil), com `0006_rotacao_testes.sql` (rotação de mapas editável na Staff e partidas de teste que contam) e por fim com `0007_experiencia.sql` (Rangify Experience: XP, níveis, missões diárias e rotação de missões).
+3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP) depois com `0003_estatisticas.sql` (Trades, HS% e KAST, remover partidas e acertar pontos) depois com `0004_fila_amigos.sql` (testar a fila com amigos e bots), com `0005_perfil_estatisticas.sql` (estatísticas completas no perfil), com `0006_rotacao_testes.sql` (rotação de mapas editável na Staff e partidas de teste que contam), com `0007_experiencia.sql` (Rangify Experience: XP, níveis, missões diárias e rotação de missões) e por fim com `0008_novidades_api.sql` (novidades publicadas na Staff e afinações da Henrik Dev API).
 4. Em **Project Settings > API Keys** (ou **Settings > API**), copia:
    - o **Project URL**;
    - a chave **publishable** (`sb_publishable_...`) ou, se o projeto mostrar as chaves antigas, a **anon public**.
@@ -98,6 +98,7 @@ npx supabase secrets set HENRIK_API_KEY=a-tua-chave
 npx supabase functions deploy sincronizar-rank
 npx supabase functions deploy processar-partida
 npx supabase functions deploy entrar
+npx supabase functions deploy testar-api
 ```
 
 - `xxxx` é o mesmo do Project URL.

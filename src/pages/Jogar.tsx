@@ -1,7 +1,6 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Swords, Users } from 'lucide-react'
 import { FerramentasDev } from '@/components/FerramentasDev'
-import { BotaoFila, LinhaFases, RadarFila, useVistaFila } from '@/components/Fila'
-import { NomeRangify } from '@/components/Marca'
+import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { Codigo } from '@/components/partida/Codigo'
 import { Draft } from '@/components/partida/Draft'
 import { Mapas } from '@/components/partida/Mapas'
@@ -86,14 +85,22 @@ function ComoFunciona() {
 }
 
 /** O cartão do Rangify Hub: o radar com os jogadores encontrados, as fases e o botão da fila. */
+/** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
 function PainelFila() {
   const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
   const faltam = 10 - contagem
+  const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
   return (
-    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-11 gap-y-6 px-[34px] py-[26px]">
-      <RadarFila contagem={contagem} naFila={naFila} legenda={naFila ? relogio(espera) : 'NA SALA'} />
-      <div className="flex min-w-[280px] flex-1 flex-col gap-4">
-        <span className="eyebrow flex items-baseline gap-1.5"><NomeRangify className="text-[15px] tracking-normal normal-case" />HUB · {regiao}</span>
+    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-10 gap-y-6 px-[34px] py-[30px]">
+      <AnelFila
+        tamanho={196}
+        contagem={contagem}
+        naFila={naFila}
+        legenda={naFila ? `NA FILA ${relogio(espera)}` : castigo > 0 ? `CASTIGO ${relogio(castigo)}` : 'À ESPERA DE TI'}
+      />
+      <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
+        <span className="eyebrow">RANGIFY HUB · {regiao.toUpperCase()}</span>
         <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? 'À procura de jogadores…' : 'Pronto para a próxima?'}</h2>
         <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
           {castigo > 0
@@ -102,8 +109,13 @@ function PainelFila() {
               ? `Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`
               : 'Entra na fila da tua região. Com 10 jogadores, aceitas a partida e segues para o draft dos capitães, os bans e o código do grupo.'}
         </p>
-        <LinhaFases />
-        <div className="flex flex-wrap items-center gap-2.5 pt-1">
+        <div className="flex flex-wrap gap-2">
+          <EtiquetaHub regiao={regiao} />
+          <span className={chip}>{SEGUNDOS_CONFIRMAR} s para aceitar</span>
+          <span className={chip}>2 capitães · {(rotacao.valor ?? ROTACAO_PADRAO).length} mapas</span>
+          <span className={chip}>5 fases até aos pontos</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
           <BotaoFila grande />
           <span className="text-[13px] text-mudo">
             {naFila ? `Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.` : `${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`}

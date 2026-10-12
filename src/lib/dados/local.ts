@@ -27,12 +27,12 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, Dados, Denuncia, Equipa, EstadoPartida, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Partida, Perfil,
+  Amizade, Dados, Denuncia, Equipa, EstadoPartida, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
-// v5: Rangify Experience (XP, níveis e rotação de missões); os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v5'
+// v6: novidades publicadas pela staff; os dados de exemplo voltam a ser gerados.
+const CHAVE = 'rangify:demo:v6'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -42,7 +42,7 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 5
+  versao: 6
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -58,6 +58,7 @@ interface Estado {
   poolMapas: string[]
   rotacoes: Partial<Record<'diaria' | 'semanal', Rotacao>>
   conclusoes: Conclusao[]
+  novidades: Novidade[]
 }
 
 interface Rotacao { id: string; inicio: string; ids: string[] }
@@ -117,16 +118,18 @@ async function carregar(): Promise<Estado> {
       localStorage.removeItem('rangify:demo:v2')
       localStorage.removeItem('rangify:demo:v3')
       localStorage.removeItem('rangify:demo:v4')
+      localStorage.removeItem('rangify:demo:v5')
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 5) {
+    if (!lido || lido.versao !== 6) {
       const s = gerarSemente()
       lido = {
-        versao: 5, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        versao: 6, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
         amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false, poolMapas: [...ROTACAO_PADRAO],
         rotacoes: {}, conclusoes: [],
+        novidades: [{ id: novoId(), data: '2026-09-01', titulo: 'A Temporada 1 arrancou. Toda a gente começa com 1000 pontos.', texto: 'Ganhar a equipas acima do teu rank oficial vale mais. Perder contra elas custa menos.', criadaEm: new Date().toISOString() }],
       }
       // A comunidade de exemplo já traz o XP das missões que as partidas dela completam.
       for (const id of Object.keys(lido.perfis)) atualizarMissoes(lido, id)
@@ -628,6 +631,9 @@ function atualizarMissoes(e: Estado, perfilId: string, rever = false) {
     else if (!m.concluida && i >= 0 && rever) e.conclusoes.splice(i, 1)
   }
 }
+
+const ordenarNovidades = (e: Estado) =>
+  [...e.novidades].sort((a, b) => b.data.localeCompare(a.data) || b.criadaEm.localeCompare(a.criadaEm))
 
 const xpDe = (e: Estado, perfilId: string) => e.conclusoes.reduce((t, c) => t + (c.perfilId === perfilId ? c.xp : 0), 0)
 
@@ -1270,6 +1276,41 @@ export const dadosLocais: Dados = {
     e.denuncias.unshift({ id: novoId(), denuncianteId: me.id, alvoId: perfilId, motivo, detalhes: detalhes.trim(), estado: 'aberta', criadaEm: iso(Date.now()) })
     guardar()
     avisarMudanca('staff')
+  },
+
+  async novidades(limite = 5) {
+    const e = await carregar()
+    return ordenarNovidades(e).slice(0, limite)
+  },
+
+  async criarNovidade(n) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    const titulo = n.titulo.trim()
+    const texto = n.texto.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(n.data)) throw new Error('Escolhe a data da novidade.')
+    if (titulo.length < 3 || titulo.length > 120) throw new Error('O título tem entre 3 e 120 caracteres.')
+    if (texto.length < 3 || texto.length > 500) throw new Error('A descrição tem entre 3 e 500 caracteres.')
+    e.novidades.push({ id: novoId(), data: n.data, titulo, texto, criadaEm: new Date().toISOString() })
+    guardar()
+    avisarMudanca('staff')
+    return ordenarNovidades(e)
+  },
+
+  async apagarNovidade(id) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    if (!e.novidades.some((n) => n.id === id)) throw new Error('Esta novidade já não existe.')
+    e.novidades = e.novidades.filter((n) => n.id !== id)
+    guardar()
+    avisarMudanca('staff')
+    return ordenarNovidades(e)
+  },
+
+  async testarApi() {
+    throw new Error('O teste da API só funciona com o Supabase ligado: no modo demo não há Henrik Dev API.')
   },
 
   async poolMapas() {

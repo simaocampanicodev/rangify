@@ -34,7 +34,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql` e `0007_experiencia.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql` e `0008_novidades_api.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
@@ -45,7 +45,7 @@ O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em 
    ```
 4. Publica as Edge Functions:
    ```bash
-   supabase functions deploy sincronizar-rank processar-partida entrar
+   supabase functions deploy sincronizar-rank processar-partida entrar testar-api
    ```
 5. Cria o `.env` a partir do `.env.example` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 6. Entra uma vez com o Discord e torna-te Owner:
@@ -70,7 +70,8 @@ No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` ped
   - O código do grupo só é visível aos 10 jogadores da partida.
 - `supabase/functions/`: as Edge Functions.
   - `sincronizar-rank`: liga o Riot ID e lê o rank oficial, no máximo de 6 em 6 horas.
-  - `processar-partida`: procura a partida personalizada na Henrik Dev API e tira KDA, ACS e first bloods.
+  - `processar-partida`: procura a partida personalizada na Henrik Dev API (no máximo uma consulta por minuto por partida) e tira o resultado, KDA, ACS, first bloods, trades, HS% e KAST.
+  - `testar-api`: só Owner e Dev; lê o último jogo personalizado da própria conta e mostra na Staff o que seria gravado, sem gravar nada.
   - `entrar`: login por utilizador e palavra-passe, sem expor emails.
 
 ### A máquina de estados

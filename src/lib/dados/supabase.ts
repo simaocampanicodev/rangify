@@ -8,7 +8,7 @@
 import { supabase } from '../supabase'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
-  Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -183,6 +183,11 @@ export const dadosSupabase: Dados = {
   async criarSugestao({ titulo, categoria, descricao }) { await rpc('criar_sugestao', { p_titulo: titulo, p_categoria: categoria, p_descricao: descricao }) },
   async votar(id) { await rpc('votar', { p_sugestao: id }) },
   async denunciar(perfilId, motivo, detalhes) { await rpc('denunciar', { p_alvo: perfilId, p_motivo: motivo, p_detalhes: detalhes }) },
+
+  novidades: (limite = 5) => rpc<Novidade[]>('novidades', { p_limite: limite }),
+  criarNovidade: (n) => rpc<Novidade[]>('criar_novidade', { p_data: n.data, p_titulo: n.titulo, p_texto: n.texto }),
+  apagarNovidade: (id) => rpc<Novidade[]>('apagar_novidade', { p_id: id }),
+  testarApi: () => funcao<TesteApi>('testar-api', {}),
 
   poolMapas: () => rpc<string[]>('pool_mapas'),
   definirPoolMapas: (mapas) => rpc<string[]>('definir_pool_mapas', { p_mapas: mapas }),

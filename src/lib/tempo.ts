@@ -78,6 +78,17 @@ export function periodoSemana(d = new Date()): string {
   return x.toISOString().slice(0, 10)
 }
 
+/** Meia-noite UTC de amanhã: quando as missões diárias mudam. */
+export function fimDoDia(d = new Date()): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
+}
+
+/** "2026-10-12" para "12 OUT", como no canto das novidades. */
+export function diaCurto(data: string): string {
+  const [, m, d] = data.split('-').map(Number)
+  return m && d ? `${d} ${MESES[m - 1].toUpperCase()}` : data
+}
+
 export function fimDaSemana(d = new Date()): Date {
   const ini = new Date(periodoSemana(d) + 'T00:00:00Z')
   ini.setUTCDate(ini.getUTCDate() + 7)

@@ -1,6 +1,7 @@
 import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { NovidadesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -187,9 +188,10 @@ function Jogadores() {
 }
 
 export function Admin() {
-  const { eStaff, carregando } = useSessao()
+  const { eStaff, carregando, perfil } = useSessao()
+  const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'mapas' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'mapas' | 'novidades' | 'api' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
@@ -202,7 +204,7 @@ export function Admin() {
       <Cabecalho
         migalhas={['Conta', 'Staff']}
         titulo="Área de staff"
-        descricao="Disputas de resultado, partidas encravadas, denúncias, rotação de mapas e funções dos jogadores."
+        descricao="Disputas de resultado, partidas encravadas, denúncias, rotação de mapas, novidades e funções dos jogadores."
         acoes={<BotaoAjuda topico="funcoes">Funções no Rangify</BotaoAjuda>}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
@@ -222,7 +224,7 @@ export function Admin() {
           rotulo="Secção"
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: 'Disputas' }, { valor: 'partidas', texto: 'Partidas' }, { valor: 'denuncias', texto: 'Denúncias' }, { valor: 'mapas', texto: 'Mapas' }, { valor: 'jogadores', texto: 'Jogadores' }]}
+          opcoes={[{ valor: 'disputas', texto: 'Disputas' }, { valor: 'partidas', texto: 'Partidas' }, { valor: 'denuncias', texto: 'Denúncias' }, { valor: 'mapas', texto: 'Mapas' }, { valor: 'novidades', texto: 'Novidades' }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: 'Jogadores' }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
@@ -264,6 +266,18 @@ export function Admin() {
                 ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? 'Resolvida' : 'Arquivada'}</span>}
               </article>
             )) : <Vazio icone={<Flag size={22} />} titulo="Sem denúncias" />}
+          </div>
+        )}
+        {aba === 'novidades' && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow="NOVIDADES" titulo="O que aparece no Dashboard" />
+            <NovidadesStaff podeEditar={ownerDev} />
+          </div>
+        )}
+        {aba === 'api' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow="HENRIK DEV API" titulo="Testar a leitura de um jogo personalizado" />
+            <TesteApiStaff />
           </div>
         )}
         {aba === 'mapas' && (

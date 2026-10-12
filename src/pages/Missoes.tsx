@@ -9,17 +9,13 @@ import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type Missao, type TipoMissao } from '@/lib/dados'
 import { formatarXp } from '@/lib/experiencia'
-import { duracaoAte, fimDaSemana } from '@/lib/tempo'
+import { duracaoAte, fimDaSemana, fimDoDia } from '@/lib/tempo'
 
 const ICONES: Record<TipoMissao, ReactNode> = {
   jogos: <Gamepad2 size={19} />, vitorias: <Trophy size={19} />, vitorias_acima: <TrendingUp size={19} />, first_bloods: <Crosshair size={19} />,
   mvp: <Star size={19} />, sequencia: <Flame size={19} />, acs: <Activity size={19} />, pontos: <Zap size={19} />,
   kills: <Skull size={19} />, assists: <Handshake size={19} />, trades: <ArrowLeftRight size={19} />, capitao: <Crown size={19} />,
   vitorias_capitao: <Award size={19} />, mapas: <IconeMapa size={19} />,
-}
-
-function fimDoDia(d = new Date()) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
 }
 
 function Cartao({ m }: { m: Missao }) {

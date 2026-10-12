@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, Bell, Check, Clock, Globe, MessageCircle, RefreshCw, Shield, Swords, Target, Trophy, Users } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Bell, Check, CircleCheck, Clock, Globe, MessageCircle, RefreshCw, Shield, Swords, Target, Trophy, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
@@ -8,13 +8,14 @@ import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, LinhasEs
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados } from '@/lib/dados'
+import { dados, type Missao } from '@/lib/dados'
+import { formatarXp } from '@/lib/experiencia'
 import { nomeJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
 import { ROTACAO_PADRAO } from '@/lib/mapas'
 import { NOMES_ESTADO, SEGUNDOS_CONFIRMAR } from '@/lib/regras'
-import { duracaoAte, fimDaSemana, haQuanto, relogio } from '@/lib/tempo'
+import { diaCurto, duracaoAte, fimDaSemana, fimDoDia, haQuanto, relogio } from '@/lib/tempo'
 
 function BarrasPontos({ deltas }: { deltas: number[] }) {
   const max = Math.max(30, ...deltas.map(Math.abs))
@@ -42,6 +43,35 @@ function BarrasPontos({ deltas }: { deltas: number[] }) {
   )
 }
 
+/** As por fazer primeiro, das mais perto de acabar para as mais longe; as feitas no fim. */
+function maisPerto(lista: Missao[]) {
+  return [...lista].sort((a, b) => Number(a.concluida) - Number(b.concluida) || b.progresso / b.alvo - a.progresso / a.alvo)
+}
+
+function GrupoMissoes({ titulo, renova, lista }: { titulo: string; renova: string; lista: Missao[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-2 font-mono text-[10.5px] tracking-[0.12em]">
+        <span className="font-bold text-pessego">{titulo}</span>
+        <span className="tracking-normal text-mudo">renova em {renova}</span>
+      </div>
+      {lista.map((m) => (
+        <div key={m.id} className="flex flex-col gap-2">
+          <div className="flex justify-between gap-3 text-[13.5px] leading-[1.4]">
+            <span className={m.concluida ? 'text-suave' : 'text-marfim'}>{m.descricao}</span>
+            <span className="flex shrink-0 items-center gap-2 font-mono text-[12px]">
+              {m.concluida
+                ? <span className="inline-flex items-center gap-1 text-pessego"><CircleCheck size={13} aria-hidden />+{formatarXp(m.xp)} XP</span>
+                : <><span className="text-mudo">+{formatarXp(m.xp)} XP</span><span className="text-suave">{m.progresso}/{m.alvo}</span></>}
+            </span>
+          </div>
+          <BarraProgresso valor={m.progresso} alvo={m.alvo} rotulo={m.titulo} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function Dashboard() {
   const { perfil } = useSessao()
   const { partida, ativa } = usePartida()
@@ -53,15 +83,18 @@ export function Dashboard() {
   const historico = useCarregar(() => dados.partidas({ minhas: minhas === 'minhas' }), [minhas], ['partida'], { minimo: 350 })
   const missoes = useCarregar(() => dados.missoes(), [], ['partida'])
   const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const novidades = useCarregar(() => dados.novidades(1), [], ['staff'])
   if (!perfil) return <Carregando />
 
   const nome = nomeJogador(perfil)
   const ganho = perfil.pontos - PONTOS_INICIAIS
-  const semanais = (missoes.valor ?? []).filter((m) => m.ambito === 'semanal' && !m.concluida).slice(0, 3)
+  const diarias = maisPerto((missoes.valor ?? []).filter((m) => m.ambito === 'diaria')).slice(0, 3)
+  const semanais = maisPerto((missoes.valor ?? []).filter((m) => m.ambito === 'semanal')).slice(0, 3)
+  const novidade = novidades.valor?.[0]
   const atalhos = [
     { para: '/ranking', titulo: 'Ranking', texto: <>Quem lidera a temporada, ordenado pelos pontos <NomeRangify className="text-laranja-claro" />.</>, icone: <Trophy size={19} /> },
     { para: '/partidas', titulo: 'Partidas', texto: 'O teu histórico e todos os jogos do hub, com KDA e ACS.', icone: <Clock size={19} /> },
-    { para: '/missoes', titulo: 'Missões', texto: 'Objetivos da semana, como ganhar a equipas acima do teu rank.', icone: <Target size={19} /> },
+    { para: '/missoes', titulo: 'Missões', texto: 'Objetivos diários e semanais, ganhe jogos e ganhe XP.', icone: <Target size={19} /> },
     { para: '/amigos', titulo: 'Amigos', texto: 'Vê quem está na fila ou a jogar e compara-te no ranking.', icone: <Users size={19} /> },
   ]
 
@@ -156,10 +189,7 @@ export function Dashboard() {
       </div>
 
       <section aria-labelledby="rg-atalhos" className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="rg-atalhos" className="m-0 text-[19px] font-bold tracking-[-0.02em]">Atalhos</h2>
-          <span className="text-[13px] text-mudo">Sabes o que queres? Vai direto.</span>
-        </div>
+        <h2 id="rg-atalhos" className="m-0 text-[19px] font-bold tracking-[-0.02em]">Atalhos</h2>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
           {atalhos.map((a) => (
             <Link key={a.para} to={a.para} className="painel cartao-hover flex flex-col gap-3.5 !rounded-[14px] p-[18px] text-texto no-underline">
@@ -196,27 +226,29 @@ export function Dashboard() {
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           <Painel aria-labelledby="rg-missoes" className="flex flex-col gap-4 p-[22px]">
-            <TituloPainel eyebrow="MISSÕES ATIVAS" titulo="Esta semana" id="rg-missoes" direita={<span className="font-mono text-[11px] text-mudo">renova em {duracaoAte(fimDaSemana().toISOString())}</span>} />
-            {semanais.length ? semanais.map((m) => (
-              <div key={m.id} className="flex flex-col gap-2">
-                <div className="flex justify-between gap-3 text-[13.5px] leading-[1.4]">
-                  <span className="text-marfim">{m.descricao}</span>
-                  <span className="shrink-0 font-mono text-suave">{m.progresso}/{m.alvo}</span>
-                </div>
-                <BarraProgresso valor={m.progresso} alvo={m.alvo} rotulo={m.titulo} />
-              </div>
-            )) : <p className="m-0 text-[13.5px] text-mudo">{missoes.carregando ? 'A carregar…' : 'Missões da semana concluídas. Bom trabalho!'}</p>}
+            <TituloPainel eyebrow="MISSÕES ATIVAS" titulo="Diárias e semanais" id="rg-missoes" />
+            {missoes.carregando && !missoes.valor ? <p className="m-0 text-[13.5px] text-mudo">A carregar…</p> : (
+              <>
+                <GrupoMissoes titulo="HOJE" renova={duracaoAte(fimDoDia().toISOString())} lista={diarias} />
+                <div className="border-t border-white/7" />
+                <GrupoMissoes titulo="ESTA SEMANA" renova={duracaoAte(fimDaSemana().toISOString())} lista={semanais} />
+              </>
+            )}
             <LinkSeta to="/missoes">Ver todas as missões</LinkSeta>
           </Painel>
 
           <Painel aria-labelledby="rg-novidades" className="relative flex flex-1 flex-col justify-center gap-2.5 overflow-hidden px-[22px] py-5">
             <div className="flex items-center justify-between gap-2.5">
               <span className="eyebrow">NOVIDADES</span>
-              <span className="font-mono text-[11px] text-mudo">1 SET</span>
+              {novidade && <span className="font-mono text-[11px] text-mudo">{diaCurto(novidade.data)}</span>}
             </div>
-            <h2 id="rg-novidades" className="m-0 text-[16px] leading-[1.3] font-bold tracking-[-0.015em]">A Temporada 1 arrancou. Toda a gente começa com 1000 pontos.</h2>
-            <p className="m-0 text-[13px] leading-normal text-[#a6a19a]">Ganhar a equipas acima do teu rank oficial vale mais. Perder contra elas custa menos.</p>
-            <div className="flex items-center gap-2 pt-1 text-[12.5px] text-mudo"><Shield size={14} className="text-laranja" aria-hidden />Rank oficial só para o desnível, nunca para ordenar.</div>
+            {novidade ? (
+              <>
+                <h2 id="rg-novidades" className="m-0 text-[16px] leading-[1.3] font-bold tracking-[-0.015em]">{novidade.titulo}</h2>
+                <p className="m-0 text-[13px] leading-normal whitespace-pre-line text-[#a6a19a]">{novidade.texto}</p>
+              </>
+            ) : <h2 id="rg-novidades" className="m-0 text-[14px] font-medium text-mudo">{novidades.carregando ? 'A carregar…' : 'Sem novidades por agora.'}</h2>}
+            <div className="flex items-center gap-2 pt-1 text-[12.5px] text-mudo"><Shield size={14} className="text-laranja" aria-hidden />Rank oficial usado para atribuição de pontos</div>
           </Painel>
         </div>
       </div>
