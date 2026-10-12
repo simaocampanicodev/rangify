@@ -81,7 +81,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
         </div>
       </section>
 
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-stretch gap-4">
         <section aria-labelledby="rg-cod-caixa" className="painel flex min-w-0 flex-[2_1_520px] flex-col gap-5 p-[26px]">
           {p.codigoGrupo ? (
             <>

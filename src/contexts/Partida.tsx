@@ -29,24 +29,23 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   const [partida, setPartida] = useState<Partida | null>(null)
   const ultima = useRef<string | null>(null)
   const fechada = useRef<string | null>(null)
-  const aCorrer = useRef(false)
+  const emCurso = useRef<Promise<void> | null>(null)
   const terminada = useRef<string | null>(null)
 
-  const atualizar = useCallback(async () => {
-    if (!sessao || sessao.incompleta || aCorrer.current) return
-    aCorrer.current = true
+  /** Um ciclo: uma só ida ao servidor traz a fila e a partida já avançada. */
+  const buscar = useCallback(async () => {
+    if (!sessao || sessao.incompleta) return
     try {
-      const [f, ativa] = await Promise.all([dados.estadoFila(), dados.partidaAtiva()])
+      const mostrar = ultima.current && fechada.current !== ultima.current ? ultima.current : null
+      const { fila: f, partida: p } = await dados.situacao(mostrar)
       acertarRelogio(f.agora)
       setFila(f)
-      if (ativa) {
-        const p = await dados.avancarPartida(ativa.id)
-        ultima.current = ativa.id
-        setPartida(p ?? ativa)
-      } else if (ultima.current && fechada.current !== ultima.current) {
+      if (p && ativo(p)) {
+        ultima.current = p.id
+        setPartida(p)
+      } else if (mostrar && p?.id === mostrar) {
         // Acabou agora: mostra o resumo até o utilizador o fechar.
-        const p = await dados.partida(ultima.current)
-        if (p?.estado === 'CANCELLED') {
+        if (p.estado === 'CANCELLED') {
           fechada.current = ultima.current
           ultima.current = null
           setPartida(null)
@@ -67,19 +66,33 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
       }
     } catch {
       /* rede em baixo: tenta outra vez no próximo ciclo */
-    } finally {
-      aCorrer.current = false
     }
   }, [sessao, avisar])
+
+  /** O ciclo automático: se já há um a correr, não começa outro. */
+  const ciclo = useCallback(() => {
+    if (emCurso.current) return
+    emCurso.current = buscar().finally(() => { emCurso.current = null })
+  }, [buscar])
+
+  /**
+   * Depois de um clique: espera pelo ciclo que já ia a meio (trazia dados de
+   * antes do clique) e busca logo dados novos, em vez de esperar pelo próximo.
+   */
+  const atualizar = useCallback(async () => {
+    if (emCurso.current) await emCurso.current
+    if (!emCurso.current) emCurso.current = buscar().finally(() => { emCurso.current = null })
+    await emCurso.current
+  }, [buscar])
 
   const emJogo = ativo(partida) || !!fila?.naFila
   useEffect(() => {
     if (!sessao) { setFila(null); setPartida(null); ultima.current = null; return }
-    atualizar()
-    const t = window.setInterval(atualizar, emJogo ? 1000 : 8000)
-    const off = aoMudarDados((o) => { if (o === 'partida' || o === 'fila') atualizar() })
+    ciclo()
+    const t = window.setInterval(ciclo, emJogo ? 1000 : 8000)
+    const off = aoMudarDados((o) => { if (o === 'partida' || o === 'fila') ciclo() })
     return () => { window.clearInterval(t); off() }
-  }, [sessao, emJogo, atualizar])
+  }, [sessao, emJogo, ciclo])
 
   const fecharResumo = useCallback(() => {
     fechada.current = ultima.current

@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -445,6 +445,23 @@ await raiz(`update matches set state = 'PROCESSING_API', score_a = 13, score_b =
 const prazo = (await raiz(`select extract(epoch from phase_deadline - now())::int as s, simulated from matches where id = $1`, [real]))[0]
 ok(!prazo.simulated && prazo.s > 29 * 60 && prazo.s <= 30 * 60, 'à espera da API: 30 minutos de prazo numa partida real')
 await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [real])
+
+// ------------------------------------------------------------ situação numa só chamada
+console.log('\nSituação (fila e partida numa só chamada)')
+const s0 = await rpc(uids[0], 'situacao', { p_partida: null })
+ok(s0.fila && s0.fila.naFila === false && s0.partida === null, 'sem partida: devolve a fila e partida vazia')
+const terminadaId = (await raiz(`select id from matches where state = 'COMPLETED' order by finished_at desc limit 1`))[0].id
+const s1 = await rpc(uids[0], 'situacao', { p_partida: terminadaId })
+ok(s1.partida?.id === terminadaId && s1.partida.estado === 'COMPLETED', 'sem partida ativa: devolve a que o site ainda mostra (o resumo)')
+for (let i = 0; i < 10; i++) await rpc(uids[i], 'entrar_fila')
+const ativaAgora = (await rpc(uids[0], 'partida_ativa')).id
+const s2 = await rpc(uids[0], 'situacao', { p_partida: terminadaId })
+ok(s2.partida?.id === ativaAgora && s2.partida.estado === 'READY_CHECK' && s2.fila.naFila === false, 'com partida ativa: é essa que vem, mesmo com outra a ser mostrada')
+await raiz(`update match_players set accept_at = now() - interval '1 second' where match_id = $1`, [ativaAgora])
+await raiz(`update matches set ready_deadline = now() - interval '1 second' where id = $1`, [ativaAgora])
+const s3 = await rpc(uids[0], 'situacao', { p_partida: ativaAgora })
+ok(s3.partida?.id === ativaAgora && s3.partida.estado === 'DRAFT_PHASE', 'e avança a partida na mesma chamada (todos aceitaram: draft)')
+await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [ativaAgora])
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

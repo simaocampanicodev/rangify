@@ -349,6 +349,11 @@ export interface Dados {
   partida(id: string): Promise<Partida | null>
   /** Aplica prazos e jogadas automáticas e devolve a partida atualizada. */
   avancarPartida(id: string): Promise<Partida | null>
+  /**
+   * Tudo o que o site segue a cada segundo, numa só ida ao servidor: a fila e a
+   * partida ativa já avançada (ou, sem ativa, a "ultima" que o site está a mostrar).
+   */
+  situacao(ultima: string | null): Promise<{ fila: EstadoFila; partida: Partida | null }>
   responderConfirmacao(id: string, aceita: boolean): Promise<void>
   escolherJogador(id: string, perfilId: string): Promise<void>
   banirMapa(id: string, mapa: string): Promise<void>

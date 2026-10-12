@@ -41,7 +41,7 @@ export function Definicoes() {
     <>
       <Cabecalho migalhas={['Conta', 'Definições']} titulo="Definições" descricao="A tua conta, a região onde jogas, a função preferida e o guia de boas-vindas." />
 
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-stretch gap-4">
         <Painel aria-labelledby="rg-def-jogo" className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-[22px]">
           <TituloPainel eyebrow="JOGO" titulo="Preferências" id="rg-def-jogo" />
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">

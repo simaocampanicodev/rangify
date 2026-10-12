@@ -107,7 +107,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
         <CartaoCapitao p={p} eq="B" vez={vez === 'B'} />
       </section>
 
-      <div className="flex flex-wrap items-start gap-3.5">
+      <div className="flex flex-wrap items-stretch gap-3.5">
         <ColunaEquipa eq="A" jogadores={equipa(p, 'A')} eu={eu} />
         <section aria-labelledby="rg-draft-livres" className="flex min-w-0 flex-[2.6_1_520px] flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2.5">

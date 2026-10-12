@@ -953,6 +953,13 @@ export const dadosLocais: Dados = {
     return p ? publica(e, p) : null
   },
 
+  async situacao(ultima) {
+    const fila = await dadosLocais.estadoFila()
+    const ativa = await dadosLocais.partidaAtiva()
+    const id = ativa?.id ?? ultima
+    return { fila, partida: id ? await dadosLocais.avancarPartida(id) : null }
+  },
+
   async avancarPartida(id) {
     const e = await pronto()
     const p = e.partidas.find((x) => x.id === id)

@@ -121,14 +121,14 @@ function Submeter({ p, eu }: { p: Partida; eu: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-1 flex-col gap-5">
       <h2 className="eyebrow m-0">RONDAS GANHAS</h2>
-      <div className="flex flex-wrap items-stretch gap-3.5">
+      <div className="flex flex-1 flex-wrap items-stretch gap-3.5">
         {(['A', 'B'] as const).map((eq) => {
           const c = capitao(p, eq)
           const ganha = v.ok && (eq === 'A' ? a > b : b > a)
           return (
-            <div key={eq} className={`relative flex min-w-0 flex-[1_1_240px] flex-col items-center gap-3.5 rounded-[18px] border px-4 py-5 ${ganha ? 'border-laranja/50 bg-laranja/8' : 'border-white/8 bg-white/[0.025]'}`}>
+            <div key={eq} className={`relative flex min-w-0 flex-[1_1_240px] flex-col items-center justify-center gap-3.5 rounded-[18px] border px-4 py-5 ${ganha ? 'border-laranja/50 bg-laranja/8' : 'border-white/8 bg-white/[0.025]'}`}>
               {ganha && <span className="absolute top-3 right-3 rounded-[5px] bg-laranja px-2 py-[3px] font-mono text-[9.5px] font-extrabold tracking-[0.1em] text-escuro-laranja">VENCEDOR</span>}
               <span className="flex flex-col items-center gap-[3px]">
                 <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>EQUIPA {eq}{meuLado === eq ? ' · A TUA' : ''}</span>
@@ -321,7 +321,8 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
         texto="O bloqueio de 15 minutos já terminou. Os dois capitães têm de submeter o mesmo resultado."
         direita={cap && !p.automatica ? <Chip tom="laranja">A submeter como capitão {cap}</Chip> : undefined}
       />
-      <div className="flex flex-wrap items-start gap-4">
+      {/* Lado a lado com a mesma altura: o espaço a mais vai para os cartões das rondas. */}
+      <div className="flex flex-wrap items-stretch gap-4">
         <section className="painel flex min-w-0 flex-[2_1_560px] flex-col gap-5 p-[26px]">
           <Submeter p={p} eu={eu} />
         </section>

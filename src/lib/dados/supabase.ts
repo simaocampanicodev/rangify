@@ -47,6 +47,9 @@ function processar(id: string) {
   cliente().functions.invoke('processar-partida', { body: { matchId: id } }).catch(() => {})
 }
 
+/** Fica a true se a base de dados ainda não tiver a função situacao (migração 0009). */
+let semSituacao = false
+
 async function depoisDeAvancar(p: Partida | null) {
   if (p && p.estado === 'PROCESSING_API' && !p.simulada) processar(p.id)
   return p
@@ -149,6 +152,23 @@ export const dadosSupabase: Dados = {
   partidaAtiva: () => rpc<Partida | null>('partida_ativa'),
   partida: (id) => rpc<Partida | null>('partida_detalhe', { p_match: id }),
   avancarPartida: async (id) => depoisDeAvancar(await rpc<Partida | null>('avancar_partida', { p_match: id })),
+
+  async situacao(ultima) {
+    if (!semSituacao) {
+      try {
+        const r = await rpc<{ fila: EstadoFila; partida: Partida | null }>('situacao', { p_partida: ultima })
+        return { fila: r.fila, partida: await depoisDeAvancar(r.partida) }
+      } catch (e) {
+        // Base de dados ainda sem a migração 0009: segue pelo caminho antigo.
+        if (!/situacao|PGRST202|Could not find/i.test(e instanceof Error ? e.message : String(e))) throw e
+        semSituacao = true
+      }
+    }
+    const [fila, ativa] = await Promise.all([rpc<EstadoFila>('estado_fila'), rpc<Partida | null>('partida_ativa')])
+    const id = ativa?.id ?? ultima
+    const partida = id ? await depoisDeAvancar(await rpc<Partida | null>('avancar_partida', { p_match: id })) : null
+    return { fila, partida }
+  },
   async responderConfirmacao(id, aceita) { await rpc('responder_confirmacao', { p_match: id, p_aceita: aceita }) },
   async escolherJogador(id, perfilId) { await rpc('escolher_jogador', { p_match: id, p_jogador: perfilId }) },
   async banirMapa(id, mapa) { await rpc('banir_mapa', { p_match: id, p_mapa: mapa }) },

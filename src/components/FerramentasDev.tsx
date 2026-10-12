@@ -64,7 +64,7 @@ export function FerramentasDev() {
             {fila?.naFila
               ? '"Completar fila com bots" junta-te aos teus amigos que estão na fila (da mesma região) e preenche o resto com bots. Quem não é teu amigo continua na fila. '
               : 'Para testar com amigos: entrem os dois na fila e depois carrega em "Completar fila com bots". '}
-            "Simular fila cheia" põe-te sozinho com 9 bots e "Simular partida completa" corre tudo sozinha em poucos segundos. Nenhuma destas partidas conta para os pontos.
+            "Simular fila cheia" põe-te sozinho com 9 bots e "Simular partida completa" corre tudo sozinha em poucos segundos. Estas partidas contam pontos e estatísticas; remove-as na página da partida para voltar atrás.
           </p>
         </div>
       ) : partida && (
