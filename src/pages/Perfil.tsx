@@ -10,7 +10,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
-import { dados } from '@/lib/dados'
+import { avisarMudanca, dados } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador, riotIdDoCaminho, tagJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
@@ -99,7 +99,7 @@ export function Perfil() {
           </>
         ) : (
           <>
-            {!amizade && <button type="button" className="btn btn-suave" onClick={() => acao(() => dados.pedirAmizade(p.riotId ?? p.utilizador), l('Pedido de amizade enviado.', 'Friend request sent.'))}><UserPlus size={16} aria-hidden />{l('Adicionar amigo', 'Add friend')}</button>}
+            {!amizade && <button type="button" className="btn btn-suave" onClick={async () => { if (await acao(async () => { await dados.pedirAmizade(p.riotId ?? p.utilizador); return true }, l('Pedido de amizade enviado.', 'Friend request sent.'))) avisarMudanca('amigos') }}><UserPlus size={16} aria-hidden />{l('Adicionar amigo', 'Add friend')}</button>}
             {amizade && <Chip tom="laranja">{amizade.estado === 'aceite' ? l('Amigos', 'Friends') : amizade.direcao === 'enviado' ? l('Pedido enviado', 'Request sent') : l('Pediu-te amizade', 'Sent you a request')}</Chip>}
             <Denunciar perfilId={p.id} nome={nomeJogador(p)} />
           </>

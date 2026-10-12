@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import { aoMudarDados, dados } from '@/lib/dados'
+import { aoMudarDados, avisarMudanca, dados } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador } from '@/lib/partida'
 import { Marca } from './Marca'
 import { Avatar } from './ui'
@@ -72,10 +72,21 @@ export function Sidebar() {
 
   useEffect(() => { setAberto(false) }, [local.pathname])
 
+  // No site real nada avisa quando alguém te manda um pedido ou aceita o teu:
+  // a barra lateral pergunta a cada 15 s e, se a lista mudou, avisa as outras páginas.
   useEffect(() => {
-    const ler = () => dados.amigos().then((l) => setPedidos(l.filter((a) => a.direcao === 'recebido').length)).catch(() => {})
-    ler()
-    return aoMudarDados((o) => { if (o === 'amigos') ler() })
+    if (!perfil?.id) return
+    let assinatura = ''
+    const ler = (avisarSeMudou: boolean) => dados.amigos().then((lista) => {
+      setPedidos(lista.filter((a) => a.direcao === 'recebido').length)
+      const nova = JSON.stringify(lista.map((a) => [a.perfil.id, a.estado, a.direcao, a.atividade]))
+      if (avisarSeMudou && assinatura && nova !== assinatura) avisarMudanca('amigos')
+      assinatura = nova
+    }).catch(() => {})
+    ler(false)
+    const t = window.setInterval(() => ler(true), 15_000)
+    const off = aoMudarDados((o) => { if (o === 'amigos') ler(false) })
+    return () => { window.clearInterval(t); off() }
   }, [perfil?.id])
 
   const alternar = () => {

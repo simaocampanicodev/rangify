@@ -2,10 +2,10 @@ import { Check, Search, Trash, UserPlus, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { List, type RowComponentProps } from 'react-window'
-import { Avatar, Cabecalho, Chip, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
-import { useAcao } from '@/contexts/Avisos'
+import { Avatar, BotaoSegurar, Cabecalho, Chip, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
+import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type Amizade } from '@/lib/dados'
+import { avisarMudanca, dados, type Amizade } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
@@ -18,7 +18,7 @@ function Estado({ a }: { a: Amizade }) {
   return <span className="text-[12px] text-mudo">{a.ultimaPartida ? `${tx('jogou', 'played')} ${haQuanto(a.ultimaPartida)}` : tx('sem partidas', 'no matches')}</span>
 }
 
-function LinhaAmigo({ index, style, lista, remover }: RowComponentProps<{ lista: Amizade[]; remover: (id: string) => void }>) {
+function LinhaAmigo({ index, style, lista, remover, dica }: RowComponentProps<{ lista: Amizade[]; remover: (id: string) => void; dica: () => void }>) {
   const a = lista[index]
   const p = a.perfil
   return (
@@ -34,9 +34,14 @@ function LinhaAmigo({ index, style, lista, remover }: RowComponentProps<{ lista:
       </Link>
       <span className="hidden sm:inline-flex"><RankBadge tier={p.tier} pequeno /></span>
       <span className="hidden w-[110px] justify-end md:flex"><Estado a={a} /></span>
-      <button type="button" aria-label={`${tx('Remover', 'Remove')} ${nomeJogador(p)}`} onClick={() => remover(p.id)} className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/6 hover:text-derrota">
+      <BotaoSegurar
+        rotulo={tx(`Segura para remover ${nomeJogador(p)}`, `Hold to remove ${nomeJogador(p)}`)}
+        onConfirmar={() => remover(p.id)}
+        aoLargarCedo={dica}
+        className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-white/8 bg-transparent text-mudo hover:border-derrota/40 hover:text-derrota"
+      >
         <Trash size={16} aria-hidden />
-      </button>
+      </BotaoSegurar>
       </div>
     </div>
   )
@@ -44,6 +49,7 @@ function LinhaAmigo({ index, style, lista, remover }: RowComponentProps<{ lista:
 
 export function Amigos() {
   const acao = useAcao()
+  const avisar = useAvisos()
   const amigos = useCarregar(() => dados.amigos(), [], ['amigos', 'partida', 'fila'], { minimo: 450 })
   const [alvo, setAlvo] = useState('')
   const [filtro, setFiltro] = useState('')
@@ -63,9 +69,15 @@ export function Amigos() {
 
   const pedir = async () => {
     const ok = await acao(async () => { await dados.pedirAmizade(alvo); return true }, tx('Pedido enviado.', 'Request sent.'))
-    if (ok) setAlvo('')
+    if (ok) { setAlvo(''); avisarMudanca('amigos') }
   }
-  const remover = (id: string) => acao(() => dados.removerAmigo(id), tx('Amigo removido.', 'Friend removed.'))
+  /** Corre a ação e, se correu bem, atualiza a lista, o contador da barra lateral e o perfil. */
+  const fazer = async (f: () => Promise<unknown>, ok?: string) => {
+    const r = await acao(async () => { await f(); return true }, ok)
+    if (r) avisarMudanca('amigos')
+  }
+  const remover = (id: string) => fazer(() => dados.removerAmigo(id), tx('Amigo removido.', 'Friend removed.'))
+  const dica = () => avisar(tx('Mantém o botão premido até encher para remover.', 'Hold the button until it fills to remove.'))
 
   return (
     <>
@@ -92,7 +104,7 @@ export function Amigos() {
               rowComponent={LinhaAmigo}
               rowCount={aceites.length}
               rowHeight={ALTURA_LINHA}
-              rowProps={{ lista: aceites, remover }}
+              rowProps={{ lista: aceites, remover, dica }}
               style={{ height: Math.min(aceites.length, 8) * ALTURA_LINHA }}
             />
           ) : (
@@ -117,8 +129,8 @@ export function Amigos() {
                   <span className="truncate text-[13.5px] font-semibold">{a.perfil.riotId}</span>
                   <span className="text-[11.5px] text-mudo">{haQuanto(a.desde)}</span>
                 </span>
-                <button type="button" aria-label={`${tx('Aceitar', 'Accept')} ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, true), tx('Pedido aceite.', 'Request accepted.'))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border-0 bg-laranja text-escuro-laranja hover:brightness-110"><Check size={17} aria-hidden /></button>
-                <button type="button" aria-label={`${tx('Recusar', 'Decline')} ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, false))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/10 bg-transparent text-mudo hover:text-texto"><X size={17} aria-hidden /></button>
+                <button type="button" aria-label={`${tx('Aceitar', 'Accept')} ${nomeJogador(a.perfil)}`} onClick={() => fazer(() => dados.responderAmizade(a.perfil.id, true), tx('Pedido aceite.', 'Request accepted.'))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border-0 bg-laranja text-escuro-laranja hover:brightness-110"><Check size={17} aria-hidden /></button>
+                <button type="button" aria-label={`${tx('Recusar', 'Decline')} ${nomeJogador(a.perfil)}`} onClick={() => fazer(() => dados.responderAmizade(a.perfil.id, false))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/10 bg-transparent text-mudo hover:text-texto"><X size={17} aria-hidden /></button>
               </div>
             ))}
             {enviados.length > 0 && (
@@ -127,7 +139,7 @@ export function Amigos() {
                 {enviados.map((a) => (
                   <div key={a.perfil.id} className="flex items-center justify-between gap-2 text-[13px]">
                     <span className="truncate text-suave">{a.perfil.riotId}</span>
-                    <button type="button" onClick={() => acao(() => dados.removerAmigo(a.perfil.id), tx('Pedido cancelado.', 'Request cancelled.'))} className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-laranja-claro hover:text-pessego">{tx('Cancelar', 'Cancel')}</button>
+                    <button type="button" onClick={() => fazer(() => dados.removerAmigo(a.perfil.id), tx('Pedido cancelado.', 'Request cancelled.'))} className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-laranja-claro hover:text-pessego">{tx('Cancelar', 'Cancel')}</button>
                   </div>
                 ))}
               </div>

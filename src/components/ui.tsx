@@ -1,5 +1,5 @@
 import { ChevronRight, CircleQuestionMark, LoaderCircle, Star, X } from 'lucide-react'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
@@ -256,6 +256,57 @@ export function BarraProgresso({ valor, alvo, rotulo }: { valor: number; alvo: n
 }
 
 /** MVP da partida: só uma estrela laranja dentro de um quadrado. */
+/**
+ * Botão para ações sem volta atrás: só confirma depois de o manteres premido
+ * (rato, toque, Enter ou Espaço) até encher. Largar antes cancela.
+ */
+export function BotaoSegurar({ onConfirmar, rotulo, children, className = '', duracao = 900, aoLargarCedo }: {
+  onConfirmar: () => void; rotulo: string; children: ReactNode; className?: string; duracao?: number; aoLargarCedo?: () => void
+}) {
+  const [aEncher, setAEncher] = useState(false)
+  const temporizador = useRef<number | null>(null)
+  useEffect(() => () => { if (temporizador.current) window.clearTimeout(temporizador.current) }, [])
+  const comecar = () => {
+    if (temporizador.current) return
+    setAEncher(true)
+    temporizador.current = window.setTimeout(() => {
+      temporizador.current = null
+      setAEncher(false)
+      onConfirmar()
+    }, duracao)
+  }
+  const largar = () => {
+    if (!temporizador.current) return
+    window.clearTimeout(temporizador.current)
+    temporizador.current = null
+    setAEncher(false)
+    aoLargarCedo?.()
+  }
+  return (
+    <button
+      type="button"
+      aria-label={rotulo}
+      title={rotulo}
+      onPointerDown={comecar}
+      onPointerUp={largar}
+      onPointerLeave={largar}
+      onPointerCancel={largar}
+      onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); comecar() } }}
+      onKeyUp={(e) => { if (e.key === 'Enter' || e.key === ' ') largar() }}
+      onBlur={largar}
+      className={`relative overflow-hidden select-none ${className}`}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 bg-derrota/40"
+        style={{ height: aEncher ? '100%' : '0%', transition: aEncher ? `height ${duracao}ms linear` : 'height .2s ease-out' }}
+      />
+      <span className="relative inline-flex items-center justify-center">{children}</span>
+    </button>
+  )
+}
+
 export function SeloMvp({ tamanho = 22 }: { tamanho?: number }) {
   return (
     <span role="img" aria-label={l('MVP da partida', 'Match MVP')} title={l('MVP da partida', 'Match MVP')} className="inline-grid shrink-0 place-items-center rounded-[6px] border border-laranja/45 bg-laranja/14 text-laranja" style={{ width: tamanho, height: tamanho }}>
