@@ -11,6 +11,7 @@ import { emFalta } from '@/lib/tempo'
 import { rgba } from '../ui'
 import { ColunaEquipa, ICONE_FUNCAO, Iniciais } from './comum'
 import { Relogio } from './Relogio'
+import { l, nomeFuncaoJogo } from '@/lib/idioma'
 
 function CartaoCapitao({ p, eq, vez }: { p: Partida; eq: 'A' | 'B'; vez: boolean }) {
   const c = capitao(p, eq)
@@ -24,12 +25,12 @@ function CartaoCapitao({ p, eq, vez }: { p: Partida; eq: 'A' | 'B'; vez: boolean
       <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={58} url={c.avatarUrl} />
       <span className="flex min-w-0 flex-col gap-1">
         <span className={`flex items-center gap-1.5 font-mono text-[10.5px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>
-          <Crown size={12} aria-hidden />CAPITÃO {eq}
+          <Crown size={12} aria-hidden />{l('CAPITÃO', 'CAPTAIN')} {eq}
         </span>
         <span className="truncate text-[20px] font-extrabold tracking-[-0.02em]">
           {nomeJogador(c)}<span className="font-mono text-[12px] font-medium text-mudo">{tagJogador(c)}</span>
         </span>
-        <span className="text-[12.5px] text-[#a6a19a]">{nomeRank(c.tier)} · média da equipa {media}</span>
+        <span className="text-[12.5px] text-[#a6a19a]">{nomeRank(c.tier)} · {l('média da equipa', 'team average')} {media}</span>
       </span>
     </div>
   )
@@ -57,7 +58,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
   useEffect(() => {
     let vivo = true
     Promise.all(ids.split(',').map(async (id) => [id, await dados.estatisticas(id)] as const))
-      .then((l) => { if (vivo) setStats(Object.fromEntries(l)) })
+      .then((lista) => { if (vivo) setStats(Object.fromEntries(lista)) })
       .catch(() => {})
     return () => { vivo = false }
   }, [ids])
@@ -71,18 +72,18 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <section aria-label="Vez de escolher" className="flex flex-wrap items-stretch gap-3.5">
+      <section aria-label={l('Vez de escolher', 'Whose pick it is')} className="flex flex-wrap items-stretch gap-3.5">
         <CartaoCapitao p={p} eq="A" vez={vez === 'A'} />
         <div className="painel flex min-w-0 flex-[1.4_1_380px] items-center gap-5 px-[22px] py-[18px]">
           <Relogio restante={restante} total={SEGUNDOS_ESCOLHA} cor={vez === 'A' ? '#ff5b1f' : '#e6e1da'} />
           <div className="flex min-w-0 flex-1 flex-col gap-2.5">
             <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${vez === 'A' ? 'text-laranja' : 'text-marfim'}`}>
-              ESCOLHA {n + 1} DE 8 · EQUIPA {vez}
+              {l(`ESCOLHA ${n + 1} DE 8 · EQUIPA ${vez}`, `PICK ${n + 1} OF 8 · TEAM ${vez}`)}
             </span>
             <h1 className="m-0 text-[24px] leading-[1.1] font-extrabold tracking-[-0.03em]">
-              {souEu ? 'É a tua vez de escolher' : `${capVez ? nomeJogador(capVez) : 'O capitão'} está a escolher`}
+              {souEu ? l('É a tua vez de escolher', 'It is your pick') : l(`${capVez ? nomeJogador(capVez) : 'O capitão'} está a escolher`, `${capVez ? nomeJogador(capVez) : 'The captain'} is picking`)}
             </h1>
-            <div role="img" aria-label={`Ordem do draft, escolha ${n + 1} de 8`} className="flex flex-wrap gap-[5px]">
+            <div role="img" aria-label={l(`Ordem do draft, escolha ${n + 1} de 8`, `Draft order, pick ${n + 1} of 8`)} className="flex flex-wrap gap-[5px]">
               {Array.from({ length: 8 }, (_, i) => {
                 const e = equipaDaEscolha(i)
                 const feita = i < n
@@ -111,9 +112,9 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
         <ColunaEquipa eq="A" jogadores={equipa(p, 'A')} eu={eu} />
         <section aria-labelledby="rg-draft-livres" className="flex min-w-0 flex-[2.6_1_520px] flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2.5">
-            <h2 id="rg-draft-livres" className="eyebrow m-0">JOGADORES DISPONÍVEIS · {livres.length}</h2>
+            <h2 id="rg-draft-livres" className="eyebrow m-0">{l('JOGADORES DISPONÍVEIS', 'AVAILABLE PLAYERS')} · {livres.length}</h2>
             <span className="text-[12.5px] text-mudo">
-              {souEu ? 'Escolhe um jogador. Se o tempo acabar, entra o rank oficial mais alto.' : 'Acompanha o draft em direto.'}
+              {souEu ? l('Escolhe um jogador. Se o tempo acabar, entra o rank oficial mais alto.', 'Pick a player. If time runs out, the highest official rank goes in.') : l('Acompanha o draft em direto.', 'Follow the draft live.')}
             </span>
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
@@ -126,7 +127,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                   type="button"
                   disabled={!souEu || !!aEscolher}
                   onClick={() => escolher(j.perfilId)}
-                  aria-label={`Escolher ${nomeJogador(j)}, ${nomeRank(j.tier)}`}
+                  aria-label={`${l('Escolher', 'Pick')} ${nomeJogador(j)}, ${nomeRank(j.tier)}`}
                   className={`group relative flex flex-col gap-3 rounded-2xl border bg-[rgba(16,16,19,0.88)] p-3.5 text-left text-texto transition-[border-color,transform] duration-200 ${souEu ? 'cursor-pointer border-white/10 hover:-translate-y-0.5 hover:border-laranja/60' : 'cursor-default border-white/8'} disabled:opacity-100`}
                 >
                   <span className="flex items-center gap-[11px]">
@@ -136,8 +137,8 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                         {nomeJogador(j)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(j)}</span>
                       </span>
                       <span className="flex items-center gap-1.5 text-[12px] text-[#a6a19a]">
-                        {j.funcaoJogo ?? 'Sem função preferida'}
-                        {j.perfilId === eu && <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">TU</span>}
+                        {j.funcaoJogo ? nomeFuncaoJogo(j.funcaoJogo) : l('Sem função preferida', 'No preferred role')}
+                        {j.perfilId === eu && <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{l('TU', 'YOU')}</span>}
                         {j.bot && <Bot size={12} className="text-laranja" aria-label="bot" />}
                       </span>
                     </span>
@@ -157,7 +158,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                   <span className="grid grid-cols-3 gap-px overflow-hidden rounded-[10px] bg-white/6">
                     {[
                       ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-'],
-                      ['VIT', s && s.partidas ? `${Math.round((s.vitorias / s.partidas) * 100)}%` : '-'],
+                      [l('VIT', 'WIN'), s && s.partidas ? `${Math.round((s.vitorias / s.partidas) * 100)}%` : '-'],
                       ['ACS', s?.acs != null ? Math.round(s.acs) : '-'],
                     ].map(([k, v]) => (
                       <span key={k} className="flex flex-col gap-0.5 bg-[#121215] px-2.5 py-2">
@@ -168,7 +169,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                   </span>
                   {souEu && (
                     <span className="flex h-[38px] items-center justify-center gap-2 rounded-[10px] border border-laranja/32 bg-laranja/12 text-[13px] font-bold text-pessego-claro transition-colors group-hover:bg-laranja group-hover:text-escuro-laranja">
-                      <UserPlus size={15} aria-hidden />{aEscolher === j.perfilId ? 'A escolher…' : `Escolher para a Equipa ${vez}`}
+                      <UserPlus size={15} aria-hidden />{aEscolher === j.perfilId ? l('A escolher…', 'Picking…') : l(`Escolher para a Equipa ${vez}`, `Pick for Team ${vez}`)}
                     </span>
                   )}
                 </button>

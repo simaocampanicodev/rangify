@@ -4,6 +4,7 @@ import { useAgora } from '@/hooks/useAgora'
 import { useFila } from '@/hooks/useFila'
 import { relogio } from '@/lib/tempo'
 import { NomeRangify } from './Marca'
+import { l } from '@/lib/idioma'
 
 /** O estado da fila já pronto a mostrar: lugares ocupados, tempo de espera e castigo. */
 export function useVistaFila() {
@@ -30,13 +31,13 @@ export function BotaoFila({ grande = false }: { grande?: boolean }) {
     return (
       <button type="button" className={`btn btn-fantasma ${grande ? '!h-[50px] !rounded-xl !px-5' : ''}`} disabled={ocupado} onClick={alternar}>
         {ocupado ? <LoaderCircle size={16} className="animate-spin" aria-hidden /> : <LogOut size={16} className="text-laranja" aria-hidden />}
-        Sair da fila
+        {l('Sair da fila', 'Leave queue')}
       </button>
     )
   }
   return (
     <button type="button" className={`btn btn-primario ${tamanho}`} disabled={ocupado || castigo > 0} onClick={alternar}>
-      {castigo > 0 ? <><Timer size={16} aria-hidden />{relogio(castigo)}</> : <>Entrar na fila<ArrowRight size={16} aria-hidden /></>}
+      {castigo > 0 ? <><Timer size={16} aria-hidden />{relogio(castigo)}</> : <>{l('Entrar na fila', 'Join queue')}<ArrowRight size={16} aria-hidden /></>}
     </button>
   )
 }
@@ -63,7 +64,7 @@ export function AnelFila({ tamanho = 200, contagem, naFila, legenda }: { tamanho
   })
   return (
     <div className="relative shrink-0" style={{ width: tamanho, height: tamanho }}>
-      <svg width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} role="img" aria-label={`${contagem} de 10 lugares preenchidos`} style={{ overflow: 'visible', filter: 'drop-shadow(0 0 14px rgba(255,91,31,0.35))' }}>
+      <svg width={tamanho} height={tamanho} viewBox={`0 0 ${tamanho} ${tamanho}`} role="img" aria-label={l(`${contagem} de 10 lugares preenchidos`, `${contagem} of 10 spots filled`)} style={{ overflow: 'visible', filter: 'drop-shadow(0 0 14px rgba(255,91,31,0.35))' }}>
         {segmentos}
       </svg>
       {naFila && (

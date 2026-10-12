@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import type { Experiencia } from '@/lib/dados'
 import { custoNivel, eMarco, formatarXp } from '@/lib/experiencia'
 import { NomeRangify } from './Marca'
+import { l } from '@/lib/idioma'
 
 const NIVEIS_NA_PISTA = 7
 
@@ -39,32 +40,32 @@ export function FaixaExperiencia({ exp }: { exp: Experiencia }) {
     <section aria-labelledby="rg-xp" className="painel relative flex flex-col gap-[22px] overflow-hidden !border-laranja/28 px-[26px] pt-6 pb-[22px] shadow-[0_30px_80px_-50px_rgba(255,91,31,0.7)]">
       <div className="flex flex-wrap items-center gap-6">
         <div className="flex size-24 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[22px] border-[1.5px] border-laranja bg-laranja/12">
-          <span className="font-mono text-[10px] font-bold tracking-[0.16em] text-pessego">NÍVEL</span>
+          <span className="font-mono text-[10px] font-bold tracking-[0.16em] text-pessego">{l('NÍVEL', 'LEVEL')}</span>
           <span className="text-[44px] leading-none font-black tracking-[-0.04em]">{exp.nivel}</span>
         </div>
 
         <div className="flex min-w-[240px] flex-1 flex-col gap-2.5">
-          <span className="font-mono text-[11px] font-bold tracking-[0.16em] text-laranja">PASSE DA TEMPORADA 1</span>
+          <span className="font-mono text-[11px] font-bold tracking-[0.16em] text-laranja">{l('PASSE DA TEMPORADA 1', 'SEASON 1 PASS')}</span>
           <h2 id="rg-xp" className="m-0 text-[28px] leading-none font-extrabold tracking-[-0.03em]"><NomeRangify /> Experience</h2>
-          <div role="progressbar" aria-label={`XP do nível ${exp.nivel}`} aria-valuemin={0} aria-valuemax={exp.xpParaProximo} aria-valuenow={exp.xpNoNivel} className="h-3 overflow-hidden rounded-full bg-white/7">
+          <div role="progressbar" aria-label={l(`XP do nível ${exp.nivel}`, `Level ${exp.nivel} XP`)} aria-valuemin={0} aria-valuemax={exp.xpParaProximo} aria-valuenow={exp.xpNoNivel} className="h-3 overflow-hidden rounded-full bg-white/7">
             <div className="h-full rounded-full bg-laranja shadow-[0_0_18px_rgba(255,91,31,0.7)] transition-[width] duration-700" style={{ width: `${pct}%` }} />
           </div>
           <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[13px]">
             <span className="font-mono font-semibold">{formatarXp(exp.xpNoNivel)} <span className="text-mudo">/ {formatarXp(exp.xpParaProximo)} XP</span></span>
-            <span className="text-suave">Faltam <span className="font-bold text-pessego">{formatarXp(falta)} XP</span> para o nível {exp.nivel + 1}</span>
+            <span className="text-suave">{l('Faltam', '')} <span className="font-bold text-pessego">{formatarXp(falta)} XP</span> {l(`para o nível ${exp.nivel + 1}`, `to level ${exp.nivel + 1}`)}</span>
           </div>
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:w-[210px]">
-          <Destaque icone={<Trophy size={17} />} valor={`#${exp.posicao}`} texto="no ranking de nível" />
-          <Destaque icone={<Zap size={17} />} valor={`+${formatarXp(exp.xpSemana)} XP`} texto="ganhos esta semana" />
+          <Destaque icone={<Trophy size={17} />} valor={`#${exp.posicao}`} texto={l('na tabela de nível', 'on the level leaderboard')} />
+          <Destaque icone={<Zap size={17} />} valor={`+${formatarXp(exp.xpSemana)} XP`} texto={l('ganhos esta semana', 'earned this week')} />
         </div>
       </div>
 
       <div className="flex flex-col gap-3 border-t border-white/7 pt-[18px]">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="font-mono text-[10.5px] font-bold tracking-[0.14em] text-mudo">PRÓXIMOS NÍVEIS</span>
-          <Link to="/ranking?tipo=nivel" className="text-[13px] font-semibold text-pessego no-underline hover:text-pessego-claro">Ver ranking de nível ›</Link>
+          <span className="font-mono text-[10.5px] font-bold tracking-[0.14em] text-mudo">{l('PRÓXIMOS NÍVEIS', 'NEXT LEVELS')}</span>
+          <Link to="/ranking?tipo=nivel" className="text-[13px] font-semibold text-pessego no-underline hover:text-pessego-claro">{l('Ver tabela de nível', 'View level leaderboard')} ›</Link>
         </div>
         <ol className="m-0 grid list-none grid-cols-7 p-0">
           {niveis.map((n, i) => {
@@ -91,10 +92,10 @@ export function FaixaExperiencia({ exp }: { exp: Experiencia }) {
                 )}
                 {/* Num telemóvel ficam só os círculos: os números já lá estão. */}
                 <span className={`hidden font-mono text-[12px] font-bold sm:block ${agora ? 'text-pessego' : marco ? 'text-pessego' : feito ? 'text-texto' : 'text-mudo'}`}>
-                  {agora ? 'AGORA' : `NÍV. ${n}`}
+                  {agora ? l('AGORA', 'NOW') : `${l('NÍV.', 'LVL')} ${n}`}
                 </span>
                 <span className={`hidden text-center text-[12px] sm:block ${agora ? 'text-texto' : 'text-mudo'}`}>
-                  {feito ? 'Feito' : agora ? `${pct}% feito` : `${marco ? 'Marco · ' : ''}a ${formatarXp(ate(n))} XP`}
+                  {feito ? l('Feito', 'Done') : agora ? l(`${pct}% feito`, `${pct}% done`) : `${marco ? l('Marco · ', 'Milestone · ') : ''}${l('a', 'in')} ${formatarXp(ate(n))} XP`}
                 </span>
               </li>
             )

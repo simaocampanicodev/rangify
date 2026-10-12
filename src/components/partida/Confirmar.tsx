@@ -16,6 +16,7 @@ import { emFalta } from '@/lib/tempo'
 import { NomeRangify } from '../Marca'
 import { iniciais } from '../ui'
 import { Relogio } from './Relogio'
+import { l } from '@/lib/idioma'
 
 /**
  * "Partida encontrada": aparece por cima de qualquer página quando a fila
@@ -50,10 +51,11 @@ export function Confirmar() {
     if (!idPendente) return
     const antes = document.title
     let aceso = true
-    document.title = '(!) Partida encontrada'
+    const aviso = l('(!) Partida encontrada', '(!) Match found')
+    document.title = aviso
     const t = window.setInterval(() => {
       aceso = !aceso
-      document.title = aceso ? '(!) Partida encontrada' : antes
+      document.title = aceso ? aviso : antes
     }, 1000)
     return () => { window.clearInterval(t); document.title = antes }
   }, [idPendente])
@@ -86,25 +88,25 @@ export function Confirmar() {
         <div className="relative flex w-full flex-wrap items-center justify-between gap-3">
           <span className="inline-flex h-8 items-center gap-2.5 rounded-full border border-laranja/32 bg-laranja/12 pr-3.5 pl-2.5 font-mono text-[11px] font-bold tracking-[0.14em] text-pessego">
             <span className="relative size-2"><span className="ping absolute inset-0 rounded-full bg-laranja" /><span className="absolute inset-0 rounded-full bg-laranja" /></span>
-            PARTIDA ENCONTRADA
+            {l('PARTIDA ENCONTRADA', 'MATCH FOUND')}
           </span>
-          <span className="text-[12.5px] text-[#a6a19a]"><NomeRangify className="text-marfim" /> Hub · {partida.regiao.toUpperCase()}{partida.simulada ? ' · Simulação' : ''}</span>
+          <span className="text-[12.5px] text-[#a6a19a]"><NomeRangify className="text-marfim" /> Hub · {partida.regiao.toUpperCase()}{partida.simulada ? ` · ${l('Simulação', 'Simulation')}` : ''}</span>
         </div>
 
-        <Relogio restante={restante} total={SEGUNDOS_CONFIRMAR} tamanho={176} espessura={8} legenda={eu.aceitou ? 'à espera' : 'para aceitar'} />
+        <Relogio restante={restante} total={SEGUNDOS_CONFIRMAR} tamanho={176} espessura={8} legenda={eu.aceitou ? l('à espera', 'waiting') : l('para aceitar', 'to accept')} />
 
         <div className="relative flex max-w-[520px] flex-col gap-2">
           <h1 id="rg-conf-titulo" className="m-0 text-[clamp(28px,3.4vw,36px)] leading-[1.05] font-extrabold tracking-[-0.04em]">
-            {eu.aceitou ? 'Aceitaste. Falta pouco.' : 'A tua partida está pronta'}
+            {eu.aceitou ? l('Aceitaste. Falta pouco.', 'Accepted. Almost there.') : l('A tua partida está pronta', 'Your match is ready')}
           </h1>
           <p className="m-0 text-[14.5px] leading-[1.55] text-suave">
             {eu.aceitou
-              ? `À espera de ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'}. Se alguém não aceitar, voltas à fila com o mesmo lugar.`
-              : 'Dez jogadores encontrados. Aceita para seguir para o draft dos capitães. Se recusares, ficas 5 minutos sem poder entrar na fila.'}
+              ? l(`À espera de ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'}. Se alguém não aceitar, voltas à fila com o mesmo lugar.`, `Waiting for ${faltam} ${faltam === 1 ? 'player' : 'players'}. If someone does not accept, you go back to the queue with the same spot.`)
+              : l('Dez jogadores encontrados. Aceita para seguir para o draft dos capitães. Se recusares, ficas 5 minutos sem poder entrar na fila.', 'Ten players found. Accept to go to the captains\' draft. If you decline, you cannot queue for 5 minutes.')}
           </p>
         </div>
 
-        <div role="list" aria-label="Jogadores da partida" className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2">
+        <div role="list" aria-label={l('Jogadores da partida', 'Match players')} className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2">
           {partida.jogadores.map((j) => (
             <div
               key={j.perfilId}
@@ -120,8 +122,8 @@ export function Confirmar() {
                 </span>
               </span>
               <span className="flex min-w-0 flex-col gap-px">
-                <span className="truncate text-[13px] font-semibold">{j.perfilId === perfil.id ? 'Tu' : nomeJogador(j)}</span>
-                <span className={`text-[11px] ${j.aceitou ? 'text-pessego' : 'text-mudo'}`}>{j.aceitou ? 'Aceitou' : 'A decidir'}</span>
+                <span className="truncate text-[13px] font-semibold">{j.perfilId === perfil.id ? l('Tu', 'You') : nomeJogador(j)}</span>
+                <span className={`text-[11px] ${j.aceitou ? 'text-pessego' : 'text-mudo'}`}>{j.aceitou ? l('Aceitou', 'Accepted') : l('A decidir', 'Deciding')}</span>
               </span>
             </div>
           ))}
@@ -130,23 +132,23 @@ export function Confirmar() {
         {eu.aceitou ? (
           <div role="status" className="relative inline-flex h-14 items-center gap-2.5 rounded-2xl border border-laranja/32 bg-laranja/12 px-[22px] text-[15px] font-bold text-pessego-claro">
             <Check size={18} aria-hidden />
-            Aceite. À espera de {faltam}
+            {l(`Aceite. À espera de ${faltam}`, `Accepted. Waiting for ${faltam}`)}
           </div>
         ) : (
           <div className="relative flex w-full flex-col items-center gap-3">
             <button type="button" disabled={aEnviar} onClick={() => responder(true)} className="btn btn-primario h-[60px] w-full max-w-[380px] !rounded-2xl !text-[18px] !font-extrabold tracking-[0.04em]" autoFocus>
-              ACEITAR
+              {l('ACEITAR', 'ACCEPT')}
             </button>
             <button type="button" disabled={aEnviar} onClick={() => responder(false)} className="btn border-0 bg-transparent text-suave hover:text-texto">
-              <X size={16} aria-hidden />Recusar
+              <X size={16} aria-hidden />{l('Recusar', 'Decline')}
             </button>
           </div>
         )}
 
         <div className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 border-t border-white/7 pt-[18px]">
-          <div className="flex flex-col gap-1"><span className="rotulo">Média da sala</span><span className="text-[14px] font-semibold">{nomeRank(tierMedio(partida.jogadores.map((j) => j.tier)))}</span></div>
-          <div className="flex flex-col gap-1"><span className="rotulo">Aceitaram</span><span className="font-mono text-[14px] font-semibold">{aceites}/10</span></div>
-          <div className="flex flex-col gap-1"><span className="rotulo">Pontos em jogo</span><span className="font-mono text-[14px] font-semibold text-pessego">até +{PONTOS_BASE + BONUS_MAX}</span></div>
+          <div className="flex flex-col gap-1"><span className="rotulo">{l('Média da sala', 'Lobby average')}</span><span className="text-[14px] font-semibold">{nomeRank(tierMedio(partida.jogadores.map((j) => j.tier)))}</span></div>
+          <div className="flex flex-col gap-1"><span className="rotulo">{l('Aceitaram', 'Accepted')}</span><span className="font-mono text-[14px] font-semibold">{aceites}/10</span></div>
+          <div className="flex flex-col gap-1"><span className="rotulo">{l('Pontos em jogo', 'Points at stake')}</span><span className="font-mono text-[14px] font-semibold text-pessego">{l('até', 'up to')} +{PONTOS_BASE + BONUS_MAX}</span></div>
         </div>
       </section>
     </div>,

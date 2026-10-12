@@ -7,14 +7,15 @@ import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type Amizade } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
+import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
 
 const ALTURA_LINHA = 68
 
 function Estado({ a }: { a: Amizade }) {
-  if (a.atividade === 'jogo') return <Chip tom="laranja"><span className="ao-vivo size-1.5 rounded-full bg-laranja" />Em jogo</Chip>
-  if (a.atividade === 'fila') return <Chip tom="laranja">Na fila</Chip>
-  return <span className="text-[12px] text-mudo">{a.ultimaPartida ? `jogou ${haQuanto(a.ultimaPartida)}` : 'sem partidas'}</span>
+  if (a.atividade === 'jogo') return <Chip tom="laranja"><span className="ao-vivo size-1.5 rounded-full bg-laranja" />{tx('Em jogo', 'In game')}</Chip>
+  if (a.atividade === 'fila') return <Chip tom="laranja">{tx('Na fila', 'In queue')}</Chip>
+  return <span className="text-[12px] text-mudo">{a.ultimaPartida ? `${tx('jogou', 'played')} ${haQuanto(a.ultimaPartida)}` : tx('sem partidas', 'no matches')}</span>
 }
 
 function LinhaAmigo({ index, style, lista, remover }: RowComponentProps<{ lista: Amizade[]; remover: (id: string) => void }>) {
@@ -33,7 +34,7 @@ function LinhaAmigo({ index, style, lista, remover }: RowComponentProps<{ lista:
       </Link>
       <span className="hidden sm:inline-flex"><RankBadge tier={p.tier} pequeno /></span>
       <span className="hidden w-[110px] justify-end md:flex"><Estado a={a} /></span>
-      <button type="button" aria-label={`Remover ${nomeJogador(p)}`} onClick={() => remover(p.id)} className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/6 hover:text-derrota">
+      <button type="button" aria-label={`${tx('Remover', 'Remove')} ${nomeJogador(p)}`} onClick={() => remover(p.id)} className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/6 hover:text-derrota">
         <Trash size={16} aria-hidden />
       </button>
       </div>
@@ -61,30 +62,30 @@ export function Amigos() {
   }, [lista, filtro, ver])
 
   const pedir = async () => {
-    const ok = await acao(async () => { await dados.pedirAmizade(alvo); return true }, 'Pedido enviado.')
+    const ok = await acao(async () => { await dados.pedirAmizade(alvo); return true }, tx('Pedido enviado.', 'Request sent.'))
     if (ok) setAlvo('')
   }
-  const remover = (id: string) => acao(() => dados.removerAmigo(id), 'Amigo removido.')
+  const remover = (id: string) => acao(() => dados.removerAmigo(id), tx('Amigo removido.', 'Friend removed.'))
 
   return (
     <>
       <Cabecalho
-        migalhas={['Comunidade', 'Amigos']}
-        titulo="Amigos"
-        descricao="Junta quem costuma jogar contigo. Vês quem está na fila ou a jogar e podes comparar-te no ranking."
+        migalhas={[tx('Comunidade', 'Community'), tx('Amigos', 'Friends')]}
+        titulo={tx('Amigos', 'Friends')}
+        descricao={tx('Junta quem costuma jogar contigo. Vês quem está na fila ou a jogar e podes comparar-te na tabela.', 'Add the people you usually play with. See who is queueing or playing and compare yourself on the leaderboard.')}
       />
       <div className="flex flex-wrap items-start gap-4">
         <Painel aria-labelledby="rg-amigos" className="flex min-w-0 flex-[2_1_540px] flex-col gap-3 p-[22px]">
           <TituloPainel
-            eyebrow={`${lista.filter((a) => a.estado === 'aceite').length} AMIGOS`}
-            titulo="A tua lista"
+            eyebrow={`${lista.filter((a) => a.estado === 'aceite').length} ${tx('AMIGOS', 'FRIENDS')}`}
+            titulo={tx('A tua lista', 'Your list')}
             id="rg-amigos"
-            direita={<Segmentado rotulo="Mostrar" valor={ver} onChange={setVer} opcoes={[{ valor: 'todos', texto: 'Todos' }, { valor: 'ativos', texto: 'Ativos agora' }]} />}
+            direita={<Segmentado rotulo={tx('Mostrar', 'Show')} valor={ver} onChange={setVer} opcoes={[{ valor: 'todos', texto: tx('Todos', 'All') }, { valor: 'ativos', texto: tx('Ativos agora', 'Active now') }]} />}
           />
           <label className="relative block">
-            <span className="so-leitores">Filtrar amigos</span>
+            <span className="so-leitores">{tx('Filtrar amigos', 'Filter friends')}</span>
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-            <input className="campo !pl-10" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Filtrar por nome" />
+            <input className="campo !pl-10" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder={tx('Filtrar por nome', 'Filter by name')} />
           </label>
           {amigos.carregando ? <LinhasEsqueleto tipo="amigos" n={6} /> : aceites.length ? (
             <List
@@ -95,20 +96,20 @@ export function Amigos() {
               style={{ height: Math.min(aceites.length, 8) * ALTURA_LINHA }}
             />
           ) : (
-            <Vazio icone={<Users size={22} />} titulo={ver === 'ativos' ? 'Ninguém ativo agora' : 'Ainda sem amigos'} texto="Adiciona alguém pelo Riot ID ao lado." />
+            <Vazio icone={<Users size={22} />} titulo={ver === 'ativos' ? tx('Ninguém ativo agora', 'Nobody active now') : tx('Ainda sem amigos', 'No friends yet')} texto={tx('Adiciona alguém pelo Riot ID ao lado.', 'Add someone by Riot ID on the side.')} />
           )}
         </Painel>
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           <Painel aria-labelledby="rg-adicionar" className="flex flex-col gap-3 p-[22px]">
-            <TituloPainel eyebrow="ADICIONAR" titulo="Novo amigo" id="rg-adicionar" />
+            <TituloPainel eyebrow={tx('ADICIONAR', 'ADD')} titulo={tx('Novo amigo', 'New friend')} id="rg-adicionar" />
             <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); if (alvo.trim()) pedir() }}>
-              <input className="campo font-mono" value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder="Nome#TAG ou utilizador" aria-label="Riot ID ou utilizador do Discord" />
-              <button type="submit" className="btn btn-primario" disabled={!alvo.trim()}><UserPlus size={16} aria-hidden />Enviar pedido</button>
+              <input className="campo font-mono" value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder={tx('Nome#TAG ou utilizador', 'Name#TAG or username')} aria-label={tx('Riot ID ou utilizador do Discord', 'Riot ID or Discord username')} />
+              <button type="submit" className="btn btn-primario" disabled={!alvo.trim()}><UserPlus size={16} aria-hidden />{tx('Enviar pedido', 'Send request')}</button>
             </form>
           </Painel>
           <Painel aria-labelledby="rg-pedidos" className="flex flex-col gap-3 p-[22px]">
-            <TituloPainel eyebrow="PEDIDOS" titulo={recebidos.length ? `${recebidos.length} por responder` : 'Sem pedidos novos'} id="rg-pedidos" />
+            <TituloPainel eyebrow={tx('PEDIDOS', 'REQUESTS')} titulo={recebidos.length ? tx(`${recebidos.length} por responder`, `${recebidos.length} to answer`) : tx('Sem pedidos novos', 'No new requests')} id="rg-pedidos" />
             {recebidos.map((a) => (
               <div key={a.perfil.id} className="flex items-center gap-3 rounded-xl border border-laranja/25 bg-laranja/6 p-2.5">
                 <Avatar nome={nomeJogador(a.perfil)} url={a.perfil.avatarUrl} tamanho={34} />
@@ -116,17 +117,17 @@ export function Amigos() {
                   <span className="truncate text-[13.5px] font-semibold">{a.perfil.riotId}</span>
                   <span className="text-[11.5px] text-mudo">{haQuanto(a.desde)}</span>
                 </span>
-                <button type="button" aria-label={`Aceitar ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, true), 'Pedido aceite.')} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border-0 bg-laranja text-escuro-laranja hover:brightness-110"><Check size={17} aria-hidden /></button>
-                <button type="button" aria-label={`Recusar ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, false))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/10 bg-transparent text-mudo hover:text-texto"><X size={17} aria-hidden /></button>
+                <button type="button" aria-label={`${tx('Aceitar', 'Accept')} ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, true), tx('Pedido aceite.', 'Request accepted.'))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border-0 bg-laranja text-escuro-laranja hover:brightness-110"><Check size={17} aria-hidden /></button>
+                <button type="button" aria-label={`${tx('Recusar', 'Decline')} ${nomeJogador(a.perfil)}`} onClick={() => acao(() => dados.responderAmizade(a.perfil.id, false))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/10 bg-transparent text-mudo hover:text-texto"><X size={17} aria-hidden /></button>
               </div>
             ))}
             {enviados.length > 0 && (
               <div className="flex flex-col gap-1.5 border-t border-white/7 pt-3">
-                <span className="rotulo">Enviados</span>
+                <span className="rotulo">{tx('Enviados', 'Sent')}</span>
                 {enviados.map((a) => (
                   <div key={a.perfil.id} className="flex items-center justify-between gap-2 text-[13px]">
                     <span className="truncate text-suave">{a.perfil.riotId}</span>
-                    <button type="button" onClick={() => acao(() => dados.removerAmigo(a.perfil.id), 'Pedido cancelado.')} className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-laranja-claro hover:text-pessego">Cancelar</button>
+                    <button type="button" onClick={() => acao(() => dados.removerAmigo(a.perfil.id), tx('Pedido cancelado.', 'Request cancelled.'))} className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-laranja-claro hover:text-pessego">{tx('Cancelar', 'Cancel')}</button>
                   </div>
                 ))}
               </div>

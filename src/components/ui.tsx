@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
 import { useAjuda, type TopicoAjuda } from './Ajuda'
+import { l } from '@/lib/idioma'
 
 /** Converte #rrggbb em rgba(r,g,b,a). */
 export function rgba(hex: string, a: number) {
@@ -17,7 +18,7 @@ export function Cabecalho({ migalhas, titulo, descricao, acoes }: {
   return (
     <header className="flex flex-wrap items-start justify-between gap-[18px]">
       <div className="flex min-w-0 flex-col gap-2.5">
-        <nav aria-label="Localização" className="flex items-center gap-2 text-[13px] text-mudo">
+        <nav aria-label={l('Localização', 'Breadcrumb')} className="flex items-center gap-2 text-[13px] text-mudo">
           {migalhas.map((m, i) => (
             <span key={m} className="flex items-center gap-2">
               {i > 0 && <ChevronRight size={14} aria-hidden />}
@@ -132,11 +133,15 @@ export function Modal({ aberto, onFechar, titulo, eyebrow, children, largura = 5
 }) {
   const id = useId()
   const caixa = useRef<HTMLDivElement>(null)
+  // O onFechar muda a cada render de quem abre a janela; guardado aqui, o efeito
+  // abaixo só corre ao abrir e fechar. Sem isto, cada tecla tirava o foco do campo.
+  const fechar = useRef(onFechar)
+  fechar.current = onFechar
   useEffect(() => {
     if (!aberto) return
     const antes = document.activeElement as HTMLElement | null
     caixa.current?.focus()
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !semFechar) onFechar() }
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !semFechar) fechar.current() }
     window.addEventListener('keydown', tecla)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -145,7 +150,7 @@ export function Modal({ aberto, onFechar, titulo, eyebrow, children, largura = 5
       document.body.style.overflow = overflow
       antes?.focus?.()
     }
-  }, [aberto, onFechar, semFechar])
+  }, [aberto, semFechar])
   if (!aberto) return null
   return createPortal(
     <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-[rgba(5,5,7,0.72)] p-4 backdrop-blur-[3px]" onMouseDown={(e) => { if (e.target === e.currentTarget && !semFechar) onFechar() }}>
@@ -164,7 +169,7 @@ export function Modal({ aberto, onFechar, titulo, eyebrow, children, largura = 5
             <h2 id={id} className="m-0 text-[22px] leading-tight font-extrabold tracking-[-0.03em]">{titulo}</h2>
           </div>
           {!semFechar && (
-            <button type="button" aria-label="Fechar" onClick={onFechar} className="-mt-1 -mr-2 grid size-11 shrink-0 cursor-pointer place-items-center rounded-[10px] text-mudo hover:bg-white/6 hover:text-texto">
+            <button type="button" aria-label={l('Fechar', 'Close')} onClick={onFechar} className="-mt-1 -mr-2 grid size-11 shrink-0 cursor-pointer place-items-center rounded-[10px] text-mudo hover:bg-white/6 hover:text-texto">
               <X size={18} aria-hidden />
             </button>
           )}
@@ -204,7 +209,7 @@ export function Esqueleto({ className = '', style }: { className?: string; style
 /** Linhas a brilhar enquanto o ranking, as partidas ou os amigos carregam. */
 export function LinhasEsqueleto({ tipo, n = 6 }: { tipo: 'ranking' | 'partidas' | 'amigos'; n?: number }) {
   return (
-    <div role="status" aria-label="A carregar" className="flex flex-col">
+    <div role="status" aria-label={l('A carregar', 'Loading')} className="flex flex-col">
       {Array.from({ length: n }, (_, i) => (
         <div key={i} className="flex items-center gap-3.5 border-t border-white/6 py-3" style={{ opacity: 1 - i * (0.7 / n) }}>
           {tipo === 'ranking' && <Esqueleto className="h-4 w-7" />}
@@ -223,7 +228,7 @@ export function LinhasEsqueleto({ tipo, n = 6 }: { tipo: 'ranking' | 'partidas' 
   )
 }
 
-export function Carregando({ texto = 'A carregar…' }: { texto?: string }) {
+export function Carregando({ texto = l('A carregar…', 'Loading…') }: { texto?: string }) {
   return (
     <div role="status" className="flex items-center justify-center gap-2.5 py-10 text-[13.5px] text-mudo">
       <LoaderCircle size={18} className="animate-spin text-laranja" aria-hidden />
@@ -253,7 +258,7 @@ export function BarraProgresso({ valor, alvo, rotulo }: { valor: number; alvo: n
 /** MVP da partida: só uma estrela laranja dentro de um quadrado. */
 export function SeloMvp({ tamanho = 22 }: { tamanho?: number }) {
   return (
-    <span role="img" aria-label="MVP da partida" title="MVP da partida" className="inline-grid shrink-0 place-items-center rounded-[6px] border border-laranja/45 bg-laranja/14 text-laranja" style={{ width: tamanho, height: tamanho }}>
+    <span role="img" aria-label={l('MVP da partida', 'Match MVP')} title={l('MVP da partida', 'Match MVP')} className="inline-grid shrink-0 place-items-center rounded-[6px] border border-laranja/45 bg-laranja/14 text-laranja" style={{ width: tamanho, height: tamanho }}>
       <Star size={Math.round(tamanho * 0.55)} fill="currentColor" strokeWidth={1.5} aria-hidden />
     </span>
   )

@@ -4,6 +4,7 @@ import { ESTADOS_ATIVOS } from '@/lib/regras'
 import { acertarRelogio } from '@/lib/tempo'
 import { useAvisos } from './Avisos'
 import { useSessao } from './Sessao'
+import { l } from '@/lib/idioma'
 
 interface ValorPartida {
   fila: EstadoFila | null
@@ -50,8 +51,8 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
           ultima.current = null
           setPartida(null)
           avisar(f.naFila
-            ? 'A partida foi cancelada porque alguém não aceitou. Voltaste à fila com o mesmo lugar.'
-            : 'A partida foi cancelada.', f.naFila ? 'ok' : 'erro')
+            ? l('A partida foi cancelada porque alguém não aceitou. Voltaste à fila com o mesmo lugar.', 'The match was cancelled because someone did not accept. You are back in the queue with the same spot.')
+            : l('A partida foi cancelada.', 'The match was cancelled.'), f.naFila ? 'ok' : 'erro')
         } else {
           setPartida(p)
           // No Supabase nada avisa as outras páginas: o Dashboard, as missões e o perfil

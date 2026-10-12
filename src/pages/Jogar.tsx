@@ -13,24 +13,26 @@ import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
 import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
+import { l } from '@/lib/idioma'
 
-const FASES: { estados: EstadoPartida[]; nome: string }[] = [
-  { estados: ['READY_CHECK'], nome: 'Confirmar' },
+const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
+  { estados: ['READY_CHECK'], nome: l('Confirmar', 'Ready check') },
   { estados: ['DRAFT_PHASE'], nome: 'Draft' },
-  { estados: ['MAP_BAN'], nome: 'Mapas' },
-  { estados: ['LOBBY_CREATION'], nome: 'Código' },
-  { estados: ['IN_PROGRESS'], nome: 'Em jogo' },
-  { estados: ['RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API', 'COMPLETED'], nome: 'Resultado' },
+  { estados: ['MAP_BAN'], nome: l('Mapas', 'Maps') },
+  { estados: ['LOBBY_CREATION'], nome: l('Código', 'Code') },
+  { estados: ['IN_PROGRESS'], nome: l('Em jogo', 'In game') },
+  { estados: ['RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API', 'COMPLETED'], nome: l('Resultado', 'Result') },
 ]
 
 function Progresso({ p }: { p: Partida }) {
+  const FASES = fases()
   const atual = FASES.findIndex((f) => f.estados.includes(p.estado))
   return (
-    <nav aria-label="Fases da partida" className="painel flex flex-wrap items-center gap-x-4 gap-y-3 !rounded-2xl px-4 py-3">
+    <nav aria-label={l('Fases da partida', 'Match phases')} className="painel flex flex-wrap items-center gap-x-4 gap-y-3 !rounded-2xl px-4 py-3">
       <span className="flex items-center gap-2 font-mono text-[12px] font-semibold text-pessego">
         <span className="ao-vivo size-2 rounded-full bg-laranja" />{p.codigo}
       </span>
-      {p.simulada && <Chip tom="laranja">{p.automatica ? 'Simulação automática' : 'Simulada'}</Chip>}
+      {p.simulada && <Chip tom="laranja">{p.automatica ? l('Simulação automática', 'Automatic simulation') : l('Simulada', 'Simulated')}</Chip>}
       <ol className="m-0 flex flex-1 list-none flex-wrap items-center gap-1.5 p-0">
         {FASES.map((f, i) => {
           const feita = i < atual || p.estado === 'COMPLETED'
@@ -54,17 +56,17 @@ function ComoFunciona() {
   const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
   const bans = totalBans(rotacao.valor ?? ROTACAO_PADRAO)
   const passos = [
-    { icone: <Users size={18} />, titulo: 'Fila e confirmação', texto: `10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, topico: 'fila' as const },
-    { icone: <Crown size={18} />, titulo: 'Draft', texto: `2 capitães escolhem à vez, ${SEGUNDOS_ESCOLHA} s por escolha.`, topico: 'draft' as const },
-    { icone: <Ban size={18} />, titulo: 'Ban de mapas', texto: `${bans} bans de ${SEGUNDOS_BAN} s, sobra o decisivo.`, topico: 'mapas' as const },
-    { icone: <ClipboardPaste size={18} />, titulo: 'Código do grupo', texto: `O Capitão A partilha, bloqueio de ${MINUTOS_BLOQUEIO} min.`, topico: 'codigo' as const },
-    { icone: <Flag size={18} />, titulo: 'Resultado', texto: 'Os capitães submetem e a API confirma.', topico: 'resultado' as const },
+    { icone: <Users size={18} />, titulo: l('Fila e confirmação', 'Queue and ready check'), texto: l(`10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, `10 players, ${SEGUNDOS_CONFIRMAR} s to accept.`), topico: 'fila' as const },
+    { icone: <Crown size={18} />, titulo: 'Draft', texto: l(`2 capitães escolhem à vez, ${SEGUNDOS_ESCOLHA} s por escolha.`, `2 captains pick in turns, ${SEGUNDOS_ESCOLHA} s per pick.`), topico: 'draft' as const },
+    { icone: <Ban size={18} />, titulo: l('Ban de mapas', 'Map ban'), texto: l(`${bans} bans de ${SEGUNDOS_BAN} s, sobra o decisivo.`, `${bans} bans of ${SEGUNDOS_BAN} s, the decider is left.`), topico: 'mapas' as const },
+    { icone: <ClipboardPaste size={18} />, titulo: l('Código do grupo', 'Party code'), texto: l(`O Capitão A partilha, bloqueio de ${MINUTOS_BLOQUEIO} min.`, `Captain A shares it, ${MINUTOS_BLOQUEIO}-min lock.`), topico: 'codigo' as const },
+    { icone: <Flag size={18} />, titulo: l('Resultado', 'Result'), texto: l('Os capitães submetem e a API confirma.', 'The captains submit and the API confirms.'), topico: 'resultado' as const },
   ]
   return (
     <Painel aria-labelledby="rg-fases" className="flex flex-col gap-4 p-[22px]">
       <div className="flex flex-col gap-[5px]">
-        <span className="eyebrow">COMO CORRE UMA PARTIDA</span>
-        <h2 id="rg-fases" className="m-0 text-[19px] font-bold tracking-[-0.02em]">Cinco fases, do aceitar aos pontos</h2>
+        <span className="eyebrow">{l('COMO CORRE UMA PARTIDA', 'HOW A MATCH GOES')}</span>
+        <h2 id="rg-fases" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Cinco fases, do aceitar aos pontos', 'Five phases, from accepting to points')}</h2>
       </div>
       <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5 p-0">
         {passos.map((s, i) => (
@@ -76,7 +78,7 @@ function ComoFunciona() {
             <span className="text-[14px] font-bold">{s.titulo}</span>
             <span className="text-[12.5px] leading-normal text-mudo">{s.texto}</span>
             {/* O botão fica sempre no fundo do cartão, à mesma altura em todos. */}
-            <span className="mt-auto flex flex-col pt-1.5"><BotaoAjuda topico={s.topico} pequeno>Como funciona</BotaoAjuda></span>
+            <span className="mt-auto flex flex-col pt-1.5"><BotaoAjuda topico={s.topico} pequeno>{l('Como funciona', 'How it works')}</BotaoAjuda></span>
           </li>
         ))}
       </ol>
@@ -84,7 +86,6 @@ function ComoFunciona() {
   )
 }
 
-/** O cartão do Rangify Hub: o radar com os jogadores encontrados, as fases e o botão da fila. */
 /** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
 function PainelFila() {
   const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
@@ -97,28 +98,28 @@ function PainelFila() {
         tamanho={196}
         contagem={contagem}
         naFila={naFila}
-        legenda={naFila ? `NA FILA ${relogio(espera)}` : castigo > 0 ? `CASTIGO ${relogio(castigo)}` : 'À ESPERA DE TI'}
+        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
       />
       <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
         <span className="eyebrow">RANGIFY HUB · {regiao.toUpperCase()}</span>
-        <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? 'À procura de jogadores…' : 'Pronto para a próxima?'}</h2>
+        <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? l('À procura de jogadores…', 'Looking for players…') : l('Pronto para a próxima?', 'Ready for the next one?')}</h2>
         <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
           {castigo > 0
-            ? `Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`
+            ? l(`Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`, `You did not accept the last match. You can queue again in ${relogio(castigo)}.`)
             : naFila
-              ? `Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`
-              : 'Entra na fila da tua região. Com 10 jogadores, aceitas a partida e segues para o draft dos capitães, os bans e o código do grupo.'}
+              ? l(`Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`, `${faltam} ${faltam === 1 ? 'player' : 'players'} from your region to go. You can browse the site: when the lobby fills, you hear a sound and the accept alert shows up.`)
+              : l('Entra na fila da tua região. Com 10 jogadores, aceitas a partida e segues para o draft dos capitães, os bans e o código do grupo.', 'Join your region\'s queue. With 10 players, you accept the match and go on to the captains\' draft, the bans and the party code.')}
         </p>
         <div className="flex flex-wrap gap-2">
           <EtiquetaHub regiao={regiao} />
-          <span className={chip}>{SEGUNDOS_CONFIRMAR} s para aceitar</span>
-          <span className={chip}>2 capitães · {(rotacao.valor ?? ROTACAO_PADRAO).length} mapas</span>
-          <span className={chip}>5 fases até aos pontos</span>
+          <span className={chip}>{SEGUNDOS_CONFIRMAR} s {l('para aceitar', 'to accept')}</span>
+          <span className={chip}>{l('2 capitães', '2 captains')} · {(rotacao.valor ?? ROTACAO_PADRAO).length} {l('mapas', 'maps')}</span>
+          <span className={chip}>{l('5 fases até aos pontos', '5 phases to the points')}</span>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <BotaoFila grande />
           <span className="text-[13px] text-mudo">
-            {naFila ? `Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.` : `${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`}
+            {naFila ? l(`Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.`, `You have ${SEGUNDOS_CONFIRMAR} seconds to accept when the lobby fills.`) : l(`${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`, `${contagem} ${contagem === 1 ? 'player is' : 'players are'} waiting.`)}
           </span>
         </div>
       </div>
@@ -135,7 +136,7 @@ export function Jogar() {
   if (partida) {
     let fase: React.ReactNode
     switch (partida.estado) {
-      case 'READY_CHECK': fase = <Carregando texto="À espera de que todos aceitem a partida…" />; break
+      case 'READY_CHECK': fase = <Carregando texto={l('À espera de que todos aceitem a partida…', 'Waiting for everyone to accept the match…')} />; break
       case 'DRAFT_PHASE': fase = <Draft p={partida} eu={eu} />; break
       case 'MAP_BAN': fase = <Mapas p={partida} eu={eu} />; break
       case 'LOBBY_CREATION':
@@ -154,14 +155,14 @@ export function Jogar() {
   return (
     <>
       <Cabecalho
-        migalhas={['Hub', 'Jogar']}
-        titulo="Jogar"
-        descricao="Entra na fila da tua região. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft."
+        migalhas={['Hub', l('Jogar', 'Play')]}
+        titulo={l('Jogar', 'Play')}
+        descricao={l('Entra na fila da tua região. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Join your region\'s queue. When there are 10 players, you get the accept alert and go on to the draft.')}
       />
       <PainelFila />
       <FerramentasDev />
       <ComoFunciona />
-      <p className="m-0 flex items-center gap-2 text-[12.5px] text-mudo"><Swords size={14} className="text-laranja" aria-hidden />Precisas do Riot ID ligado e de jogar com essa conta, para o resultado ser confirmado.</p>
+      <p className="m-0 flex items-center gap-2 text-[12.5px] text-mudo"><Swords size={14} className="text-laranja" aria-hidden />{l('Precisas do Riot ID ligado e de jogar com essa conta, para o resultado ser confirmado.', 'You need your Riot ID linked and to play with that account, so the result can be confirmed.')}</p>
     </>
   )
 }

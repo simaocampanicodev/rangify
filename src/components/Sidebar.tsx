@@ -9,6 +9,7 @@ import { aoMudarDados, dados } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador } from '@/lib/partida'
 import { Marca } from './Marca'
 import { Avatar } from './ui'
+import { l } from '@/lib/idioma'
 
 /** A mesma curva em tudo o que abre e fecha com o menu. */
 const ANIM = 'duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none'
@@ -92,26 +93,26 @@ export function Sidebar() {
   const grupos: { titulo: string; itens: Item[] }[] = [
     {
       titulo: 'HUB', itens: [
-        { para: '/', texto: 'Dashboard', icone: <House size={18} />, tour: 'dashboard', fim: true },
+        { para: '/', texto: l('Painel', 'Dashboard'), icone: <House size={18} />, tour: 'dashboard', fim: true },
         {
-          para: '/jogar', texto: 'Jogar', icone: <Swords size={18} />, tour: 'jogar',
-          extra: ativa ? <Contador vivo>ao vivo</Contador> : fila?.naFila ? <Contador vivo>{fila.contagem}/10</Contador> : null,
+          para: '/jogar', texto: l('Jogar', 'Play'), icone: <Swords size={18} />, tour: 'jogar',
+          extra: ativa ? <Contador vivo>{l('ao vivo', 'live')}</Contador> : fila?.naFila ? <Contador vivo>{fila.contagem}/10</Contador> : null,
         },
-        { para: '/ranking', texto: 'Ranking', icone: <Trophy size={18} />, tour: 'ranking' },
-        { para: '/partidas', texto: 'Partidas', icone: <Clock size={18} />, tour: 'partidas' },
+        { para: '/ranking', texto: l('Tabela', 'Leaderboard'), icone: <Trophy size={18} />, tour: 'ranking' },
+        { para: '/partidas', texto: l('Partidas', 'Matches'), icone: <Clock size={18} />, tour: 'partidas' },
       ],
     },
     {
-      titulo: 'COMUNIDADE', itens: [
-        { para: '/missoes', texto: 'Missões', icone: <Target size={18} />, tour: 'missoes' },
-        { para: '/amigos', texto: 'Amigos', icone: <Users size={18} />, tour: 'amigos', extra: pedidos ? <Contador>{pedidos}</Contador> : null },
-        { para: '/sugestoes', texto: 'Sugestões', icone: <Lightbulb size={18} />, tour: 'sugestoes' },
+      titulo: l('COMUNIDADE', 'COMMUNITY'), itens: [
+        { para: '/missoes', texto: l('Missões', 'Missions'), icone: <Target size={18} />, tour: 'missoes' },
+        { para: '/amigos', texto: l('Amigos', 'Friends'), icone: <Users size={18} />, tour: 'amigos', extra: pedidos ? <Contador>{pedidos}</Contador> : null },
+        { para: '/sugestoes', texto: l('Sugestões', 'Suggestions'), icone: <Lightbulb size={18} />, tour: 'sugestoes' },
       ],
     },
     {
-      titulo: 'CONTA', itens: [
-        { para: perfil?.riotId ? caminhoPerfil(perfil.riotId) : '/definicoes', texto: 'Perfil', icone: <User size={18} />, tour: 'perfil' },
-        { para: '/definicoes', texto: 'Definições', icone: <Settings size={18} />, tour: 'definicoes' },
+      titulo: l('CONTA', 'ACCOUNT'), itens: [
+        { para: perfil?.riotId ? caminhoPerfil(perfil.riotId) : '/definicoes', texto: l('Perfil', 'Profile'), icone: <User size={18} />, tour: 'perfil' },
+        { para: '/definicoes', texto: l('Definições', 'Settings'), icone: <Settings size={18} />, tour: 'definicoes' },
         ...(eStaff ? [{ para: '/admin', texto: 'Staff', icone: <ShieldCheck size={18} />, tour: 'admin' }] : []),
       ],
     },
@@ -123,18 +124,18 @@ export function Sidebar() {
       <>
         {/* Ao recolher, o nome encolhe e o botão passa para baixo do símbolo. */}
         <div className={`flex items-center gap-2.5 ${rec ? 'flex-col' : 'justify-between pr-1 pl-2'}`}>
-          <Link to="/" aria-label="Rangify, ir para o dashboard" className="no-underline"><Marca compacta={rec} /></Link>
+          <Link to="/" aria-label={l('Rangify, ir para o painel', 'Rangify, go to the dashboard')} className="no-underline"><Marca compacta={rec} /></Link>
           {movel ? (
-            <button type="button" aria-label="Fechar menu" onClick={() => setAberto(false)} className="grid size-11 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/8">
+            <button type="button" aria-label={l('Fechar menu', 'Close menu')} onClick={() => setAberto(false)} className="grid size-11 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/8">
               <X size={18} aria-hidden />
             </button>
           ) : (
-            <button type="button" aria-label={rec ? 'Abrir menu' : 'Recolher menu'} onClick={alternar} className="grid size-11 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/8">
+            <button type="button" aria-label={rec ? l('Abrir menu', 'Open menu') : l('Recolher menu', 'Collapse menu')} onClick={alternar} className="grid size-11 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-mudo hover:bg-white/8">
               {rec ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
             </button>
           )}
         </div>
-        <nav aria-label="Navegação principal" className="flex flex-col gap-[18px]">
+        <nav aria-label={l('Navegação principal', 'Main navigation')} className="flex flex-col gap-[18px]">
           {grupos.map((g) => (
             <div key={g.titulo} className="flex flex-col gap-1">
               <div aria-hidden={rec} className={`grid transition-[grid-template-rows,opacity] ${ANIM} ${rec ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}>
@@ -146,11 +147,11 @@ export function Sidebar() {
           <button
             type="button"
             onClick={sair}
-            title={rec ? 'Terminar sessão' : undefined}
+            title={rec ? l('Terminar sessão', 'Sign out') : undefined}
             className={`flex min-h-11 cursor-pointer items-center rounded-[10px] border border-transparent bg-transparent text-left text-[14.5px] font-medium text-suave transition-[padding,background-color,color] hover:bg-white/[0.045] hover:text-texto ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
           >
             <LogOut size={18} className="shrink-0 text-laranja" aria-hidden />
-            <Rotulo recolhido={rec}>Terminar sessão</Rotulo>
+            <Rotulo recolhido={rec}>{l('Terminar sessão', 'Sign out')}</Rotulo>
           </button>
         </nav>
         {perfil && (
@@ -176,8 +177,8 @@ export function Sidebar() {
     <>
       {/* Ecrãs pequenos: barra no topo e menu deslizante. */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[rgba(10,10,12,0.82)] px-4 py-2.5 backdrop-blur-[18px] lg:hidden">
-        <Link to="/" aria-label="Rangify, ir para o dashboard" className="no-underline"><Marca /></Link>
-        <button type="button" aria-label="Abrir menu" aria-expanded={aberto} onClick={() => setAberto(true)} className="relative grid size-11 cursor-pointer place-items-center rounded-[11px] border border-white/8 bg-white/[0.03] text-marfim">
+        <Link to="/" aria-label={l('Rangify, ir para o painel', 'Rangify, go to the dashboard')} className="no-underline"><Marca /></Link>
+        <button type="button" aria-label={l('Abrir menu', 'Open menu')} aria-expanded={aberto} onClick={() => setAberto(true)} className="relative grid size-11 cursor-pointer place-items-center rounded-[11px] border border-white/8 bg-white/[0.03] text-marfim">
           <Menu size={19} aria-hidden />
           {(fila?.naFila || ativa || pedidos > 0) && <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-laranja" />}
         </button>

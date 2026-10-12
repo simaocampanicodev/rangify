@@ -4,7 +4,10 @@
  * A "divisão" é o mesmo número a começar em 1, que é o que entra nas contas.
  */
 
+import { l } from './idioma'
+
 const NOMES = ['Ferro', 'Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante', 'Ascendente', 'Imortal']
+const NOMES_EN = ['Iron', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Ascendant', 'Immortal']
 const CORES = ['#9a9a9a', '#c08a5a', '#c9d2d8', '#f2c14e', '#4fc6d6', '#c58cff', '#3ed38a', '#ff4d6a']
 
 /** Quem ainda não tem rank conta como Prata 3 nas contas do desnível. */
@@ -19,10 +22,10 @@ export function tierDeDivisao(div: number): number {
 }
 
 export function nomeRank(tier: number): string {
-  if (tier >= 27) return 'Radiante'
-  if (tier < 3) return 'Sem rank'
+  if (tier >= 27) return l('Radiante', 'Radiant')
+  if (tier < 3) return l('Sem rank', 'Unranked')
   const i = Math.floor((tier - 3) / 3)
-  return `${NOMES[i]} ${((tier - 3) % 3) + 1}`
+  return `${l(NOMES[i], NOMES_EN[i])} ${((tier - 3) % 3) + 1}`
 }
 
 export function corRank(tier: number): string {
@@ -35,7 +38,8 @@ export function siglaRank(tier: number): string {
   if (tier >= 27) return 'RAD'
   if (tier < 3) return '-'
   const i = Math.floor((tier - 3) / 3)
-  return `${['FER', 'BRO', 'PRA', 'OUR', 'PLA', 'DIA', 'ASC', 'IMO'][i]}${((tier - 3) % 3) + 1}`
+  const siglas = l('FER BRO PRA OUR PLA DIA ASC IMO', 'IRO BRO SIL GOL PLA DIA ASC IMM').split(' ')
+  return `${siglas[i]}${((tier - 3) % 3) + 1}`
 }
 
 export function nomeDivisao(div: number): string {

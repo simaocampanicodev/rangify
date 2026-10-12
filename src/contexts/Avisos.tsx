@@ -1,5 +1,7 @@
 import { CircleAlert, CircleCheck, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { traduzirErro } from '@/lib/erros'
+import { l } from '@/lib/idioma'
 
 type Tipo = 'ok' | 'erro'
 interface Aviso { id: number; texto: string; tipo: Tipo }
@@ -12,8 +14,9 @@ export function ProvedorAvisos({ children }: { children: ReactNode }) {
 
   const avisar = useCallback((texto: string, tipo: Tipo = 'ok') => {
     const id = Date.now() + Math.random()
-    setLista((l) => [...l.slice(-3), { id, texto, tipo }])
-    window.setTimeout(() => setLista((l) => l.filter((a) => a.id !== id)), tipo === 'erro' ? 6000 : 3500)
+    // Os erros vêm do servidor em português; em inglês traduzem-se aqui.
+    setLista((v) => [...v.slice(-3), { id, texto: tipo === 'erro' ? traduzirErro(texto) : texto, tipo }])
+    window.setTimeout(() => setLista((v) => v.filter((a) => a.id !== id)), tipo === 'erro' ? 6000 : 3500)
   }, [])
 
   return (
@@ -26,7 +29,7 @@ export function ProvedorAvisos({ children }: { children: ReactNode }) {
               ? <CircleAlert size={18} className="mt-px shrink-0 text-derrota" aria-hidden />
               : <CircleCheck size={18} className="mt-px shrink-0 text-laranja" aria-hidden />}
             <span className="flex-1 leading-snug text-marfim">{a.texto}</span>
-            <button type="button" aria-label="Fechar aviso" onClick={() => setLista((l) => l.filter((x) => x.id !== a.id))} className="-m-1 grid size-7 place-items-center rounded-md text-mudo hover:text-texto">
+            <button type="button" aria-label={l('Fechar aviso', 'Close notice')} onClick={() => setLista((v) => v.filter((x) => x.id !== a.id))} className="-m-1 grid size-7 place-items-center rounded-md text-mudo hover:text-texto">
               <X size={15} aria-hidden />
             </button>
           </div>
@@ -49,7 +52,7 @@ export function useAcao() {
       if (ok) avisar(ok)
       return r
     } catch (e) {
-      avisar(e instanceof Error ? e.message : 'Algo correu mal. Tenta outra vez.', 'erro')
+      avisar(e instanceof Error ? e.message : l('Algo correu mal. Tenta outra vez.', 'Something went wrong. Try again.'), 'erro')
       return undefined
     }
   }, [avisar])

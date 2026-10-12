@@ -4,6 +4,7 @@ import type { FuncaoJogo, JogadorPartida } from '@/lib/dados'
 import { iniciais } from '../ui'
 import { nomeJogador, tagJogador } from '@/lib/partida'
 import { nomeRank } from '@/lib/ranks'
+import { l, nomeFuncaoJogo } from '@/lib/idioma'
 
 export const ICONE_FUNCAO: Record<FuncaoJogo, ReactNode> = {
   Duelista: <Crosshair size={15} aria-hidden />,
@@ -36,9 +37,9 @@ export function Iniciais({ nome, equipa, tamanho = 34, url }: { nome: string; eq
 export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jogadores: JogadorPartida[]; eu?: string; rotulo?: string }) {
   const vazios = Math.max(0, 5 - jogadores.length)
   return (
-    <section aria-label={`Equipa ${eq}`} className="painel flex min-w-0 flex-1 basis-[240px] flex-col gap-2 p-4">
+    <section aria-label={`${l('Equipa', 'Team')} ${eq}`} className="painel flex min-w-0 flex-1 basis-[240px] flex-col gap-2 p-4">
       <div className="flex items-center justify-between pb-1.5">
-        <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{rotulo ?? `EQUIPA ${eq}`}</span>
+        <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{rotulo ?? `${l('EQUIPA', 'TEAM')} ${eq}`}</span>
         <span className="font-mono text-[11px] text-mudo">{jogadores.length}/5</span>
       </div>
       {jogadores.map((j) => (
@@ -51,17 +52,17 @@ export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jog
             <span className="truncate text-[13.5px] font-bold">
               {nomeJogador(j)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(j)}</span>{j.capitao && <span className="ml-1 font-mono text-[11px] font-bold text-laranja">(C)</span>}
             </span>
-            <span className="truncate text-[11.5px] text-mudo">{nomeRank(j.tier)}{j.funcaoJogo ? ` · ${j.funcaoJogo}` : ''}</span>
+            <span className="truncate text-[11.5px] text-mudo">{nomeRank(j.tier)}{j.funcaoJogo ? ` · ${nomeFuncaoJogo(j.funcaoJogo)}` : ''}</span>
           </span>
           {j.capitao
             ? null
-            : j.perfilId === eu ? <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">TU</span>
+            : j.perfilId === eu ? <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{l('TU', 'YOU')}</span>
             : j.ordemEscolha ? <span className="font-mono text-[10px] font-bold text-mudo">#{j.ordemEscolha}</span> : null}
         </div>
       ))}
       {Array.from({ length: vazios }, (_, i) => (
         <div key={i} className="flex min-h-[54px] items-center justify-center rounded-xl border border-dashed border-white/12 font-mono text-[11px] text-mudo">
-          Por escolher
+          {l('Por escolher', 'To be picked')}
         </div>
       ))}
     </section>

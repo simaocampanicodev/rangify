@@ -1,4 +1,5 @@
 /** Regras das partidas e do resultado. */
+import { l } from './idioma'
 
 /** Segundos para aceitar a partida (READY_CHECK). */
 export const SEGUNDOS_CONFIRMAR = 20
@@ -38,30 +39,35 @@ export interface Validacao { ok: boolean; titulo: string; detalhe: string }
 export function validarResultado(a: number, b: number): Validacao {
   const hi = Math.max(a, b)
   const lo = Math.min(a, b)
-  const vence = `Vitória da Equipa ${a > b ? 'A' : 'B'}, ${a}-${b}`
+  const vence = l(`Vitória da Equipa ${a > b ? 'A' : 'B'}, ${a}-${b}`, `Team ${a > b ? 'A' : 'B'} wins, ${a}-${b}`)
   if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) {
-    return { ok: false, titulo: 'Valores inválidos', detalhe: 'As rondas são números inteiros.' }
+    return { ok: false, titulo: l('Valores inválidos', 'Invalid values'), detalhe: l('As rondas são números inteiros.', 'Rounds are whole numbers.') }
   }
-  if (a === b) return { ok: false, titulo: 'Empates não existem', detalhe: 'Uma das equipas tem de ganhar a partida.' }
-  if (hi < 13) return { ok: false, titulo: 'Falta chegar às 13 rondas', detalhe: 'A equipa vencedora tem de ganhar 13 rondas.' }
-  if (hi === 13 && lo <= 11) return { ok: true, titulo: vence, detalhe: 'Resultado válido.' }
-  if (hi === 13 && lo === 12) return { ok: false, titulo: 'Com 12-12 há prolongamento', detalhe: 'Ganha quem fizer 2 rondas de vantagem, por exemplo 14-12.' }
-  if (lo >= 12 && hi - lo === 2) return { ok: true, titulo: vence, detalhe: 'Resultado com prolongamento.' }
-  if (lo < 12) return { ok: false, titulo: 'Resultado impossível', detalhe: 'Acima de 13 rondas só acontece no prolongamento, depois de 12-12.' }
-  return { ok: false, titulo: 'Diferença errada no prolongamento', detalhe: 'No prolongamento o resultado final tem 2 rondas de diferença.' }
+  if (a === b) return { ok: false, titulo: l('Empates não existem', 'There are no draws'), detalhe: l('Uma das equipas tem de ganhar a partida.', 'One team has to win the match.') }
+  if (hi < 13) return { ok: false, titulo: l('Falta chegar às 13 rondas', 'Not at 13 rounds yet'), detalhe: l('A equipa vencedora tem de ganhar 13 rondas.', 'The winning team has to win 13 rounds.') }
+  if (hi === 13 && lo <= 11) return { ok: true, titulo: vence, detalhe: l('Resultado válido.', 'Valid result.') }
+  if (hi === 13 && lo === 12) return { ok: false, titulo: l('Com 12-12 há prolongamento', 'At 12-12 there is overtime'), detalhe: l('Ganha quem fizer 2 rondas de vantagem, por exemplo 14-12.', 'The first team 2 rounds ahead wins, for example 14-12.') }
+  if (lo >= 12 && hi - lo === 2) return { ok: true, titulo: vence, detalhe: l('Resultado com prolongamento.', 'Result with overtime.') }
+  if (lo < 12) return { ok: false, titulo: l('Resultado impossível', 'Impossible result'), detalhe: l('Acima de 13 rondas só acontece no prolongamento, depois de 12-12.', 'More than 13 rounds only happens in overtime, after 12-12.') }
+  return { ok: false, titulo: l('Diferença errada no prolongamento', 'Wrong overtime difference'), detalhe: l('No prolongamento o resultado final tem 2 rondas de diferença.', 'In overtime the final score has a 2-round difference.') }
 }
 
 export const ESTADOS_ATIVOS = ['READY_CHECK', 'DRAFT_PHASE', 'MAP_BAN', 'LOBBY_CREATION', 'IN_PROGRESS', 'RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API'] as const
 
-export const NOMES_ESTADO: Record<string, string> = {
-  READY_CHECK: 'Confirmação',
-  DRAFT_PHASE: 'Draft',
-  MAP_BAN: 'Ban de mapas',
-  LOBBY_CREATION: 'Código do grupo',
-  IN_PROGRESS: 'Em jogo',
-  RESULT_SUBMISSION: 'Resultado',
-  DISPUTE: 'Disputa',
-  PROCESSING_API: 'Processamento',
-  COMPLETED: 'Terminada',
-  CANCELLED: 'Cancelada',
+const ESTADOS: Record<string, [string, string]> = {
+  READY_CHECK: ['Confirmação', 'Ready check'],
+  DRAFT_PHASE: ['Draft', 'Draft'],
+  MAP_BAN: ['Ban de mapas', 'Map ban'],
+  LOBBY_CREATION: ['Código do grupo', 'Party code'],
+  IN_PROGRESS: ['Em jogo', 'In game'],
+  RESULT_SUBMISSION: ['Resultado', 'Result'],
+  DISPUTE: ['Disputa', 'Dispute'],
+  PROCESSING_API: ['Processamento', 'Processing'],
+  COMPLETED: ['Terminada', 'Finished'],
+  CANCELLED: ['Cancelada', 'Cancelled'],
 }
+
+/** O nome de cada estado na língua do site (lido na altura, por isso muda com ela). */
+export const NOMES_ESTADO: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get: (_, k) => { const e = ESTADOS[k as string]; return e ? l(e[0], e[1]) : undefined },
+})

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { EstatisticasPerfil } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
 import { Painel, TituloPainel, Vazio } from './ui'
+import { l } from '@/lib/idioma'
 
 const umaCasa = (v: number | null | undefined) => (v != null ? v.toFixed(1) : '-')
 const inteiro = (v: number | null | undefined) => (v != null ? String(Math.round(v)) : '-')
@@ -37,36 +38,36 @@ export function Desempenho({ s }: { s: EstatisticasPerfil }) {
   const seq = s.sequenciaAtual
   return (
     <Painel aria-labelledby="rg-desempenho" className="flex min-w-0 flex-[2_1_560px] flex-col gap-4 p-[22px]">
-      <TituloPainel eyebrow="DESEMPENHO" titulo="Em média, por partida" id="rg-desempenho" direita={<span className="font-mono text-[11px] text-mudo">{s.partidas} {s.partidas === 1 ? 'partida' : 'partidas'}</span>} />
-      {!s.partidas ? <div className="flex flex-1 items-center justify-center"><Vazio icone={<Activity size={22} />} titulo="Ainda sem partidas" texto="As estatísticas aparecem depois da primeira partida confirmada." /></div> : (
+      <TituloPainel eyebrow={l('DESEMPENHO', 'PERFORMANCE')} titulo={l('Em média, por partida', 'Average per match')} id="rg-desempenho" direita={<span className="font-mono text-[11px] text-mudo">{s.partidas} {s.partidas === 1 ? l('partida', 'match') : l('partidas', 'matches')}</span>} />
+      {!s.partidas ? <div className="flex flex-1 items-center justify-center"><Vazio icone={<Activity size={22} />} titulo={l('Ainda sem partidas', 'No matches yet')} texto={l('As estatísticas aparecem depois da primeira partida confirmada.', 'Stats show up after the first confirmed match.')} /></div> : (
         <>
-          <Grupo icone={<Crosshair size={14} aria-hidden />} nome="Combate">
-            <Mosaico rotulo="ACS" valor={inteiro(s.acs)} sub="por ronda" titulo="Average Combat Score: pontuação de combate por ronda" />
-            <Mosaico rotulo="K/D" valor={s.kd != null ? s.kd.toFixed(2) : '-'} sub={`KDA ${s.kda != null ? s.kda.toFixed(2) : '-'}`} titulo="Kills a dividir por mortes" />
-            <Mosaico rotulo="Kills" valor={umaCasa(s.killsMedia)} sub="por partida" />
-            <Mosaico rotulo="Mortes" valor={umaCasa(s.mortesMedia)} sub="por partida" />
-            <Mosaico rotulo="Assist." valor={umaCasa(s.assistMedia)} sub="por partida" />
+          <Grupo icone={<Crosshair size={14} aria-hidden />} nome={l('Combate', 'Combat')}>
+            <Mosaico rotulo="ACS" valor={inteiro(s.acs)} sub={l('por ronda', 'per round')} titulo={l('Average Combat Score: pontuação de combate por ronda', 'Average Combat Score per round')} />
+            <Mosaico rotulo="K/D" valor={s.kd != null ? s.kd.toFixed(2) : '-'} sub={`KDA ${s.kda != null ? s.kda.toFixed(2) : '-'}`} titulo={l('Kills a dividir por mortes', 'Kills divided by deaths')} />
+            <Mosaico rotulo="Kills" valor={umaCasa(s.killsMedia)} sub={l('por partida', 'per match')} />
+            <Mosaico rotulo={l('Mortes', 'Deaths')} valor={umaCasa(s.mortesMedia)} sub={l('por partida', 'per match')} />
+            <Mosaico rotulo={l('Assist.', 'Assists')} valor={umaCasa(s.assistMedia)} sub={l('por partida', 'per match')} />
           </Grupo>
-          <Grupo icone={<Activity size={14} aria-hidden />} nome="Impacto">
-            <Mosaico rotulo="KAST" valor={pct(s.kastPct)} barra={s.kastPct} titulo="Rondas com kill, assistência, sobrevivência ou troca" />
-            <Mosaico rotulo="HS%" valor={pct(s.hsPct)} barra={s.hsPct} titulo="Percentagem de tiros na cabeça" />
-            <Mosaico rotulo="Trades" valor={umaCasa(s.tradesMedia)} sub="por partida" titulo="Kills de troca: matar quem matou um colega há menos de 5 s" />
-            <Mosaico rotulo="First bloods" valor={umaCasa(s.fbMedia)} sub={`${s.firstBloods} no total`} />
-            <Mosaico rotulo="MVP" valor={String(s.mvps)} sub={s.partidas ? `${Math.round((s.mvps / s.partidas) * 100)}% das partidas` : undefined} />
+          <Grupo icone={<Activity size={14} aria-hidden />} nome={l('Impacto', 'Impact')}>
+            <Mosaico rotulo="KAST" valor={pct(s.kastPct)} barra={s.kastPct} titulo={l('Rondas com kill, assistência, sobrevivência ou troca', 'Rounds with a kill, assist, survival or trade')} />
+            <Mosaico rotulo="HS%" valor={pct(s.hsPct)} barra={s.hsPct} titulo={l('Percentagem de tiros na cabeça', 'Headshot percentage')} />
+            <Mosaico rotulo="Trades" valor={umaCasa(s.tradesMedia)} sub={l('por partida', 'per match')} titulo={l('Kills de troca: matar quem matou um colega há menos de 5 s', 'Trade kills: killing whoever killed a teammate less than 5 s ago')} />
+            <Mosaico rotulo="First bloods" valor={umaCasa(s.fbMedia)} sub={l(`${s.firstBloods} no total`, `${s.firstBloods} in total`)} />
+            <Mosaico rotulo="MVP" valor={String(s.mvps)} sub={s.partidas ? l(`${Math.round((s.mvps / s.partidas) * 100)}% das partidas`, `${Math.round((s.mvps / s.partidas) * 100)}% of matches`) : undefined} />
           </Grupo>
-          <Grupo icone={<Trophy size={14} aria-hidden />} nome="Recordes e sequências">
-            <Mosaico rotulo="Melhor ACS" valor={inteiro(s.melhorAcs)} sub="numa partida" />
-            <Mosaico rotulo="Mais kills" valor={inteiro(s.maisKills)} sub="numa partida" />
-            <Mosaico rotulo="Melhor série" valor={String(s.melhorSequencia)} sub="vitórias" />
+          <Grupo icone={<Trophy size={14} aria-hidden />} nome={l('Recordes e sequências', 'Records and streaks')}>
+            <Mosaico rotulo={l('Melhor ACS', 'Best ACS')} valor={inteiro(s.melhorAcs)} sub={l('numa partida', 'in one match')} />
+            <Mosaico rotulo={l('Mais kills', 'Most kills')} valor={inteiro(s.maisKills)} sub={l('numa partida', 'in one match')} />
+            <Mosaico rotulo={l('Melhor série', 'Best streak')} valor={String(s.melhorSequencia)} sub={l('vitórias', 'wins')} />
             <Mosaico
-              rotulo="Agora"
-              valor={seq > 0 ? `${seq}V` : seq < 0 ? `${-seq}D` : '-'}
-              sub={<span className="inline-flex items-center gap-1">{seq > 1 && <Flame size={11} className="text-laranja" aria-hidden />}{seq !== 0 ? 'seguidas' : 'sem série'}</span>}
+              rotulo={l('Agora', 'Now')}
+              valor={seq > 0 ? `${seq}${l('V', 'W')}` : seq < 0 ? `${-seq}${l('D', 'L')}` : '-'}
+              sub={<span className="inline-flex items-center gap-1">{seq > 1 && <Flame size={11} className="text-laranja" aria-hidden />}{seq !== 0 ? l('seguidas', 'in a row') : l('sem série', 'no streak')}</span>}
             />
             <Mosaico
-              rotulo="Como capitão"
+              rotulo={l('Como capitão', 'As captain')}
               valor={`${s.capitao.vitorias}-${s.capitao.partidas - s.capitao.vitorias}`}
-              sub={<span className="inline-flex items-center gap-1"><Crown size={11} className="text-laranja" aria-hidden />{s.capitao.partidas} {s.capitao.partidas === 1 ? 'partida' : 'partidas'}</span>}
+              sub={<span className="inline-flex items-center gap-1"><Crown size={11} className="text-laranja" aria-hidden />{s.capitao.partidas} {s.capitao.partidas === 1 ? l('partida', 'match') : l('partidas', 'matches')}</span>}
             />
           </Grupo>
         </>
@@ -79,10 +80,10 @@ export function Desempenho({ s }: { s: EstatisticasPerfil }) {
 export function PorMapa({ s }: { s: EstatisticasPerfil }) {
   return (
     <Painel aria-labelledby="rg-mapas" className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 p-[22px]">
-      <TituloPainel eyebrow="POR MAPA" titulo="Onde joga melhor" id="rg-mapas" />
+      <TituloPainel eyebrow={l('POR MAPA', 'BY MAP')} titulo={l('Onde joga melhor', 'Where they play best')} id="rg-mapas" />
       {!s.porMapa.length ? (
         <div className="flex flex-1 items-center justify-center">
-          <Vazio icone={<MapIcon size={22} />} titulo="Sem mapas ainda" texto="Cada mapa jogado aparece aqui com as vitórias e o ACS." />
+          <Vazio icone={<MapIcon size={22} />} titulo={l('Sem mapas ainda', 'No maps yet')} texto={l('Cada mapa jogado aparece aqui com as vitórias e o ACS.', 'Each map played shows up here with wins and ACS.')} />
         </div>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -94,7 +95,7 @@ export function PorMapa({ s }: { s: EstatisticasPerfil }) {
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="truncate text-[13.5px] font-semibold">{m.mapa}</span>
-                    <span className="font-mono text-[12px] text-suave">{m.vitorias}V · {m.partidas - m.vitorias}D</span>
+                    <span className="font-mono text-[12px] text-suave">{m.vitorias}{l('V', 'W')} · {m.partidas - m.vitorias}{l('D', 'L')}</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <span aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-white/7"><span className="block h-full rounded-full bg-laranja" style={{ width: `${vit}%` }} /></span>

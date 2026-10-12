@@ -12,12 +12,13 @@ import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
 import { BONUS_MAX, BONUS_MIN, PONTOS_BASE, POR_DIVISAO, bonusDesnivel, comSinal } from '@/lib/pontos'
 import { divisao, nomeDivisao } from '@/lib/ranks'
 import { HORAS_CACHE_RANK } from '@/lib/regras'
+import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
 
 function Forma({ f }: { f: ('V' | 'D')[] }) {
-  const texto = f.map((x) => (x === 'V' ? 'vitória' : 'derrota')).join(', ')
+  const texto = f.map((x) => (x === 'V' ? tx('vitória', 'win') : tx('derrota', 'loss'))).join(', ')
   return (
-    <span role="img" aria-label={f.length ? `Últimas ${f.length}: ${texto}` : 'Sem partidas'} className="flex gap-1">
+    <span role="img" aria-label={f.length ? `${tx('Últimas', 'Last')} ${f.length}: ${texto}` : tx('Sem partidas', 'No matches')} className="flex gap-1">
       {Array.from({ length: 5 }, (_, i) => {
         const x = f[f.length - 5 + i]
         return <span key={i} className="size-2 rounded-full" style={{ background: x === 'V' ? '#5fe3d6' : x === 'D' ? '#ff7d8f' : 'rgba(255,255,255,0.1)' }} />
@@ -26,20 +27,20 @@ function Forma({ f }: { f: ('V' | 'D')[] }) {
   )
 }
 
-const LUGARES = [
-  { rotulo: '1.º LUGAR', cor: '#ff5b1f', halo: 'rgba(255,91,31,0.26)', borda: 'rgba(255,91,31,0.55)' },
-  { rotulo: '2.º LUGAR', cor: '#ff9466', halo: 'rgba(255,148,102,0.16)', borda: 'rgba(255,148,102,0.3)' },
-  { rotulo: '3.º LUGAR', cor: '#ffb592', halo: 'rgba(255,181,146,0.12)', borda: 'rgba(255,181,146,0.22)' },
+const lugares = () => [
+  { rotulo: tx('1.º LUGAR', '1ST PLACE'), cor: '#ff5b1f', halo: 'rgba(255,91,31,0.26)', borda: 'rgba(255,91,31,0.55)' },
+  { rotulo: tx('2.º LUGAR', '2ND PLACE'), cor: '#ff9466', halo: 'rgba(255,148,102,0.16)', borda: 'rgba(255,148,102,0.3)' },
+  { rotulo: tx('3.º LUGAR', '3RD PLACE'), cor: '#ffb592', halo: 'rgba(255,181,146,0.12)', borda: 'rgba(255,181,146,0.22)' },
 ]
 
 /** Os três primeiros em grande, por cima da tabela (o 1.º ao meio e mais alto). */
 function Podio({ top, eu }: { top: LinhaRanking[]; eu?: string }) {
   const ordem = [top[1], top[0], top[2]]
   return (
-    <section aria-label="Pódio da temporada" className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3">
+    <section aria-label={tx('Pódio da temporada', 'Season podium')} className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3">
       {ordem.map((l, k) => {
         const i = l.posicao - 1
-        const lugar = LUGARES[Math.min(2, i)]
+        const lugar = lugares()[Math.min(2, i)]
         const p = l.perfil
         const primeiro = l.posicao === 1
         const jogos = p.vitorias + p.derrotas
@@ -98,7 +99,7 @@ function Linha({ l, eu, i }: { l: LinhaRanking; eu: boolean; i: number }) {
         <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
           <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} destaque={eu} />
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[14px] font-semibold">{nomeJogador(p)}{eu && <span className="ml-1.5 rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">TU</span>}</span>
+            <span className="truncate text-[14px] font-semibold">{nomeJogador(p)}{eu && <span className="ml-1.5 rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{tx('TU', 'YOU')}</span>}</span>
             <span className="font-mono text-[11px] text-mudo">{tagJogador(p)}</span>
           </span>
         </Link>
@@ -119,21 +120,21 @@ function Simulador({ divMinha }: { divMinha: number }) {
   const total = (venceu === 'v' ? PONTOS_BASE : -PONTOS_BASE) + bonus
   return (
     <Painel aria-labelledby="rg-sim" className="flex flex-col gap-3.5 p-[22px]">
-      <TituloPainel eyebrow="SIMULADOR" titulo="Quanto ganhas ou perdes" id="rg-sim" />
-      <Segmentado rotulo="Resultado da partida" valor={venceu} onChange={setVenceu} opcoes={[{ valor: 'v', texto: 'Vitória' }, { valor: 'd', texto: 'Derrota' }]} />
+      <TituloPainel eyebrow={tx('SIMULADOR', 'SIMULATOR')} titulo={tx('Quanto ganhas ou perdes', 'How much you win or lose')} id="rg-sim" />
+      <Segmentado rotulo={tx('Resultado da partida', 'Match result')} valor={venceu} onChange={setVenceu} opcoes={[{ valor: 'v', texto: tx('Vitória', 'Win') }, { valor: 'd', texto: tx('Derrota', 'Loss') }]} />
       <div className="flex items-center justify-between gap-3 rounded-xl border border-white/7 bg-white/[0.03] p-3">
-        <button type="button" aria-label="Diminuir diferença de rank" onClick={() => setDif((d) => Math.max(-6, d - 1))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Minus size={16} aria-hidden /></button>
+        <button type="button" aria-label={tx('Diminuir diferença de rank', 'Decrease rank difference')} onClick={() => setDif((d) => Math.max(-6, d - 1))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Minus size={16} aria-hidden /></button>
         <span className="flex flex-col items-center gap-0.5 text-center">
-          <span className="font-mono text-[18px] font-semibold">{dif > 0 ? `+${dif}` : dif} {Math.abs(dif) === 1 ? 'divisão' : 'divisões'}</span>
-          <span className="text-[12px] text-mudo">adversários com média {nomeDivisao(divMinha + dif)}</span>
+          <span className="font-mono text-[18px] font-semibold">{dif > 0 ? `+${dif}` : dif} {Math.abs(dif) === 1 ? tx('divisão', 'division') : tx('divisões', 'divisions')}</span>
+          <span className="text-[12px] text-mudo">{tx('adversários com média', 'opponents averaging')} {nomeDivisao(divMinha + dif)}</span>
         </span>
-        <button type="button" aria-label="Aumentar diferença de rank" onClick={() => setDif((d) => Math.min(6, d + 1))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Plus size={16} aria-hidden /></button>
+        <button type="button" aria-label={tx('Aumentar diferença de rank', 'Increase rank difference')} onClick={() => setDif((d) => Math.min(6, d + 1))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Plus size={16} aria-hidden /></button>
       </div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[13px] text-suave">{venceu === 'v' ? `+${PONTOS_BASE}` : `-${PONTOS_BASE}`} de base, {comSinal(bonus)} de desnível</span>
+        <span className="text-[13px] text-suave">{venceu === 'v' ? `+${PONTOS_BASE}` : `-${PONTOS_BASE}`} {tx('de base', 'base')}, {comSinal(bonus)} {tx('pelo rank', 'from rank')}</span>
         <span className={`font-mono text-[34px] font-semibold ${total > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(total)}</span>
       </div>
-      <p className="m-0 text-[12.5px] leading-normal text-mudo">Cada divisão de diferença vale {POR_DIVISAO} pontos, entre {BONUS_MIN} e +{BONUS_MAX}.</p>
+      <p className="m-0 text-[12.5px] leading-normal text-mudo">{tx(`Cada divisão de diferença vale ${POR_DIVISAO} pontos, entre ${BONUS_MIN} e +${BONUS_MAX}.`, `Each division of difference is worth ${POR_DIVISAO} points, between ${BONUS_MIN} and +${BONUS_MAX}.`)}</p>
     </Painel>
   )
 }
@@ -145,18 +146,18 @@ function RankingNivel({ eu }: { eu?: string }) {
   return (
     <div className="flex flex-wrap items-start gap-4">
       <Painel aria-labelledby="rg-nivel" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]">
-        <TituloPainel eyebrow="RANGIFY EXPERIENCE" titulo="Ranking de nível" id="rg-nivel" />
-        <p className="m-0 text-[13px] text-mudo">Ordenado pelo XP das missões completas. Em caso de empate, ganha quem tem mais pontos.</p>
+        <TituloPainel eyebrow="RANGIFY EXPERIENCE" titulo={tx('Tabela de nível', 'Level leaderboard')} id="rg-nivel" />
+        <p className="m-0 text-[13px] text-mudo">{tx('Ordenada pelo XP das missões completas. Em caso de empate, ganha quem tem mais pontos.', 'Sorted by XP from completed missions. Ties go to whoever has more points.')}</p>
         {lista.carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : lista.valor?.length ? (
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="rotulo text-left">
                   <th scope="col" className="py-2 pl-3 font-normal">#</th>
-                  <th scope="col" className="py-2 font-normal">Jogador</th>
-                  <th scope="col" className="hidden px-2 font-normal sm:table-cell">Progresso</th>
+                  <th scope="col" className="py-2 font-normal">{tx('Jogador', 'Player')}</th>
+                  <th scope="col" className="hidden px-2 font-normal sm:table-cell">{tx('Progresso', 'Progress')}</th>
                   <th scope="col" className="px-2 text-right font-normal">XP</th>
-                  <th scope="col" className="pr-3 text-right font-normal">Nível</th>
+                  <th scope="col" className="pr-3 text-right font-normal">{tx('Nível', 'Level')}</th>
                 </tr>
               </thead>
               <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
@@ -183,19 +184,19 @@ function RankingNivel({ eu }: { eu?: string }) {
               </tbody>
             </table>
           </div>
-        ) : <Vazio icone={<Trophy size={22} />} titulo="Ainda ninguém tem XP" texto="Completa missões para apareceres aqui." />}
+        ) : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda ninguém tem XP', 'Nobody has XP yet')} texto={tx('Completa missões para apareceres aqui.', 'Complete missions to show up here.')} />}
       </Painel>
       {minha.valor && (
         <Painel aria-labelledby="rg-meu-nivel" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 p-[22px]">
-          <span id="rg-meu-nivel" className="eyebrow">O TEU NÍVEL</span>
+          <span id="rg-meu-nivel" className="eyebrow">{tx('O TEU NÍVEL', 'YOUR LEVEL')}</span>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] text-laranja">#{minha.valor.posicao}</span>
             <span className="flex flex-col">
-              <span className="text-[15px] font-bold">Nível {minha.valor.nivel}</span>
-              <span className="font-mono text-[12px] text-suave">{formatarXp(minha.valor.xp)} XP · {minha.valor.total} jogadores</span>
+              <span className="text-[15px] font-bold">{tx('Nível', 'Level')} {minha.valor.nivel}</span>
+              <span className="font-mono text-[12px] text-suave">{formatarXp(minha.valor.xp)} XP · {minha.valor.total} {tx('jogadores', 'players')}</span>
             </span>
           </div>
-          <Link to="/missoes" className="text-[13px] font-semibold text-pessego no-underline hover:text-pessego-claro">Ver as missões ›</Link>
+          <Link to="/missoes" className="text-[13px] font-semibold text-pessego no-underline hover:text-pessego-claro">{tx('Ver as missões', 'View missions')} ›</Link>
         </Painel>
       )}
     </div>
@@ -243,15 +244,15 @@ export function Ranking() {
   return (
     <>
       <Cabecalho
-        migalhas={['Hub', 'Ranking']}
-        titulo="Ranking da temporada"
+        migalhas={['Hub', tx('Tabela', 'Leaderboard')]}
+        titulo={tx('Tabela da temporada', 'Season leaderboard')}
         descricao={tipo === 'nivel'
-          ? <>Quem subiu mais no passe da temporada com o XP das missões.</>
-          : <>Ordenado pelos pontos do hub. Toda a gente começa com 1000; o rank oficial só ajusta quanto vale cada vitória e cada derrota.</>}
+          ? tx('Quem subiu mais no passe da temporada com o XP das missões.', 'Who has climbed the season pass furthest with mission XP.')
+          : tx('Ordenada pelos pontos do hub. Toda a gente começa com 1000; o rank oficial é usado para atribuir os pontos de cada vitória e derrota.', 'Sorted by hub points. Everyone starts at 1000; the official rank is used to award the points for each win and loss.')}
         acoes={
           <>
-            <Segmentado rotulo="Tipo de ranking" valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: 'Pontos' }, { valor: 'nivel', texto: 'Nível' }]} />
-            <BotaoAjuda topico="ranking">Como funciona o ranking</BotaoAjuda>
+            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }]} />
+            <BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>
           </>
         }
       />
@@ -263,15 +264,15 @@ export function Ranking() {
       <div className="flex flex-wrap items-start gap-4">
         <Painel aria-labelledby="rg-tabela" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]">
           <TituloPainel
-            eyebrow={`${total} JOGADORES`}
-            titulo="Tabela de classificação"
+            eyebrow={`${total} ${tx('JOGADORES', 'PLAYERS')}`}
+            titulo={tx('Classificação', 'Standings')}
             id="rg-tabela"
-            direita={<Segmentado rotulo="Filtrar ranking" valor={ambito} onChange={setAmbito} opcoes={[{ valor: 'global', texto: 'Global' }, { valor: 'amigos', texto: 'Só amigos' }]} />}
+            direita={<Segmentado rotulo={tx('Filtrar tabela', 'Filter leaderboard')} valor={ambito} onChange={setAmbito} opcoes={[{ valor: 'global', texto: 'Global' }, { valor: 'amigos', texto: tx('Só amigos', 'Friends only') }]} />}
           />
           <label className="relative block">
-            <span className="so-leitores">Procurar jogador</span>
+            <span className="so-leitores">{tx('Procurar jogador', 'Search player')}</span>
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-            <input className="campo !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder="Procurar por Riot ID" />
+            <input className="campo !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder={tx('Procurar por Riot ID', 'Search by Riot ID')} />
           </label>
           {pagina.carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : tabela.length ? (
             <div className="-mx-2 overflow-x-auto">
@@ -279,12 +280,12 @@ export function Ranking() {
                 <thead>
                   <tr className="rotulo text-left">
                     <th scope="col" className="py-2 pl-3 font-normal">#</th>
-                    <th scope="col" className="py-2 font-normal">Jogador</th>
-                    <th scope="col" className="hidden px-2 font-normal md:table-cell">Rank oficial</th>
-                    <th scope="col" className="hidden px-2 font-normal sm:table-cell">Forma</th>
-                    <th scope="col" className="hidden px-2 text-right font-normal lg:table-cell">V-D</th>
-                    <th scope="col" className="hidden px-2 text-right font-normal lg:table-cell">Vit.</th>
-                    <th scope="col" className="pr-3 text-right font-normal">Pontos</th>
+                    <th scope="col" className="py-2 font-normal">{tx('Jogador', 'Player')}</th>
+                    <th scope="col" className="hidden px-2 font-normal md:table-cell">{tx('Rank oficial', 'Official rank')}</th>
+                    <th scope="col" className="hidden px-2 font-normal sm:table-cell">{tx('Forma', 'Form')}</th>
+                    <th scope="col" className="hidden px-2 text-right font-normal lg:table-cell">{tx('V-D', 'W-L')}</th>
+                    <th scope="col" className="hidden px-2 text-right font-normal lg:table-cell">{tx('Vit.', 'Win%')}</th>
+                    <th scope="col" className="pr-3 text-right font-normal">{tx('Pontos', 'Points')}</th>
                   </tr>
                 </thead>
                 <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
@@ -293,19 +294,19 @@ export function Ranking() {
               </table>
             </div>
           ) : comPodio ? (
-            <p className="m-0 py-6 text-center text-[13.5px] text-mudo">Só há três jogadores nesta lista, e estão todos no pódio.</p>
+            <p className="m-0 py-6 text-center text-[13.5px] text-mudo">{tx('Só há três jogadores nesta lista, e estão todos no pódio.', 'There are only three players on this list, all on the podium.')}</p>
           ) : (
-            <Vazio icone={<Trophy size={22} />} titulo={ambito === 'amigos' ? 'Ainda sem amigos no ranking' : 'Ninguém com esse nome'} texto={ambito === 'amigos' ? 'Adiciona amigos para comparares os pontos.' : 'Experimenta outro Riot ID.'} />
+            <Vazio icone={<Trophy size={22} />} titulo={ambito === 'amigos' ? tx('Ainda sem amigos na tabela', 'No friends on the leaderboard yet') : tx('Ninguém com esse nome', 'Nobody with that name')} texto={ambito === 'amigos' ? tx('Adiciona amigos para comparares os pontos.', 'Add friends to compare points.') : tx('Experimenta outro Riot ID.', 'Try another Riot ID.')} />
           )}
           {cursor && (
-            <button type="button" className="btn btn-fantasma self-center" disabled={mais} onClick={carregarMais}>{mais ? 'A carregar…' : 'Carregar mais 50'}</button>
+            <button type="button" className="btn btn-fantasma self-center" disabled={mais} onClick={carregarMais}>{mais ? tx('A carregar…', 'Loading…') : tx('Carregar mais 50', 'Load 50 more')}</button>
           )}
         </Painel>
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           {perfil && (
             <Painel aria-labelledby="rg-eu" className="flex flex-col gap-3 p-[22px]">
-              <span id="rg-eu" className="eyebrow">A TUA POSIÇÃO</span>
+              <span id="rg-eu" className="eyebrow">{tx('A TUA POSIÇÃO', 'YOUR POSITION')}</span>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] text-laranja">#{minhaPos.valor ?? '-'}</span>
                 <span className="flex min-w-0 flex-col">
@@ -318,10 +319,10 @@ export function Ranking() {
           {perfil && <Simulador divMinha={divisao(perfil.tier)} />}
           {perfil && (
             <Painel aria-labelledby="rg-oficial" className="flex flex-col gap-3 p-[22px]">
-              <TituloPainel eyebrow="RANK OFICIAL" titulo="Vem da Riot e fica guardado" id="rg-oficial" />
+              <TituloPainel eyebrow={tx('RANK OFICIAL', 'OFFICIAL RANK')} titulo={tx('Vem da Riot e fica guardado', 'From Riot, and cached')} id="rg-oficial" />
               <div className="flex items-center justify-between gap-2"><RankBadge tier={perfil.tier} rr={perfil.rr} /><span className="text-[12px] text-mudo">{haQuanto(perfil.rankAtualizadoEm)}</span></div>
-              <p className="m-0 text-[13px] leading-normal text-suave">Lido pela Henrik Dev API. Atualiza no máximo a cada {HORAS_CACHE_RANK} horas.</p>
-              <button type="button" className="btn btn-fantasma" disabled={aSincronizar} onClick={sincronizar}><RefreshCw size={15} className="text-laranja" aria-hidden />Sincronizar agora</button>
+              <p className="m-0 text-[13px] leading-normal text-suave">{tx(`Lido pela Henrik Dev API. Atualiza no máximo a cada ${HORAS_CACHE_RANK} horas.`, `Read by the Henrik Dev API. Updates at most every ${HORAS_CACHE_RANK} hours.`)}</p>
+              <button type="button" className="btn btn-fantasma" disabled={aSincronizar} onClick={sincronizar}><RefreshCw size={15} className="text-laranja" aria-hidden />{tx('Sincronizar agora', 'Sync now')}</button>
             </Painel>
           )}
         </div>

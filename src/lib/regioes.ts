@@ -1,8 +1,11 @@
 import type { Regiao } from './dados'
+import { l } from './idioma'
+
+const regiao = (valor: Regiao, pt: string, en: string) => ({ valor, get nome() { return l(pt, en) } })
 
 export const REGIOES: { valor: Regiao; nome: string }[] = [
-  { valor: 'eu', nome: 'Europa' }, { valor: 'na', nome: 'América do Norte' }, { valor: 'br', nome: 'Brasil' },
-  { valor: 'latam', nome: 'América Latina' }, { valor: 'ap', nome: 'Ásia-Pacífico' }, { valor: 'kr', nome: 'Coreia' },
+  regiao('eu', 'Europa', 'Europe'), regiao('na', 'América do Norte', 'North America'), regiao('br', 'Brasil', 'Brazil'),
+  regiao('latam', 'América Latina', 'Latin America'), regiao('ap', 'Ásia-Pacífico', 'Asia-Pacific'), regiao('kr', 'Coreia', 'Korea'),
 ]
 
 export function nomeRegiao(r: Regiao) {

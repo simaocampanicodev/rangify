@@ -1,6 +1,7 @@
-import { BookOpen, FlaskConical, KeyRound, RefreshCw, RotateCcw, Save, Settings, Volume2 } from 'lucide-react'
+import { BookOpen, FlaskConical, Globe, KeyRound, RefreshCw, RotateCcw, Save, Settings, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EditarPerfil } from '@/components/EditarPerfil'
+import { SeletorIdioma } from '@/components/Idioma'
 import { reverTour } from '@/components/Tour'
 import { Cabecalho, Carregando, Painel, RankBadge, TituloPainel } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -9,6 +10,7 @@ import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/dados'
 import { REGIOES } from '@/lib/regioes'
 import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/som'
+import { l, nomeFuncaoJogo } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
 
 const FUNCOES_JOGO: FuncaoJogo[] = ['Duelista', 'Controlador', 'Iniciador', 'Sentinela']
@@ -31,69 +33,80 @@ export function Definicoes() {
 
   if (!perfil) return <Carregando />
 
-  const guardar = () => acao(async () => { await dados.atualizarPerfil({ regiao, funcaoJogo: funcaoJogo || null }); await recarregar() }, 'Definições guardadas.')
+  const guardar = () => acao(async () => { await dados.atualizarPerfil({ regiao, funcaoJogo: funcaoJogo || null }); await recarregar() }, l('Definições guardadas.', 'Settings saved.'))
   const definirPassword = async () => {
-    const ok = await acao(async () => { await dados.definirPassword(password); return true }, 'Palavra-passe guardada.')
+    const ok = await acao(async () => { await dados.definirPassword(password); return true }, l('Palavra-passe guardada.', 'Password saved.'))
     if (ok) { setPassword(''); recarregar() }
   }
 
   return (
     <>
-      <Cabecalho migalhas={['Conta', 'Definições']} titulo="Definições" descricao="A tua conta, a região onde jogas, a função preferida e o guia de boas-vindas." />
+      <Cabecalho migalhas={[l('Conta', 'Account'), l('Definições', 'Settings')]} titulo={l('Definições', 'Settings')} descricao={l('A tua conta, a região onde jogas, a função preferida, a língua e o guia de boas-vindas.', 'Your account, the region you play in, your preferred role, the language and the welcome tour.')} />
 
       <div className="flex flex-wrap items-stretch gap-4">
         <Painel aria-labelledby="rg-def-jogo" className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-[22px]">
-          <TituloPainel eyebrow="JOGO" titulo="Preferências" id="rg-def-jogo" />
+          <TituloPainel eyebrow={l('JOGO', 'GAME')} titulo={l('Preferências', 'Preferences')} id="rg-def-jogo" />
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
-            Região da fila
+            {l('Região da fila', 'Queue region')}
             <select className="campo" value={regiao} onChange={(e) => setRegiao(e.target.value as Regiao)}>
               {REGIOES.map((r) => <option key={r.valor} value={r.valor}>{r.nome}</option>)}
             </select>
           </label>
           <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-            <legend className="mb-1.5 text-[13px] font-semibold text-[#d0cbc4]">Função preferida (aparece aos capitães no draft)</legend>
+            <legend className="mb-1.5 text-[13px] font-semibold text-[#d0cbc4]">{l('Função preferida (aparece aos capitães no draft)', 'Preferred role (shown to captains in the draft)')}</legend>
             <div className="flex flex-wrap gap-1.5">
               {[...FUNCOES_JOGO, ''].map((f) => (
                 <button key={f || 'nenhuma'} type="button" aria-pressed={funcaoJogo === f} onClick={() => setFuncaoJogo(f as FuncaoJogo | '')} className={`h-9 cursor-pointer rounded-lg border px-3 text-[13px] font-semibold ${funcaoJogo === f ? 'border-laranja/40 bg-laranja/14 text-pessego-claro' : 'border-white/8 bg-white/[0.03] text-suave hover:text-texto'}`}>
-                  {f || 'Sem preferência'}
+                  {f ? nomeFuncaoJogo(f) : l('Sem preferência', 'No preference')}
                 </button>
               ))}
             </div>
           </fieldset>
-          <div><button type="button" className="btn btn-primario" onClick={guardar}><Save size={16} aria-hidden />Guardar</button></div>
+          <div><button type="button" className="btn btn-primario" onClick={guardar}><Save size={16} aria-hidden />{l('Guardar', 'Save')}</button></div>
         </Painel>
 
         <Painel aria-labelledby="rg-def-conta" className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-[22px]">
-          <TituloPainel eyebrow="CONTA" titulo={perfil.riotId ?? perfil.utilizador} id="rg-def-conta" />
+          <TituloPainel eyebrow={l('CONTA', 'ACCOUNT')} titulo={perfil.riotId ?? perfil.utilizador} id="rg-def-conta" />
           <div className="flex flex-col gap-2 text-[13.5px]">
-            <div className="flex items-center justify-between gap-2"><span className="text-suave">Utilizador do Discord</span><span className="font-mono">{perfil.utilizador}</span></div>
-            <div className="flex items-center justify-between gap-2"><span className="text-suave">Rank oficial</span><RankBadge tier={perfil.tier} rr={perfil.rr} pequeno /></div>
-            <div className="flex items-center justify-between gap-2"><span className="text-suave">Sincronizado</span><span className="text-mudo">{haQuanto(perfil.rankAtualizadoEm)}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-suave">{l('Utilizador do Discord', 'Discord username')}</span><span className="font-mono">{perfil.utilizador}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-suave">{l('Rank oficial', 'Official rank')}</span><RankBadge tier={perfil.tier} rr={perfil.rr} pequeno /></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-suave">{l('Sincronizado', 'Synced')}</span><span className="text-mudo">{haQuanto(perfil.rankAtualizadoEm)}</span></div>
           </div>
           <div className="flex flex-wrap gap-2">
             <EditarPerfil pequeno />
-            <button type="button" className="btn btn-fantasma" disabled={aSincronizar} onClick={sincronizar}><RefreshCw size={16} className="text-laranja" aria-hidden />Sincronizar rank</button>
+            <button type="button" className="btn btn-fantasma" disabled={aSincronizar} onClick={sincronizar}><RefreshCw size={16} className="text-laranja" aria-hidden />{l('Sincronizar rank', 'Sync rank')}</button>
           </div>
           <form className="flex flex-col gap-2 border-t border-white/7 pt-4" onSubmit={(e) => { e.preventDefault(); definirPassword() }}>
             <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
-              <span className="flex items-center gap-2"><KeyRound size={14} className="text-laranja" aria-hidden />{perfil.temPassword ? 'Mudar palavra-passe' : 'Definir palavra-passe'}</span>
+              <span className="flex items-center gap-2"><KeyRound size={14} className="text-laranja" aria-hidden />{perfil.temPassword ? l('Mudar palavra-passe', 'Change password') : l('Definir palavra-passe', 'Set password')}</span>
               <input className="campo" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} />
-              <span className="text-[12px] font-normal text-mudo">Para entrares sem o Discord. Pelo menos 10 caracteres, sem o teu utilizador.</span>
+              <span className="text-[12px] font-normal text-mudo">{l('Para entrares sem o Discord. Pelo menos 10 caracteres, sem o teu utilizador.', 'To sign in without Discord. At least 10 characters, without your username.')}</span>
             </label>
-            <div><button type="submit" className="btn btn-fantasma" disabled={password.length < 10}>Guardar palavra-passe</button></div>
+            <div><button type="submit" className="btn btn-fantasma" disabled={password.length < 10}>{l('Guardar palavra-passe', 'Save password')}</button></div>
           </form>
         </Painel>
       </div>
+
+      <Painel aria-labelledby="rg-def-idioma" className="flex flex-wrap items-center justify-between gap-4 p-[22px]">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Globe size={18} aria-hidden /></span>
+          <div className="flex flex-col gap-0.5">
+            <h2 id="rg-def-idioma" className="m-0 text-[16px] font-bold">{l('Língua', 'Language')}</h2>
+            <span className="text-[13px] text-mudo">{l('A língua do site. Fica guardada neste browser.', 'The site language. It is saved in this browser.')}</span>
+          </div>
+        </div>
+        <SeletorIdioma />
+      </Painel>
 
       <Painel aria-labelledby="rg-def-guia" className="flex flex-wrap items-center justify-between gap-4 p-[22px]">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><BookOpen size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
-            <h2 id="rg-def-guia" className="m-0 text-[16px] font-bold">Guia de boas-vindas</h2>
-            <span className="text-[13px] text-mudo">A volta pelas abas que aparece às contas novas.</span>
+            <h2 id="rg-def-guia" className="m-0 text-[16px] font-bold">{l('Guia de boas-vindas', 'Welcome tour')}</h2>
+            <span className="text-[13px] text-mudo">{l('A volta pelas abas que aparece às contas novas.', 'The tour of the tabs shown to new accounts.')}</span>
           </div>
         </div>
-        <button type="button" className="btn btn-suave" onClick={reverTour}><RotateCcw size={16} aria-hidden />Ver o guia outra vez</button>
+        <button type="button" className="btn btn-suave" onClick={reverTour}><RotateCcw size={16} aria-hidden />{l('Ver o guia outra vez', 'Replay the tour')}</button>
       </Painel>
 
       <Painel aria-labelledby="rg-def-som" className="flex flex-col gap-5 p-[22px]">
@@ -101,12 +114,12 @@ export function Definicoes() {
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Volume2 size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
-            <h2 id="rg-def-som" className="m-0 text-[16px] font-bold">Som de partida encontrada</h2>
-            <span className="text-[13px] text-mudo">Um aviso curto quando a fila enche, para não perderes os 20 segundos.</span>
+            <h2 id="rg-def-som" className="m-0 text-[16px] font-bold">{l('Som de partida encontrada', 'Match found sound')}</h2>
+            <span className="text-[13px] text-mudo">{l('Um aviso curto quando a fila enche, para não perderes os 20 segundos.', 'A short alert when the queue fills, so you do not miss the 20 seconds.')}</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn btn-fantasma" onClick={() => tocarPartidaEncontrada()} disabled={!som}>Testar som</button>
+          <button type="button" className="btn btn-fantasma" onClick={() => tocarPartidaEncontrada()} disabled={!som}>{l('Testar som', 'Test sound')}</button>
           <button
             type="button"
             role="switch"
@@ -146,21 +159,21 @@ export function Definicoes() {
           <div className="flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><FlaskConical size={18} aria-hidden /></span>
             <div className="flex flex-col gap-0.5">
-              <h2 id="rg-def-demo" className="m-0 text-[16px] font-bold">Modo demo</h2>
-              <span className="text-[13px] text-mudo">Só existe sem Supabase. Serve para experimentar as permissões de cada função.</span>
+              <h2 id="rg-def-demo" className="m-0 text-[16px] font-bold">{l('Modo demo', 'Demo mode')}</h2>
+              <span className="text-[13px] text-mudo">{l('Só existe sem Supabase. Serve para experimentar as permissões de cada função.', 'Only exists without Supabase. Lets you try out the permissions of each role.')}</span>
             </div>
           </div>
           <label className="flex flex-wrap items-center gap-3 text-[13.5px] text-suave">
             <Settings size={16} className="text-laranja" aria-hidden />
-            Função desta conta
-            <select className="campo !h-10 !w-auto" value={perfil.funcao} onChange={(e) => acao(() => dados.devMudarFuncao!(e.target.value as Funcao), 'Função mudada.')}>
-              <option value="owner">Owner</option><option value="dev">Dev</option><option value="mod">Mod</option><option value="verified">Verificado</option><option value="user">Jogador</option>
+            {l('Função desta conta', 'Role of this account')}
+            <select className="campo !h-10 !w-auto" value={perfil.funcao} onChange={(e) => acao(() => dados.devMudarFuncao!(e.target.value as Funcao), l('Função mudada.', 'Role changed.'))}>
+              <option value="owner">Owner</option><option value="dev">Dev</option><option value="mod">Mod</option><option value="verified">{l('Verificado', 'Verified')}</option><option value="user">{l('Jogador', 'Player')}</option>
             </select>
-            <span className="text-[12.5px] text-mudo">As ferramentas de teste só aparecem a Owner e Dev.</span>
+            <span className="text-[12.5px] text-mudo">{l('As ferramentas de teste só aparecem a Owner e Dev.', 'The test tools only show for Owner and Dev.')}</span>
           </label>
           <div>
-            <button type="button" className="btn btn-fantasma" onClick={() => { if (window.confirm('Apagar todos os dados do modo demo e voltar ao início?')) acao(() => dados.reporDemo!()) }}>
-              <RotateCcw size={16} className="text-laranja" aria-hidden />Repor dados de demo
+            <button type="button" className="btn btn-fantasma" onClick={() => { if (window.confirm(l('Apagar todos os dados do modo demo e voltar ao início?', 'Delete all demo data and start over?'))) acao(() => dados.reporDemo!()) }}>
+              <RotateCcw size={16} className="text-laranja" aria-hidden />{l('Repor dados de demo', 'Reset demo data')}
             </button>
           </div>
         </Painel>

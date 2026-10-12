@@ -3,6 +3,7 @@ import type { PontoForma } from '@/lib/dados'
 import { comSinal } from '@/lib/pontos'
 import { dataCurta } from '@/lib/tempo'
 import { Segmentado, SeloMvp } from './ui'
+import { l } from '@/lib/idioma'
 
 /** Curva suave (Catmull-Rom convertida em Bézier) que passa por todos os pontos. */
 function caminho(pts: [number, number][]) {
@@ -61,12 +62,12 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-[5px]">
-          <span className="eyebrow">FORMA</span>
-          <h2 className="m-0 text-[19px] font-bold tracking-[-0.02em]">Últimas {dados.length} partidas</h2>
+          <span className="eyebrow">{l('FORMA', 'FORM')}</span>
+          <h2 className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l(`Últimas ${dados.length} partidas`, `Last ${dados.length} matches`)}</h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-2 text-[12px] text-mudo"><span className="w-5 border-t border-dashed border-white/40" />média {fmt(media)}</span>
-          <Segmentado rotulo="Métrica do gráfico" valor={modo} onChange={setModo} opcoes={[{ valor: 'pontos', texto: 'Pontos' }, { valor: 'kda', texto: 'KDA' }, { valor: 'acs', texto: 'ACS' }]} />
+          <span className="flex items-center gap-2 text-[12px] text-mudo"><span className="w-5 border-t border-dashed border-white/40" />{l('média', 'average')} {fmt(media)}</span>
+          <Segmentado rotulo={l('Métrica do gráfico', 'Chart metric')} valor={modo} onChange={setModo} opcoes={[{ valor: 'pontos', texto: l('Pontos', 'Points') }, { valor: 'kda', texto: 'KDA' }, { valor: 'acs', texto: 'ACS' }]} />
         </div>
       </div>
       <div ref={caixa} className="relative">
@@ -74,7 +75,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
           width={largura}
           height={altura}
           role="img"
-          aria-label={`${modo === 'pontos' ? 'Pontos' : modo === 'acs' ? 'ACS' : 'KDA'} nas últimas ${dados.length} partidas, média ${fmt(media)}`}
+          aria-label={l(`${modo === 'pontos' ? 'Pontos' : modo === 'acs' ? 'ACS' : 'KDA'} nas últimas ${dados.length} partidas, média ${fmt(media)}`, `${modo === 'pontos' ? 'Points' : modo === 'acs' ? 'ACS' : 'KDA'} in the last ${dados.length} matches, average ${fmt(media)}`)}
           onPointerMove={mover}
           onPointerLeave={() => setHover(null)}
           className="block touch-none"
@@ -113,10 +114,10 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
             style={{ left: Math.min(largura - 196, Math.max(0, pts[hover][0] - 95)), top: Math.max(0, pts[hover][1] - 112) }}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className={`font-bold ${h.venceu ? 'text-vitoria' : 'text-derrota'}`}>{h.venceu ? 'Vitória' : 'Derrota'} {h.resultado}</span>
+              <span className={`font-bold ${h.venceu ? 'text-vitoria' : 'text-derrota'}`}>{h.venceu ? l('Vitória', 'Win') : l('Derrota', 'Loss')} {h.resultado}</span>
               {h.mvp && <SeloMvp tamanho={18} />}
             </span>
-            <span className="text-mudo">{h.mapa} · {h.adversario}</span>
+            <span className="text-mudo">{h.mapa} · {l(h.adversario, h.adversario.replace(/^Equipa /, 'Team '))}</span>
             <span className="flex justify-between font-mono"><span>{h.pontos} pts</span><span className={h.delta > 0 ? 'text-vitoria' : 'text-derrota'}>{comSinal(h.delta)}</span></span>
             <span className="font-mono text-suave">KDA {h.kda != null ? h.kda.toFixed(2) : '-'} · ACS {h.acs ?? '-'}</span>
           </div>

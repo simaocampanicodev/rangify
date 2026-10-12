@@ -13,6 +13,7 @@ import { Rodape } from './Rodape'
 import { Sidebar } from './Sidebar'
 import { Tour } from './Tour'
 import { Carregando } from './ui'
+import { l } from '@/lib/idioma'
 
 /** Aviso no topo de qualquer página enquanto tens uma partida a decorrer. */
 function FaixaPartida() {
@@ -22,8 +23,8 @@ function FaixaPartida() {
   return (
     <Link to="/jogar" className="flex items-center justify-center gap-3 border-b border-laranja/30 bg-laranja/12 px-4 py-2.5 text-[13.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/18">
       <Radio size={16} className="ao-vivo text-laranja" aria-hidden />
-      Partida {partida.codigo} a decorrer: {NOMES_ESTADO[partida.estado]}
-      <span className="inline-flex items-center gap-1 text-laranja-claro">Voltar à partida<ArrowRight size={14} aria-hidden /></span>
+      {l('Partida', 'Match')} {partida.codigo} {l('a decorrer', 'in progress')}: {NOMES_ESTADO[partida.estado]}
+      <span className="inline-flex items-center gap-1 text-laranja-claro">{l('Voltar à partida', 'Back to match')}<ArrowRight size={14} aria-hidden /></span>
     </Link>
   )
 }
@@ -40,18 +41,18 @@ function FaixaFila() {
     <div role="status" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-b border-laranja/30 bg-laranja/12 px-4 py-2 text-[13.5px] font-semibold text-pessego-claro">
       <span className="flex items-center gap-2.5">
         <span className="relative size-2"><span className="ping absolute inset-0 rounded-full bg-laranja" /><span className="absolute inset-0 rounded-full bg-laranja" /></span>
-        Na fila há <span className="font-mono text-texto">{relogio(espera)}</span>
+        {l('Na fila há', 'In queue for')} <span className="font-mono text-texto">{relogio(espera)}</span>
       </span>
       <span className="flex items-center gap-2">
         <Users size={15} className="text-laranja" aria-hidden />
-        <span className="font-mono text-texto">{fila.contagem}/10</span> jogadores
+        <span className="font-mono text-texto">{fila.contagem}/10</span> {l('jogadores', 'players')}
         <span aria-hidden className="ml-1 hidden gap-[3px] sm:flex">
           {Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < fila.contagem ? 'bg-laranja' : 'bg-white/12'}`} />)}
         </span>
       </span>
-      <Link to="/jogar" className="inline-flex items-center gap-1 text-laranja-claro no-underline hover:text-pessego">Ver fila<ArrowRight size={14} aria-hidden /></Link>
+      <Link to="/jogar" className="inline-flex items-center gap-1 text-laranja-claro no-underline hover:text-pessego">{l('Ver fila', 'View queue')}<ArrowRight size={14} aria-hidden /></Link>
       <button type="button" disabled={ocupado} onClick={alternar} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-laranja/30 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-pessego-claro hover:bg-laranja/15">
-        <LogOut size={13} aria-hidden />Sair
+        <LogOut size={13} aria-hidden />{l('Sair', 'Leave')}
       </button>
     </div>
   )

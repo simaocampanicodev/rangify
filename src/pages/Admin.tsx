@@ -10,11 +10,12 @@ import { dados, type Funcao, type Partida, type Perfil } from '@/lib/dados'
 import { MAPAS, ROTACAO_PADRAO } from '@/lib/mapas'
 import { capitao, nomeJogador } from '@/lib/partida'
 import { NOMES_ESTADO, validarResultado } from '@/lib/regras'
+import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
 
 const FUNCOES: { valor: Funcao; nome: string }[] = [
   { valor: 'owner', nome: 'Owner' }, { valor: 'dev', nome: 'Dev' }, { valor: 'mod', nome: 'Mod' },
-  { valor: 'verified', nome: 'Verificado' }, { valor: 'user', nome: 'Jogador' },
+  { valor: 'verified', get nome() { return tx('Verificado', 'Verified') } }, { valor: 'user', get nome() { return tx('Jogador', 'Player') } },
 ]
 
 function Disputa({ p }: { p: Partida }) {
@@ -33,17 +34,17 @@ function Disputa({ p }: { p: Partida }) {
           const c = p.jogadores.find((j) => j.perfilId === s.capitaoId)
           return (
             <div key={s.capitaoId} className="flex items-center justify-between gap-2 rounded-xl border border-white/7 px-3 py-2">
-              <span className="text-[13px]">{c ? nomeJogador(c) : '?'} <span className="text-mudo">(capitão {c?.equipa})</span></span>
+              <span className="text-[13px]">{c ? nomeJogador(c) : '?'} <span className="text-mudo">({tx('capitão', 'captain')} {c?.equipa})</span></span>
               <span className="font-mono text-[16px] font-semibold">{s.a}-{s.b}</span>
             </div>
           )
         })}
       </div>
-      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); acao(() => dados.resolverDisputa(p.id, { a: Number(a), b: Number(b) }), 'Disputa resolvida.') }}>
-        <label className="flex flex-col gap-1 text-[12px] text-mudo">Equipa A ({capitao(p, 'A') ? nomeJogador(capitao(p, 'A')!) : 'A'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} /></label>
-        <label className="flex flex-col gap-1 text-[12px] text-mudo">Equipa B ({capitao(p, 'B') ? nomeJogador(capitao(p, 'B')!) : 'B'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} /></label>
-        <button type="submit" className="btn btn-primario !min-h-10" disabled={!v.ok}><Gavel size={15} aria-hidden />Confirmar {a}-{b}</button>
-        <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => acao(() => dados.resolverDisputa(p.id, null), 'Partida anulada.')}><Ban size={15} className="text-laranja" aria-hidden />Anular</button>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); acao(() => dados.resolverDisputa(p.id, { a: Number(a), b: Number(b) }), tx('Disputa resolvida.', 'Dispute resolved.')) }}>
+        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} A ({capitao(p, 'A') ? nomeJogador(capitao(p, 'A')!) : 'A'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} /></label>
+        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} B ({capitao(p, 'B') ? nomeJogador(capitao(p, 'B')!) : 'B'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} /></label>
+        <button type="submit" className="btn btn-primario !min-h-10" disabled={!v.ok}><Gavel size={15} aria-hidden />{tx('Confirmar', 'Confirm')} {a}-{b}</button>
+        <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => acao(() => dados.resolverDisputa(p.id, null), tx('Partida anulada.', 'Match voided.'))}><Ban size={15} className="text-laranja" aria-hidden />{tx('Anular', 'Void')}</button>
       </form>
       {!v.ok && <span className="text-[12px] text-derrota">{v.titulo}</span>}
     </article>
@@ -58,15 +59,15 @@ function CampoPontos({ p, onGuardado }: { p: Perfil; onGuardado: () => void }) {
   const n = Number(valor)
   const mudou = valor !== String(p.pontos) && Number.isInteger(n) && n >= 0 && n <= 10000
   const guardar = async () => {
-    const ok = await acao(async () => { await dados.definirPontos(p.id, n); return true }, `Pontos de ${p.riotId ?? p.utilizador} acertados para ${n}.`)
+    const ok = await acao(async () => { await dados.definirPontos(p.id, n); return true }, tx(`Pontos de ${p.riotId ?? p.utilizador} acertados para ${n}.`, `${p.riotId ?? p.utilizador}'s points set to ${n}.`))
     if (ok) onGuardado()
   }
   return (
     <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (mudou) guardar() }}>
-      <label className="so-leitores" htmlFor={`pts-${p.id}`}>Pontos de {p.utilizador}</label>
+      <label className="so-leitores" htmlFor={`pts-${p.id}`}>{tx('Pontos de', 'Points of')} {p.utilizador}</label>
       <input id={`pts-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, '').slice(0, 5))} />
       <span className="text-[12px] text-mudo">pts</span>
-      {mudou && <button type="submit" className="btn btn-suave !min-h-9 !px-3 !text-[12.5px]">Guardar</button>}
+      {mudou && <button type="submit" className="btn btn-suave !min-h-9 !px-3 !text-[12.5px]">{tx('Guardar', 'Save')}</button>}
     </form>
   )
 }
@@ -86,7 +87,7 @@ function Rotacao() {
     setEscolha(lista.includes(nome) ? lista.filter((m) => m !== nome) : [...lista, nome])
   }
   const guardar = async () => {
-    const ok = await acao(async () => { await dados.definirPoolMapas(lista); return true }, `Rotação guardada com ${lista.length} mapas. Vale a partir da próxima partida.`)
+    const ok = await acao(async () => { await dados.definirPoolMapas(lista); return true }, tx(`Rotação guardada com ${lista.length} mapas. Vale a partir da próxima partida.`, `Rotation saved with ${lista.length} maps. It applies from the next match.`))
     if (ok) { setEscolha(null); atual.recarregar() }
   }
   if (atual.carregando) return <Carregando />
@@ -94,8 +95,8 @@ function Rotacao() {
   return (
     <div className="flex flex-col gap-3">
       <p className="m-0 text-[13px] text-mudo">
-        {podeEditar ? 'Toca num mapa para o tirar ou meter na rotação. ' : 'Só Owner e Dev mudam a rotação. '}
-        As partidas que já começaram ficam com os mapas que tinham; as próximas usam esta lista. Mínimo de 3 mapas.
+        {podeEditar ? tx('Toca num mapa para o tirar ou meter na rotação. ', 'Tap a map to remove it from or add it to the rotation. ') : tx('Só Owner e Dev mudam a rotação. ', 'Only Owner and Dev change the rotation. ')}
+        {tx('As partidas que já começaram ficam com os mapas que tinham; as próximas usam esta lista. Mínimo de 3 mapas.', 'Matches already started keep the maps they had; the next ones use this list. At least 3 maps.')}
       </p>
       {/* 7 por linha em ecrãs largos; a última linha estica para nunca ficar um buraco. */}
       <ul className="m-0 flex list-none flex-wrap gap-2.5 p-0">
@@ -117,7 +118,7 @@ function Rotacao() {
                 </span>
                 <span className="relative flex flex-col">
                   <span className={`text-[15px] font-extrabold tracking-[-0.01em] uppercase ${dentro ? 'text-marfim' : 'text-mudo'}`}>{m.nome}</span>
-                  <span className="font-mono text-[10.5px] text-mudo">{dentro ? 'NA ROTAÇÃO' : 'FORA'}</span>
+                  <span className="font-mono text-[10.5px] text-mudo">{dentro ? tx('NA ROTAÇÃO', 'IN ROTATION') : tx('FORA', 'OUT')}</span>
                 </span>
               </button>
             </li>
@@ -127,12 +128,12 @@ function Rotacao() {
       {podeEditar && (
         <div className="flex flex-wrap items-center gap-2 border-t border-white/7 pt-3">
           <span className={`mr-auto text-[13px] ${lista.length < 3 ? 'text-pessego' : 'text-suave'}`}>
-            {lista.length} {lista.length === 1 ? 'mapa' : 'mapas'} na rotação · {Math.max(0, lista.length - 1)} bans por partida
-            {lista.length < 3 && ' · escolhe pelo menos 3'}
+            {tx(`${lista.length} ${lista.length === 1 ? 'mapa' : 'mapas'} na rotação · ${Math.max(0, lista.length - 1)} bans por partida`, `${lista.length} ${lista.length === 1 ? 'map' : 'maps'} in rotation · ${Math.max(0, lista.length - 1)} bans per match`)}
+            {lista.length < 3 && tx(' · escolhe pelo menos 3', ' · pick at least 3')}
           </span>
-          <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha([...ROTACAO_PADRAO])}><RotateCcw size={15} aria-hidden />Repor a de origem</button>
-          {mudou && <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha(null)}>Desfazer</button>}
-          <button type="button" className="btn btn-primario !min-h-10" disabled={!mudou || lista.length < 3} onClick={guardar}>Guardar rotação</button>
+          <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha([...ROTACAO_PADRAO])}><RotateCcw size={15} aria-hidden />{tx('Repor a de origem', 'Reset to default')}</button>
+          {mudou && <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => setEscolha(null)}>{tx('Desfazer', 'Undo')}</button>}
+          <button type="button" className="btn btn-primario !min-h-10" disabled={!mudou || lista.length < 3} onClick={guardar}>{tx('Guardar rotação', 'Save rotation')}</button>
         </div>
       )}
     </div>
@@ -149,15 +150,15 @@ function Jogadores() {
     return () => window.clearTimeout(t)
   }, [q])
   const mudar = async (id: string, f: Funcao) => {
-    await acao(() => dados.definirFuncao(id, f), 'Função atualizada.')
+    await acao(() => dados.definirFuncao(id, f), tx('Função atualizada.', 'Role updated.'))
     dados.pesquisarJogadores(q).then(setLista).catch(() => {})
   }
   return (
     <div className="flex flex-col gap-3">
       <label className="relative block">
-        <span className="so-leitores">Procurar jogadores</span>
+        <span className="so-leitores">{tx('Procurar jogadores', 'Search players')}</span>
         <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-        <input className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Utilizador ou Riot ID" />
+        <input className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx('Utilizador ou Riot ID', 'Username or Riot ID')} />
       </label>
       <ul className="m-0 flex list-none flex-col p-0">
         {lista.map((p) => (
@@ -172,7 +173,7 @@ function Jogadores() {
               ? <CampoPontos p={p} onGuardado={() => dados.pesquisarJogadores(q).then(setLista).catch(() => {})} />
               : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts</span>}
             <select
-              aria-label={`Função de ${p.utilizador}`}
+              aria-label={`${tx('Função de', 'Role of')} ${p.utilizador}`}
               className="campo !h-9 !w-auto !text-[13px]"
               value={p.funcao}
               disabled={p.id === eu?.id || eu?.funcao === 'mod'}
@@ -202,16 +203,16 @@ export function Admin() {
   return (
     <>
       <Cabecalho
-        migalhas={['Conta', 'Staff']}
-        titulo="Área de staff"
-        descricao="Disputas de resultado, partidas encravadas, denúncias, rotação de mapas, novidades e funções dos jogadores."
-        acoes={<BotaoAjuda topico="funcoes">Funções no Rangify</BotaoAjuda>}
+        migalhas={[tx('Conta', 'Account'), 'Staff']}
+        titulo={tx('Área de staff', 'Staff area')}
+        descricao={tx('Disputas de resultado, partidas encravadas, denúncias, rotação de mapas, novidades e funções dos jogadores.', 'Result disputes, stuck matches, reports, map rotation, news and player roles.')}
+        acoes={<BotaoAjuda topico="funcoes">{tx('Funções no Rangify', 'Roles on Rangify')}</BotaoAjuda>}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
         {[
-          [<Scale size={18} key="d" />, 'Disputas', disputas.valor?.length ?? 0],
-          [<Hourglass size={18} key="e" />, 'Encravadas', encravadas.valor?.length ?? 0],
-          [<Flag size={18} key="r" />, 'Denúncias abertas', abertas.length],
+          [<Scale size={18} key="d" />, tx('Disputas', 'Disputes'), disputas.valor?.length ?? 0],
+          [<Hourglass size={18} key="e" />, tx('Encravadas', 'Stuck'), encravadas.valor?.length ?? 0],
+          [<Flag size={18} key="r" />, tx('Denúncias abertas', 'Open reports'), abertas.length],
         ].map(([icone, nome, n]) => (
           <Painel key={nome as string} as="div" className="flex items-center gap-3 !rounded-[14px] p-4">
             <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja">{icone}</span>
@@ -221,75 +222,75 @@ export function Admin() {
       </div>
       <Painel className="flex flex-col gap-4 p-[22px]">
         <Segmentado
-          rotulo="Secção"
+          rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: 'Disputas' }, { valor: 'partidas', texto: 'Partidas' }, { valor: 'denuncias', texto: 'Denúncias' }, { valor: 'mapas', texto: 'Mapas' }, { valor: 'novidades', texto: 'Novidades' }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: 'Jogadores' }]}
+          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="DISPUTAS" titulo="Resultados que não coincidem" />
-            {disputas.valor?.length ? disputas.valor.map((p) => <Disputa key={p.id} p={p} />) : <Vazio icone={<Scale size={22} />} titulo="Sem disputas" texto="Quando os capitães submeterem resultados diferentes, aparecem aqui." />}
+            <TituloPainel eyebrow={tx('DISPUTAS', 'DISPUTES')} titulo={tx('Resultados que não coincidem', 'Results that do not match')} />
+            {disputas.valor?.length ? disputas.valor.map((p) => <Disputa key={p.id} p={p} />) : <Vazio icone={<Scale size={22} />} titulo={tx('Sem disputas', 'No disputes')} texto={tx('Quando os capitães submeterem resultados diferentes, aparecem aqui.', 'When captains submit different results, they show up here.')} />}
           </div>
         )}
         {aba === 'partidas' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="PARTIDAS ENCRAVADAS" titulo="Paradas há demasiado tempo" />
+            <TituloPainel eyebrow={tx('PARTIDAS ENCRAVADAS', 'STUCK MATCHES')} titulo={tx('Paradas há demasiado tempo', 'Stopped for too long')} />
             {encravadas.valor?.length ? encravadas.valor.map((p) => (
               <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="font-mono text-[13px] font-semibold text-pessego">{p.codigo} · {p.mapa ?? 'sem mapa'}</span>
-                  <span className="text-[12.5px] text-mudo">{NOMES_ESTADO[p.estado]} · parada {haQuanto(p.atualizadaEm)}</span>
+                  <span className="font-mono text-[13px] font-semibold text-pessego">{p.codigo} · {p.mapa ?? tx('sem mapa', 'no map')}</span>
+                  <span className="text-[12.5px] text-mudo">{NOMES_ESTADO[p.estado]} · {tx('parada', 'stopped')} {haQuanto(p.atualizadaEm)}</span>
                 </span>
-                <Chip>{p.jogadores.length} jogadores</Chip>
-                <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => acao(() => dados.cancelarPartida(p.id), 'Partida cancelada.')}><Ban size={15} className="text-laranja" aria-hidden />Cancelar partida</button>
+                <Chip>{p.jogadores.length} {tx('jogadores', 'players')}</Chip>
+                <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => acao(() => dados.cancelarPartida(p.id), tx('Partida cancelada.', 'Match cancelled.'))}><Ban size={15} className="text-laranja" aria-hidden />{tx('Cancelar partida', 'Cancel match')}</button>
               </div>
-            )) : <Vazio icone={<Hourglass size={22} />} titulo="Tudo a andar" texto="Nenhuma partida parada há mais de 10 minutos." />}
+            )) : <Vazio icone={<Hourglass size={22} />} titulo={tx('Tudo a andar', 'All running')} texto={tx('Nenhuma partida parada há mais de 10 minutos.', 'No match stopped for more than 10 minutes.')} />}
           </div>
         )}
         {aba === 'denuncias' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="DENÚNCIAS" titulo="Reportadas pela comunidade" />
+            <TituloPainel eyebrow={tx('DENÚNCIAS', 'REPORTS')} titulo={tx('Reportadas pela comunidade', 'Reported by the community')} />
             {denuncias.valor?.length ? denuncias.valor.map((d) => (
               <article key={d.id} className={`flex flex-col gap-2 rounded-[14px] border p-4 ${d.estado === 'aberta' ? 'border-laranja/30 bg-laranja/5' : 'border-white/7 bg-white/[0.02] opacity-70'}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Chip tom={d.estado === 'aberta' ? 'laranja' : 'neutro'}>{d.motivo}</Chip>
                   <span className="text-[13.5px] font-semibold">{d.alvo.riotId}</span>
-                  <span className="text-[12px] text-mudo">por {d.denunciante} · {haQuanto(d.criadaEm)}</span>
+                  <span className="text-[12px] text-mudo">{tx('por', 'by')} {d.denunciante} · {haQuanto(d.criadaEm)}</span>
                 </div>
                 <p className="m-0 text-[13.5px] leading-normal text-suave">{d.detalhes}</p>
                 {d.estado === 'aberta' ? (
                   <div className="flex gap-2">
-                    <button type="button" className="btn btn-suave !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'resolvida'), 'Denúncia resolvida.')}><ShieldCheck size={15} aria-hidden />Resolver</button>
-                    <button type="button" className="btn btn-fantasma !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'arquivada'), 'Denúncia arquivada.')}>Arquivar</button>
+                    <button type="button" className="btn btn-suave !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'resolvida'), tx('Denúncia resolvida.', 'Report resolved.'))}><ShieldCheck size={15} aria-hidden />{tx('Resolver', 'Resolve')}</button>
+                    <button type="button" className="btn btn-fantasma !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'arquivada'), tx('Denúncia arquivada.', 'Report archived.'))}>{tx('Arquivar', 'Archive')}</button>
                   </div>
-                ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? 'Resolvida' : 'Arquivada'}</span>}
+                ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? tx('Resolvida', 'Resolved') : tx('Arquivada', 'Archived')}</span>}
               </article>
-            )) : <Vazio icone={<Flag size={22} />} titulo="Sem denúncias" />}
+            )) : <Vazio icone={<Flag size={22} />} titulo={tx('Sem denúncias', 'No reports')} />}
           </div>
         )}
         {aba === 'novidades' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="NOVIDADES" titulo="O que aparece no Dashboard" />
+            <TituloPainel eyebrow={tx('NOVIDADES', 'NEWS')} titulo={tx('O que aparece no Painel', 'What shows on the Dashboard')} />
             <NovidadesStaff podeEditar={ownerDev} />
           </div>
         )}
         {aba === 'api' && ownerDev && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="HENRIK DEV API" titulo="Testar a leitura de um jogo personalizado" />
+            <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
             <TesteApiStaff />
           </div>
         )}
         {aba === 'mapas' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="ROTAÇÃO" titulo="Mapas que se podem jogar" />
+            <TituloPainel eyebrow={tx('ROTAÇÃO', 'ROTATION')} titulo={tx('Mapas que se podem jogar', 'Maps that can be played')} />
             <Rotacao />
           </div>
         )}
         {aba === 'jogadores' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="JOGADORES" titulo="Funções" />
-            <p className="m-0 text-[13px] text-mudo">Só o Owner atribui Owner e Dev. Owner e Dev atribuem Mod, Verificado e Jogador, e podem acertar os pontos de cada jogador.</p>
+            <TituloPainel eyebrow={tx('JOGADORES', 'PLAYERS')} titulo={tx('Funções', 'Roles')} />
+            <p className="m-0 text-[13px] text-mudo">{tx('Só o Owner atribui Owner e Dev. Owner e Dev atribuem Mod, Verificado e Jogador, e podem acertar os pontos de cada jogador.', 'Only the Owner gives Owner and Dev. Owner and Dev give Mod, Verified and Player, and can set each player\'s points.')}</p>
             <Jogadores />
           </div>
         )}

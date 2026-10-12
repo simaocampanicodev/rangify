@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react'
 import { aoMudarDados, type Mudanca } from '@/lib/dados'
+import { traduzirErro } from '@/lib/erros'
 
 const espera = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
 
@@ -27,7 +28,7 @@ export function useCarregar<T>(f: () => Promise<T>, deps: DependencyList, ouvir:
       if (!silencioso && minimo) await espera(Math.max(0, minimo - (Date.now() - inicio)))
       if (n === pedido.current) { setValor(v); setErro(null) }
     } catch (e) {
-      if (n === pedido.current) setErro(e instanceof Error ? e.message : 'Não foi possível carregar.')
+      if (n === pedido.current) setErro(traduzirErro(e instanceof Error ? e.message : 'Não foi possível carregar.'))
     } finally {
       if (n === pedido.current) setCarregando(false)
     }

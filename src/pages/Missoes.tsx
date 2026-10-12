@@ -9,7 +9,9 @@ import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type Missao, type TipoMissao } from '@/lib/dados'
 import { formatarXp } from '@/lib/experiencia'
+import { traduzirMissao } from '@/lib/missoes'
 import { duracaoAte, fimDaSemana, fimDoDia } from '@/lib/tempo'
+import { l } from '@/lib/idioma'
 
 const ICONES: Record<TipoMissao, ReactNode> = {
   jogos: <Gamepad2 size={19} />, vitorias: <Trophy size={19} />, vitorias_acima: <TrendingUp size={19} />, first_bloods: <Crosshair size={19} />,
@@ -33,7 +35,7 @@ function Cartao({ m }: { m: Missao }) {
       </div>
       <div className="mt-auto flex flex-col gap-2">
         <div className="flex justify-between font-mono text-[12px]">
-          <span className="text-mudo">{m.concluida ? 'Concluída' : 'Progresso'}</span>
+          <span className="text-mudo">{m.concluida ? l('Concluída', 'Done') : l('Progresso', 'Progress')}</span>
           <span className={m.concluida ? 'text-pessego' : 'text-suave'}>{m.progresso}/{m.alvo}</span>
         </div>
         <BarraProgresso valor={m.progresso} alvo={m.alvo} rotulo={m.titulo} />
@@ -51,7 +53,7 @@ function Seccao({ id, eyebrow, titulo, renova, lista }: { id: string; eyebrow: s
         eyebrow={eyebrow}
         titulo={titulo}
         id={id}
-        direita={<span className="font-mono text-[11.5px] text-mudo">{feitas}/{lista.length} feitas{renova ? ` · renovam em ${renova}` : ''}</span>}
+        direita={<span className="font-mono text-[11.5px] text-mudo">{feitas}/{lista.length} {l('feitas', 'done')}{renova ? ` · ${l('renovam em', 'renew in')} ${renova}` : ''}</span>}
       />
       {/* 4, 8 e 4 missões: em 2 ou 4 colunas as linhas ficam sempre completas. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{lista.map((m) => <Cartao key={m.id} m={m} />)}</div>
@@ -67,16 +69,16 @@ export function Missoes() {
   const exp = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'])
   const [aSortear, setASortear] = useState(false)
   if (missoes.carregando && !missoes.valor) return <Carregando />
-  const lista = missoes.valor ?? []
+  const lista = (missoes.valor ?? []).map(traduzirMissao)
   const diarias = lista.filter((m) => m.ambito === 'diaria')
   const semanais = lista.filter((m) => m.ambito === 'semanal')
   const temporada = lista.filter((m) => m.ambito === 'temporada')
   const feitas = lista.filter((m) => m.concluida).length
 
   const sortear = async () => {
-    if (!window.confirm('Sortear missões diárias e semanais novas? O progresso delas volta a zero; o XP já ganho fica.')) return
+    if (!window.confirm(l('Sortear missões diárias e semanais novas? O progresso delas volta a zero; o XP já ganho fica.', 'Draw new daily and weekly missions? Their progress resets; XP already earned stays.'))) return
     setASortear(true)
-    const novas = await acao(() => dados.resetarMissoes(), 'Missões novas sorteadas.')
+    const novas = await acao(() => dados.resetarMissoes(), l('Missões novas sorteadas.', 'New missions drawn.'))
     setASortear(false)
     if (novas) { missoes.setValor(novas); exp.recarregar() }
   }
@@ -84,27 +86,27 @@ export function Missoes() {
   return (
     <>
       <Cabecalho
-        migalhas={['Comunidade', 'Missões']}
-        titulo="Missões"
-        descricao={<>Completa missões a jogar no hub para ganhar XP e subir de nível no passe da temporada.</>}
+        migalhas={[l('Comunidade', 'Community'), l('Missões', 'Missions')]}
+        titulo={l('Missões', 'Missions')}
+        descricao={l('Completa missões a jogar no hub para ganhar XP e subir de nível no passe da temporada.', 'Complete missions by playing on the hub to earn XP and level up the season pass.')}
         acoes={
           <>
             {podeSortear && (
               <button type="button" className="btn btn-fantasma" disabled={aSortear} onClick={sortear}>
-                <Shuffle size={15} className="text-laranja" aria-hidden />{aSortear ? 'A sortear…' : 'Sortear missões novas'}
+                <Shuffle size={15} className="text-laranja" aria-hidden />{aSortear ? l('A sortear…', 'Drawing…') : l('Sortear missões novas', 'Draw new missions')}
               </button>
             )}
-            <BotaoAjuda topico="missoes">Como funcionam as missões</BotaoAjuda>
+            <BotaoAjuda topico="missoes">{l('Como funcionam as missões', 'How missions work')}</BotaoAjuda>
           </>
         }
       />
       <div className="flex flex-wrap gap-2">
-        <Chip tom="laranja"><Target size={12} aria-hidden />{feitas} de {lista.length} concluídas</Chip>
+        <Chip tom="laranja"><Target size={12} aria-hidden />{l(`${feitas} de ${lista.length} concluídas`, `${feitas} of ${lista.length} done`)}</Chip>
       </div>
       {exp.valor ? <FaixaExperiencia exp={exp.valor} /> : <FaixaExperienciaEsqueleto />}
-      <Seccao id="rg-hoje" eyebrow="DIÁRIAS" titulo="Hoje" renova={duracaoAte(fimDoDia().toISOString())} lista={diarias} />
-      <Seccao id="rg-semana" eyebrow="SEMANAIS" titulo="Esta semana" renova={duracaoAte(fimDaSemana().toISOString())} lista={semanais} />
-      <Seccao id="rg-temporada" eyebrow="TEMPORADA 1" titulo="Objetivos da temporada" lista={temporada} />
+      <Seccao id="rg-hoje" eyebrow={l('DIÁRIAS', 'DAILY')} titulo={l('Hoje', 'Today')} renova={duracaoAte(fimDoDia().toISOString())} lista={diarias} />
+      <Seccao id="rg-semana" eyebrow={l('SEMANAIS', 'WEEKLY')} titulo={l('Esta semana', 'This week')} renova={duracaoAte(fimDaSemana().toISOString())} lista={semanais} />
+      <Seccao id="rg-temporada" eyebrow={l('TEMPORADA 1', 'SEASON 1')} titulo={l('Objetivos da temporada', 'Season goals')} lista={temporada} />
     </>
   )
 }

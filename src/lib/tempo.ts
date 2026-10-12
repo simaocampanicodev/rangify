@@ -1,4 +1,5 @@
-/** Datas e tempos em português de Portugal. */
+/** Datas e tempos, em português de Portugal ou em inglês. */
+import { l } from './idioma'
 
 /**
  * Diferença entre o relógio do servidor e o deste computador. Os prazos e o
@@ -22,27 +23,29 @@ export function agoraCerto(): number {
   return Date.now() + desvio
 }
 
-const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MESES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MESES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const mes = (i: number) => (l('pt', 'en') === 'en' ? MESES_EN : MESES_PT)[i]
 
 export function haQuanto(iso: string | null | undefined, agora = agoraCerto()): string {
   if (!iso) return '-'
   const s = Math.max(0, Math.round((agora - new Date(iso).getTime()) / 1000))
-  if (s < 45) return 'agora mesmo'
+  if (s < 45) return l('agora mesmo', 'just now')
   const m = Math.round(s / 60)
-  if (m < 60) return `há ${m} min`
+  if (m < 60) return l(`há ${m} min`, `${m} min ago`)
   const h = Math.round(m / 60)
-  if (h < 24) return `há ${h} h`
+  if (h < 24) return l(`há ${h} h`, `${h} h ago`)
   const d = Math.round(h / 24)
-  if (d === 1) return 'ontem'
-  if (d < 7) return `há ${d} dias`
+  if (d === 1) return l('ontem', 'yesterday')
+  if (d < 7) return l(`há ${d} dias`, `${d} days ago`)
   const sem = Math.round(d / 7)
-  if (sem < 5) return sem === 1 ? 'há 1 semana' : `há ${sem} semanas`
+  if (sem < 5) return sem === 1 ? l('há 1 semana', '1 week ago') : l(`há ${sem} semanas`, `${sem} weeks ago`)
   return dataCurta(iso)
 }
 
 export function dataCurta(iso: string): string {
   const d = new Date(iso)
-  return `${d.getDate()} ${MESES[d.getMonth()]}`
+  return `${d.getDate()} ${mes(d.getMonth())}`
 }
 
 export function dataHora(iso: string): string {
@@ -86,7 +89,7 @@ export function fimDoDia(d = new Date()): Date {
 /** "2026-10-12" para "12 OUT", como no canto das novidades. */
 export function diaCurto(data: string): string {
   const [, m, d] = data.split('-').map(Number)
-  return m && d ? `${d} ${MESES[m - 1].toUpperCase()}` : data
+  return m && d ? `${d} ${mes(m - 1).toUpperCase()}` : data
 }
 
 export function fimDaSemana(d = new Date()): Date {
