@@ -1,4 +1,4 @@
-import { Activity, Crosshair, Crown, Flame, Trophy } from 'lucide-react'
+import { Activity, Crosshair, Crown, Flame, Map as MapIcon, Trophy } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { EstatisticasPerfil } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
@@ -38,7 +38,7 @@ export function Desempenho({ s }: { s: EstatisticasPerfil }) {
   return (
     <Painel aria-labelledby="rg-desempenho" className="flex min-w-0 flex-[2_1_560px] flex-col gap-4 p-[22px]">
       <TituloPainel eyebrow="DESEMPENHO" titulo="Em média, por partida" id="rg-desempenho" direita={<span className="font-mono text-[11px] text-mudo">{s.partidas} {s.partidas === 1 ? 'partida' : 'partidas'}</span>} />
-      {!s.partidas ? <Vazio icone={<Activity size={22} />} titulo="Ainda sem partidas" texto="As estatísticas aparecem depois da primeira partida confirmada." /> : (
+      {!s.partidas ? <div className="flex flex-1 items-center justify-center"><Vazio icone={<Activity size={22} />} titulo="Ainda sem partidas" texto="As estatísticas aparecem depois da primeira partida confirmada." /></div> : (
         <>
           <Grupo icone={<Crosshair size={14} aria-hidden />} nome="Combate">
             <Mosaico rotulo="ACS" valor={inteiro(s.acs)} sub="por ronda" titulo="Average Combat Score: pontuação de combate por ronda" />
@@ -80,7 +80,11 @@ export function PorMapa({ s }: { s: EstatisticasPerfil }) {
   return (
     <Painel aria-labelledby="rg-mapas" className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 p-[22px]">
       <TituloPainel eyebrow="POR MAPA" titulo="Onde joga melhor" id="rg-mapas" />
-      {!s.porMapa.length ? <p className="m-0 text-[13px] text-mudo">Ainda sem partidas.</p> : (
+      {!s.porMapa.length ? (
+        <div className="flex flex-1 items-center justify-center">
+          <Vazio icone={<MapIcon size={22} />} titulo="Sem mapas ainda" texto="Cada mapa jogado aparece aqui com as vitórias e o ACS." />
+        </div>
+      ) : (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
           {s.porMapa.map((m) => {
             const vit = m.partidas ? Math.round((m.vitorias / m.partidas) * 100) : 0

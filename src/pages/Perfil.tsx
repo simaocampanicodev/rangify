@@ -126,19 +126,19 @@ export function Perfil() {
       </Painel>
 
       {s && (
-        <div className="flex flex-wrap items-start gap-4">
+        <div className="flex flex-wrap items-stretch gap-4">
           <Desempenho s={s} />
           <PorMapa s={s} />
         </div>
       )}
 
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-stretch gap-4">
         <Painel aria-labelledby="rg-perfil-hist" className="flex min-w-0 flex-[2_1_540px] flex-col px-[22px] pt-[22px] pb-2">
           <div className="pb-3"><TituloPainel eyebrow="HISTÓRICO" titulo="Partidas recentes" id="rg-perfil-hist" /></div>
           {historico.valor?.linhas.length
             ? historico.valor.linhas.slice(0, 8).map((m) => <LinhaPartida key={m.id} m={m} />)
-            : <Vazio icone={<Swords size={22} />} titulo="Sem partidas" />}
-          {souEu && <div className="border-t border-white/6"><LinkSeta to="/partidas">Ver histórico completo</LinkSeta></div>}
+            : <div className="flex flex-1 items-center justify-center"><Vazio icone={<Swords size={22} />} titulo="Sem partidas" /></div>}
+          {souEu && <div className="mt-auto border-t border-white/6"><LinkSeta to="/partidas">Ver histórico completo</LinkSeta></div>}
         </Painel>
         <Painel aria-labelledby="rg-perfil-rank" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 p-[22px]">
           <TituloPainel eyebrow="RANK OFICIAL" titulo="Da Riot, para o desnível" id="rg-perfil-rank" />

@@ -175,7 +175,7 @@ export function Dashboard() {
         </div>
       </section>
 
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-stretch gap-4">
         <Painel aria-labelledby="rg-hist" className="flex min-w-0 flex-[2_1_540px] flex-col px-[22px] pt-[22px] pb-2">
           <div className="pb-3">
             <TituloPainel
@@ -190,7 +190,7 @@ export function Dashboard() {
           ) : (
             <Vazio icone={<Swords size={22} />} titulo="Ainda não jogaste" texto="Entra na fila: as tuas partidas aparecem aqui com o resultado e os pontos." />
           )}
-          <div className="border-t border-white/6"><LinkSeta to="/partidas">Ver histórico completo</LinkSeta></div>
+          <div className="mt-auto border-t border-white/6"><LinkSeta to="/partidas">Ver histórico completo</LinkSeta></div>
         </Painel>
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
@@ -208,7 +208,7 @@ export function Dashboard() {
             <LinkSeta to="/missoes">Ver todas as missões</LinkSeta>
           </Painel>
 
-          <Painel aria-labelledby="rg-novidades" className="relative flex flex-col gap-2.5 overflow-hidden px-[22px] py-5">
+          <Painel aria-labelledby="rg-novidades" className="relative flex flex-1 flex-col justify-center gap-2.5 overflow-hidden px-[22px] py-5">
             <div className="flex items-center justify-between gap-2.5">
               <span className="eyebrow">NOVIDADES</span>
               <span className="font-mono text-[11px] text-mudo">1 SET</span>
