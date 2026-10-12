@@ -8,7 +8,7 @@
 import { supabase } from '../supabase'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
-  Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Missao, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -171,6 +171,9 @@ export const dadosSupabase: Dados = {
   },
 
   missoes: () => rpc<Missao[]>('missoes'),
+  experiencia: (perfilId) => rpc<Experiencia>('experiencia', { p_perfil: perfilId ?? null }),
+  rankingNivel: (limite = 50) => rpc<LinhaNivel[]>('ranking_nivel', { p_limite: limite }),
+  resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),
   amigos: () => rpc<Amizade[]>('amigos'),
   async pedirAmizade(alvo) { await rpc('pedir_amizade', { p_alvo: alvo }) },
   async responderAmizade(perfilId, aceitar) { await rpc('responder_amizade', { p_perfil: perfilId, p_aceitar: aceitar }) },

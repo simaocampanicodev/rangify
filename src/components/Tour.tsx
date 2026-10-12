@@ -15,7 +15,7 @@ const PASSOS: Passo[] = [
   { alvo: 'jogar', titulo: 'Jogar', texto: <>Entras na fila e, com 10 jogadores, aceitas a partida. Depois vêm o draft dos capitães, os bans de mapas, o código do grupo e o resultado.</> },
   { alvo: 'ranking', titulo: 'Ranking', texto: <>Ordenado pelos pontos {R}. Toda a gente começa com 1000. O teu rank oficial só serve para ver se a equipa adversária está acima ou abaixo de ti, o que muda os pontos que ganhas ou perdes.</> },
   { alvo: 'partidas', titulo: 'Partidas', texto: <>O histórico do hub e o teu, com o resultado, o mapa, o KDA, o ACS e os pontos de cada jogo.</> },
-  { alvo: 'missoes', titulo: 'Missões', texto: <>Objetivos semanais e de temporada, como ganhar a equipas acima do teu rank. O progresso conta sozinho.</> },
+  { alvo: 'missoes', titulo: 'Missões', texto: <>Missões diárias, semanais e de temporada que dão XP para subires de nível no passe. O progresso conta sozinho.</> },
   { alvo: 'amigos', titulo: 'Amigos', texto: <>Adiciona quem conheces pelo Riot ID e vê quem está na fila ou a jogar.</> },
   { alvo: 'sugestoes', titulo: 'Sugestões', texto: <>Propõe ideias para o {R} e vota nas da comunidade.</> },
   { alvo: 'perfil', titulo: 'Perfil', texto: <>A tua página pública: a forma das últimas partidas, as estatísticas e o rank oficial sincronizado.</> },

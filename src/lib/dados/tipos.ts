@@ -204,15 +204,41 @@ export interface EstatisticasPerfil {
   totalJogadores: number
 }
 
+export type TipoMissao =
+  | 'jogos' | 'vitorias' | 'vitorias_acima' | 'first_bloods' | 'mvp' | 'sequencia' | 'acs' | 'pontos'
+  | 'kills' | 'assists' | 'trades' | 'capitao' | 'vitorias_capitao' | 'mapas'
+
 export interface Missao {
   id: string
   titulo: string
   descricao: string
-  tipo: 'jogos' | 'vitorias' | 'vitorias_acima' | 'first_bloods' | 'mvp' | 'sequencia' | 'acs' | 'pontos'
+  tipo: TipoMissao
   alvo: number
-  ambito: 'semanal' | 'temporada'
+  ambito: 'diaria' | 'semanal' | 'temporada'
+  /** XP que a missão dá ao ficar completa (uma vez por rotação). */
+  xp: number
   progresso: number
   concluida: boolean
+}
+
+/** Rangify Experience de um jogador. */
+export interface Experiencia {
+  xp: number
+  nivel: number
+  xpNoNivel: number
+  xpParaProximo: number
+  xpSemana: number
+  posicao: number
+  total: number
+}
+
+export interface LinhaNivel {
+  posicao: number
+  perfil: Perfil
+  xp: number
+  nivel: number
+  xpNoNivel: number
+  xpParaProximo: number
 }
 
 export type EstadoAmizade = 'pendente' | 'aceite'
@@ -319,6 +345,10 @@ export interface Dados {
 
   // Missões
   missoes(): Promise<Missao[]>
+  experiencia(perfilId?: string): Promise<Experiencia>
+  rankingNivel(limite?: number): Promise<LinhaNivel[]>
+  /** Owner e Dev: sorteia já diárias e semanais novas. */
+  resetarMissoes(): Promise<Missao[]>
 
   // Amigos
   amigos(): Promise<Amizade[]>

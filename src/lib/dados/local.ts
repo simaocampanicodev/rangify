@@ -15,10 +15,11 @@ import {
   SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA, equipaDaEscolha, validarResultado,
 } from '../regras'
 import { blobParaDataUrl } from '../imagem'
+import { nivelDe } from '../experiencia'
 import { periodoSemana } from '../tempo'
 import { avisarMudanca } from './eventos'
 import {
-  aplicarResultado, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
+  aplicarResultado, baralhar, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
   melhorDisponivel, novoJogador, type JogadorGuardado, type PartidaGuardada,
 } from './motor'
 import {
@@ -26,12 +27,12 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, Dados, Denuncia, Equipa, EstadoPartida, Funcao, JogadorPartida, LinhaRanking, Missao, Partida, Perfil,
+  Amizade, Dados, Denuncia, Equipa, EstadoPartida, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
-// v4: rotação de mapas editável e partidas de teste que contam; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v4'
+// v5: Rangify Experience (XP, níveis e rotação de missões); os dados de exemplo voltam a ser gerados.
+const CHAVE = 'rangify:demo:v5'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -41,7 +42,7 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 4
+  versao: 5
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -55,7 +56,12 @@ interface Estado {
   sessao: Sessao | null
   serCapitao: boolean
   poolMapas: string[]
+  rotacoes: Partial<Record<'diaria' | 'semanal', Rotacao>>
+  conclusoes: Conclusao[]
 }
+
+interface Rotacao { id: string; inicio: string; ids: string[] }
+interface Conclusao { perfilId: string; missaoId: string; chave: string; xp: number; em: string }
 
 let estado: Estado | null = null
 let aCarregar: Promise<Estado> | null = null
@@ -110,16 +116,20 @@ async function carregar(): Promise<Estado> {
       localStorage.removeItem('rangify:demo:v1')
       localStorage.removeItem('rangify:demo:v2')
       localStorage.removeItem('rangify:demo:v3')
+      localStorage.removeItem('rangify:demo:v4')
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 4) {
+    if (!lido || lido.versao !== 5) {
       const s = gerarSemente()
       lido = {
-        versao: 4, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        versao: 5, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
         amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false, poolMapas: [...ROTACAO_PADRAO],
+        rotacoes: {}, conclusoes: [],
       }
+      // A comunidade de exemplo já traz o XP das missões que as partidas dela completam.
+      for (const id of Object.keys(lido.perfis)) atualizarMissoes(lido, id)
     }
     estado = lido
     guardar()
@@ -420,6 +430,7 @@ function terminar(e: Estado, p: PartidaGuardada, agora: number) {
   p.vencedor = a > b ? 'A' : 'B'
   gerarEstatisticas(Math.random, p, e.perfis)
   aplicarResultado(p, e.perfis, a, b, iso(agora))
+  for (const j of p.jogadores) if (j.equipa) atualizarMissoes(e, j.perfilId)
   delete e.motores[p.id]
 }
 
@@ -532,36 +543,99 @@ function passo() {
 
 // ---------------------------------------------------------------- missões
 
-function progressoMissoes(e: Estado, perfil: Perfil): Missao[] {
+const POR_ROTACAO = { diaria: 4, semanal: 8 } as const
+type AmbitoRodado = keyof typeof POR_ROTACAO
+
+function inicioPeriodo(a: AmbitoRodado): string {
+  if (a === 'semanal') return periodoSemana() + 'T00:00:00.000Z'
+  const d = new Date()
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString()
+}
+
+/** Sorteia uma rotação nova, preferindo missões que não estavam na anterior. */
+function sortear(e: Estado, a: AmbitoRodado, inicio: string): Rotacao {
+  const antes = e.rotacoes[a]?.ids ?? []
+  const lista = baralhar(Math.random, MISSOES.filter((m) => m.ambito === a))
+    .sort((x, y) => Number(antes.includes(x.id)) - Number(antes.includes(y.id)))
+  const r = { id: novoId(), inicio, ids: lista.slice(0, POR_ROTACAO[a]).map((m) => m.id) }
+  e.rotacoes[a] = r
+  return r
+}
+
+/** A rotação em vigor; nasce uma nova quando o dia ou a semana mudam (UTC). */
+function rotacao(e: Estado, a: AmbitoRodado): Rotacao {
+  const inicio = inicioPeriodo(a)
+  const r = e.rotacoes[a]
+  if (r && ms(r.inicio) >= ms(inicio)) return r
+  return sortear(e, a, inicio)
+}
+
+type MissaoAtiva = Missao & { chave: string }
+
+function progressoMissoes(e: Estado, perfil: Perfil): MissaoAtiva[] {
   const minhas = terminadas(e)
-    .filter((p) => p.jogadores.some((j) => j.perfilId === perfil.id))
+    .filter((p) => p.jogadores.some((j) => j.perfilId === perfil.id && j.equipa))
     .sort((x, y) => ms(x.terminouEm) - ms(y.terminouEm))
-  const semana = ms(periodoSemana() + 'T00:00:00Z')
-  const temporada = ms(INICIO_TEMPORADA)
-  return MISSOES.map((def) => {
-    const lista = minhas.filter((p) => ms(p.terminouEm) >= (def.ambito === 'semanal' ? semana : temporada))
-    const eu = (p: PartidaGuardada) => p.jogadores.find((j) => j.perfilId === perfil.id)!
+  const dia = rotacao(e, 'diaria')
+  const semana = rotacao(e, 'semanal')
+  const ativas = [
+    ...MISSOES.filter((m) => dia.ids.includes(m.id)).map((def) => ({ def, chave: dia.id, desde: ms(dia.inicio) })),
+    ...MISSOES.filter((m) => semana.ids.includes(m.id)).map((def) => ({ def, chave: semana.id, desde: ms(semana.inicio) })),
+    ...MISSOES.filter((m) => m.ambito === 'temporada').map((def) => ({ def, chave: 'temporada', desde: ms(INICIO_TEMPORADA) })),
+  ]
+  const eu = (p: PartidaGuardada) => p.jogadores.find((j) => j.perfilId === perfil.id)!
+  const capitao = (p: PartidaGuardada) => p.capitaoA === perfil.id || p.capitaoB === perfil.id
+  const ganhou = (p: PartidaGuardada) => p.vencedor === eu(p).equipa
+  const soma = (l: PartidaGuardada[], f: (j: JogadorGuardado) => number | null | undefined) => l.reduce((t, p) => t + (f(eu(p)) ?? 0), 0)
+  return ativas.map(({ def, chave, desde }) => {
+    const lista = minhas.filter((p) => ms(p.terminouEm) >= desde)
     let v = 0
     switch (def.tipo) {
       case 'jogos': v = lista.length; break
-      case 'vitorias': v = lista.filter((p) => p.vencedor === eu(p).equipa).length; break
+      case 'vitorias': v = lista.filter(ganhou).length; break
       case 'vitorias_acima': v = lista.filter((p) => {
         const j = eu(p)
         if (p.vencedor !== j.equipa) return false
         return Math.round(mediaDivisoes(tiersDe(p, j.equipa === 'A' ? 'B' : 'A'))) > divisao(j.tier)
       }).length; break
-      case 'first_bloods': v = lista.reduce((s, p) => s + (eu(p).firstBloods ?? 0), 0); break
+      case 'first_bloods': v = soma(lista, (j) => j.firstBloods); break
       case 'mvp': v = lista.filter((p) => eu(p).mvp).length; break
       case 'sequencia': {
         let atual = 0
-        for (const p of lista) { atual = p.vencedor === eu(p).equipa ? atual + 1 : 0; v = Math.max(v, atual) }
+        for (const p of lista) { atual = ganhou(p) ? atual + 1 : 0; v = Math.max(v, atual) }
         break
       }
       case 'acs': v = Math.max(0, ...lista.map((p) => eu(p).acs ?? 0)); break
       case 'pontos': v = perfil.pontos; break
+      case 'kills': v = soma(lista, (j) => j.kills); break
+      case 'assists': v = soma(lista, (j) => j.assists); break
+      case 'trades': v = soma(lista, (j) => j.trades); break
+      case 'capitao': v = lista.filter(capitao).length; break
+      case 'vitorias_capitao': v = lista.filter((p) => capitao(p) && ganhou(p)).length; break
+      case 'mapas': v = new Set(lista.map((p) => p.mapa)).size; break
     }
-    return { ...def, progresso: Math.min(def.alvo, v), concluida: v >= def.alvo }
+    return { ...def, chave, progresso: Math.min(def.alvo, v), concluida: v >= def.alvo }
   })
+}
+
+/** Dá o XP das missões que ficaram completas; com "rever" tira o das que deixaram de o estar. */
+function atualizarMissoes(e: Estado, perfilId: string, rever = false) {
+  const perfil = e.perfis[perfilId]
+  if (!perfil || perfil.bot) return
+  for (const m of progressoMissoes(e, perfil)) {
+    const i = e.conclusoes.findIndex((c) => c.perfilId === perfilId && c.missaoId === m.id && c.chave === m.chave)
+    if (m.concluida && i < 0) e.conclusoes.push({ perfilId, missaoId: m.id, chave: m.chave, xp: m.xp, em: new Date().toISOString() })
+    else if (!m.concluida && i >= 0 && rever) e.conclusoes.splice(i, 1)
+  }
+}
+
+const xpDe = (e: Estado, perfilId: string) => e.conclusoes.reduce((t, c) => t + (c.perfilId === perfilId ? c.xp : 0), 0)
+
+function noRankingDeNivel(e: Estado) {
+  return Object.values(e.perfis)
+    .filter((p) => !p.bot && p.riotId)
+    .map((p) => ({ perfil: p, xp: xpDe(e, p.id) }))
+    .sort((x, y) => y.xp - x.xp || y.perfil.pontos - x.perfil.pontos || x.perfil.utilizador.localeCompare(y.perfil.utilizador))
 }
 
 // ---------------------------------------------------------------- a interface
@@ -1055,7 +1129,41 @@ export const dadosLocais: Dados = {
 
   async missoes() {
     const e = await pronto()
-    return progressoMissoes(e, eu(e))
+    const me = eu(e)
+    atualizarMissoes(e, me.id)
+    guardar()
+    return progressoMissoes(e, me).map(({ chave: _, ...m }) => m)
+  },
+
+  async experiencia(perfilId) {
+    const e = await pronto()
+    const id = perfilId ?? eu(e).id
+    const lista = noRankingDeNivel(e)
+    const xp = xpDe(e, id)
+    const semana = ms(inicioPeriodo('semanal'))
+    return {
+      ...nivelDe(xp), xp,
+      xpSemana: e.conclusoes.reduce((t, c) => t + (c.perfilId === id && ms(c.em) >= semana ? c.xp : 0), 0),
+      posicao: 1 + lista.filter((l) => l.perfil.id !== id && l.xp > xp).length,
+      total: lista.length,
+    } satisfies Experiencia
+  },
+
+  async rankingNivel(limite = 50) {
+    const e = await pronto()
+    return noRankingDeNivel(e).slice(0, limite).map((l, i): LinhaNivel => ({ posicao: i + 1, perfil: { ...l.perfil }, xp: l.xp, ...nivelDe(l.xp) }))
+  },
+
+  async resetarMissoes() {
+    const e = await pronto()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    const agora = new Date().toISOString()
+    sortear(e, 'diaria', agora)
+    sortear(e, 'semanal', agora)
+    guardar()
+    avisarMudanca('staff')
+    return progressoMissoes(e, me).map(({ chave: _, ...m }) => m)
   },
 
   async amigos() {
@@ -1246,6 +1354,8 @@ export const dadosLocais: Dados = {
       }
     }
     e.partidas = e.partidas.filter((x) => x.id !== id)
+    // O XP das missões que esta partida tinha completado também sai.
+    for (const j of p.jogadores) if (j.equipa) atualizarMissoes(e, j.perfilId, true)
     guardar()
     avisarMudanca('partida')
     avisarMudanca('perfil')

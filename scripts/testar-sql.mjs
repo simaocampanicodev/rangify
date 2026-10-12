@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -220,7 +220,11 @@ ok(est.sequenciaAtual === 1 && est.melhorSequencia === 1 && est.capitao.partidas
 ok(est.porMapa.length === 1 && est.porMapa[0].mapa === 'Sunset' && est.porMapa[0].vitorias === 1, 'números por mapa')
 ok(forma[0].acs != null, 'a forma traz o ACS')
 const missoes = await rpc(uids[0], 'missoes')
-ok(missoes.length === 8 && missoes.find((m) => m.tipo === 'jogos').progresso === 1 && missoes.find((m) => m.tipo === 'vitorias').progresso === 1, 'missões com progresso da semana')
+const porAmbito = (a) => missoes.filter((m) => m.ambito === a).length
+ok(missoes.length === 16 && porAmbito('diaria') === 4 && porAmbito('semanal') === 8 && porAmbito('temporada') === 4, 'aparecem 4 diárias, 8 semanais e 4 de temporada')
+ok(missoes.find((m) => m.id === 't-veterano').progresso === 1 && missoes.every((m) => m.xp > 0), 'missões com progresso e XP')
+const xpInicial = await rpc(uids[0], 'experiencia')
+ok(xpInicial.xp === missoes.filter((m) => m.concluida).reduce((t, m) => t + m.xp, 0), 'o XP é a soma das missões completas')
 
 // ------------------------------------------------------------ confirmação falhada
 console.log('\nConfirmação falhada')
@@ -380,6 +384,45 @@ await rpc(uids[0], 'remover_partida', { p_match: rot.id })
 ok((await rpc(uids[0], 'meu_perfil')).pontos === pontosAntesTeste, 'remover a partida de teste devolve os pontos')
 ok((await rpc(uids[0], 'estatisticas_perfil', { p_perfil: pid(0) })).partidas === jogosAntes - 1, 'e as estatísticas dela saem do perfil')
 ok((await raiz('select count(*)::int as n from match_players where match_id = $1', [rot.id]))[0].n === 0, 'e saem da base de dados')
+
+// ------------------------------------------------------------ Rangify Experience
+console.log('\nRangify Experience')
+const nivel = async (xp) => (await raiz('select public._nivel($1) as n', [xp]))[0].n
+ok((await nivel(0)).nivel === 1 && (await nivel(499)).nivel === 1, 'começa no nível 1')
+const n2 = await nivel(1099)
+ok((await nivel(500)).nivel === 2 && n2.nivel === 2 && n2.xpNoNivel === 599 && n2.xpParaProximo === 600, 'cada nível custa 400 + 100 x nível')
+await falha(como(uids[1], 'select public._atualizar_missoes($1, false)', [pid(1)]), 'permission denied', 'o XP não se dá a partir do browser')
+await falha(rpc(uids[4], 'resetar_missoes'), 'Owner e Dev', 'um jogador normal não sorteia as missões')
+const antesReset = await rpc(uids[0], 'missoes')
+const xpAntesReset = (await rpc(uids[0], 'experiencia')).xp
+const depoisReset = await rpc(uids[0], 'resetar_missoes')
+const ids = (l, a) => l.filter((m) => m.ambito === a).map((m) => m.id)
+ok(ids(depoisReset, 'diaria').length === 4 && !ids(depoisReset, 'diaria').some((i) => ids(antesReset, 'diaria').includes(i)), 'o reset sorteia 4 diárias novas, diferentes das anteriores')
+ok(ids(depoisReset, 'semanal').length === 8 && ids(depoisReset, 'semanal').join() !== ids(antesReset, 'semanal').join(), 'e 8 semanais')
+ok(depoisReset.filter((m) => m.ambito !== 'temporada').every((m) => m.progresso === 0), 'as missões novas começam do zero')
+ok((await rpc(uids[0], 'experiencia')).xp === xpAntesReset, 'o XP já ganho fica depois do reset')
+
+// Uma rotação diária com o Aquecimento, para a partida de teste o completar.
+await raiz(`insert into quest_rotations (scope, started_at, quest_ids) values ('daily', now(), '{d-jogar,d-vitoria,d-kills,d-assist}')`)
+await rpc(uids[0], 'dev_simular_partida')
+let xpm = await rpc(uids[0], 'partida_ativa')
+for (let i = 0; i < 40 && xpm.estado !== 'COMPLETED'; i++) {
+  await raiz(`update match_players set accept_at = now() - interval '1 second' where match_id = $1 and accept_at > now()`, [xpm.id])
+  await raiz(`update matches set bot_move_at = least(bot_move_at, now() - interval '1 second'),
+    phase_deadline = case when state in ('IN_PROGRESS', 'PROCESSING_API') then now() - interval '1 second' else phase_deadline end where id = $1`, [xpm.id])
+  xpm = await rpc(uids[0], 'avancar_partida', { p_match: xpm.id })
+}
+const exp1 = await rpc(uids[0], 'experiencia')
+ok(xpm.estado === 'COMPLETED' && exp1.xp >= xpAntesReset + 100, 'acabar a partida dá logo o XP do Aquecimento, sem abrir as missões')
+const miss1 = await rpc(uids[0], 'missoes')
+ok(miss1.find((m) => m.id === 'd-jogar').concluida, 'e a missão aparece concluída')
+ok((await raiz('select count(*)::int as n from quest_completions c join profiles p on p.id = c.profile_id where p.is_bot'))[0].n === 0, 'os bots não ganham XP')
+const rn = await rpc(uids[4], 'ranking_nivel', { p_limite: 10 })
+ok(rn[0].perfil.id === pid(0) && rn[0].xp === exp1.xp && rn[0].nivel === exp1.nivel && exp1.posicao === 1, 'o ranking de nível ordena por XP')
+ok(exp1.total === 11 && exp1.xpSemana >= 100, 'experiência com o total de jogadores e o XP da semana')
+await rpc(uids[0], 'remover_partida', { p_match: xpm.id })
+ok((await rpc(uids[0], 'experiencia')).xp === xpAntesReset, 'remover a partida tira o XP das missões que ela completou')
+ok(!(await rpc(uids[0], 'missoes')).find((m) => m.id === 'd-jogar').concluida, 'e a missão volta a estar por fazer')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

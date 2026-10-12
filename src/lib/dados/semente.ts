@@ -28,15 +28,37 @@ export interface DenunciaGuardada {
 
 export type DefinicaoMissao = Omit<Missao, 'progresso' | 'concluida'>
 
+/** O catálogo completo, igual ao da migração 0007: cada rotação mostra só uma parte. */
 export const MISSOES: DefinicaoMissao[] = [
-  { id: 'm-jogos', titulo: 'Rotina de competição', descricao: 'Joga 10 partidas esta semana.', tipo: 'jogos', alvo: 10, ambito: 'semanal' },
-  { id: 'm-vitorias', titulo: 'Cinco vitórias', descricao: 'Ganha 5 partidas esta semana.', tipo: 'vitorias', alvo: 5, ambito: 'semanal' },
-  { id: 'm-acima', titulo: 'Contra os favoritos', descricao: 'Ganha 2 partidas contra uma equipa com rank oficial médio acima do teu.', tipo: 'vitorias_acima', alvo: 2, ambito: 'semanal' },
-  { id: 'm-fb', titulo: 'Primeiro sangue', descricao: 'Faz 15 first bloods esta semana.', tipo: 'first_bloods', alvo: 15, ambito: 'semanal' },
-  { id: 'm-mvp', titulo: 'Jogador da partida', descricao: 'Sê MVP em 2 partidas esta semana.', tipo: 'mvp', alvo: 2, ambito: 'semanal' },
-  { id: 'm-seq', titulo: 'Em série', descricao: 'Ganha 4 partidas seguidas nesta temporada.', tipo: 'sequencia', alvo: 4, ambito: 'temporada' },
-  { id: 'm-acs', titulo: 'Noite inspirada', descricao: 'Acaba uma partida com 300 de ACS ou mais.', tipo: 'acs', alvo: 300, ambito: 'temporada' },
-  { id: 'm-pontos', titulo: 'Rumo aos 1200', descricao: 'Chega aos 1200 pontos nesta temporada.', tipo: 'pontos', alvo: 1200, ambito: 'temporada' },
+  { id: 'd-jogar', titulo: 'Aquecimento', descricao: 'Joga 1 partida hoje.', tipo: 'jogos', alvo: 1, ambito: 'diaria', xp: 100 },
+  { id: 'd-vitoria', titulo: 'Primeira vitória', descricao: 'Ganha 1 partida hoje.', tipo: 'vitorias', alvo: 1, ambito: 'diaria', xp: 150 },
+  { id: 'd-tres', titulo: 'Sessão completa', descricao: 'Joga 3 partidas hoje.', tipo: 'jogos', alvo: 3, ambito: 'diaria', xp: 200 },
+  { id: 'd-kills', titulo: 'Mão quente', descricao: 'Faz 20 kills hoje.', tipo: 'kills', alvo: 20, ambito: 'diaria', xp: 120 },
+  { id: 'd-fb', titulo: 'Abrir caminho', descricao: 'Faz 3 first bloods hoje.', tipo: 'first_bloods', alvo: 3, ambito: 'diaria', xp: 120 },
+  { id: 'd-assist', titulo: 'Espírito de equipa', descricao: 'Faz 8 assistências hoje.', tipo: 'assists', alvo: 8, ambito: 'diaria', xp: 100 },
+  { id: 'd-duas', titulo: 'Dose dupla', descricao: 'Ganha 2 partidas hoje.', tipo: 'vitorias', alvo: 2, ambito: 'diaria', xp: 220 },
+  { id: 'd-capitao', titulo: 'Capitão do dia', descricao: 'Joga 1 partida como capitão hoje.', tipo: 'capitao', alvo: 1, ambito: 'diaria', xp: 120 },
+  { id: 'd-trades', titulo: 'Troca justa', descricao: 'Faz 4 trades hoje.', tipo: 'trades', alvo: 4, ambito: 'diaria', xp: 100 },
+  { id: 'd-acs', titulo: 'Bom jogo', descricao: 'Acaba uma partida hoje com 250 de ACS ou mais.', tipo: 'acs', alvo: 250, ambito: 'diaria', xp: 150 },
+  { id: 'm-jogos', titulo: 'Rotina de competição', descricao: 'Joga 10 partidas esta semana.', tipo: 'jogos', alvo: 10, ambito: 'semanal', xp: 400 },
+  { id: 'm-vitorias', titulo: 'Cinco vitórias', descricao: 'Ganha 5 partidas esta semana.', tipo: 'vitorias', alvo: 5, ambito: 'semanal', xp: 450 },
+  { id: 'm-acima', titulo: 'Contra os favoritos', descricao: 'Ganha 2 partidas contra uma equipa com rank oficial médio acima do teu.', tipo: 'vitorias_acima', alvo: 2, ambito: 'semanal', xp: 400 },
+  { id: 'm-fb', titulo: 'Primeiro sangue', descricao: 'Faz 15 first bloods esta semana.', tipo: 'first_bloods', alvo: 15, ambito: 'semanal', xp: 350 },
+  { id: 'm-mvp', titulo: 'Jogador da partida', descricao: 'Sê MVP em 2 partidas esta semana.', tipo: 'mvp', alvo: 2, ambito: 'semanal', xp: 400 },
+  { id: 's-serie', titulo: 'Em forma', descricao: 'Ganha 3 partidas seguidas esta semana.', tipo: 'sequencia', alvo: 3, ambito: 'semanal', xp: 450 },
+  { id: 's-kills', titulo: 'Ceifeiro', descricao: 'Faz 100 kills esta semana.', tipo: 'kills', alvo: 100, ambito: 'semanal', xp: 350 },
+  { id: 's-assist', titulo: 'Suporte de ouro', descricao: 'Faz 40 assistências esta semana.', tipo: 'assists', alvo: 40, ambito: 'semanal', xp: 300 },
+  { id: 's-lider', titulo: 'Liderança', descricao: 'Ganha 2 partidas como capitão esta semana.', tipo: 'vitorias_capitao', alvo: 2, ambito: 'semanal', xp: 400 },
+  { id: 's-mapas', titulo: 'Volta aos mapas', descricao: 'Joga em 4 mapas diferentes esta semana.', tipo: 'mapas', alvo: 4, ambito: 'semanal', xp: 300 },
+  { id: 's-trades', titulo: 'Rei das trocas', descricao: 'Faz 15 trades esta semana.', tipo: 'trades', alvo: 15, ambito: 'semanal', xp: 300 },
+  { id: 's-acs', titulo: 'Grande jogo', descricao: 'Acaba uma partida esta semana com 270 de ACS ou mais.', tipo: 'acs', alvo: 270, ambito: 'semanal', xp: 400 },
+  { id: 's-maratona', titulo: 'Maratonista', descricao: 'Joga 20 partidas esta semana.', tipo: 'jogos', alvo: 20, ambito: 'semanal', xp: 600 },
+  { id: 's-imparavel', titulo: 'Imparável', descricao: 'Ganha 10 partidas esta semana.', tipo: 'vitorias', alvo: 10, ambito: 'semanal', xp: 700 },
+  { id: 's-capitao', titulo: 'Capitão de serviço', descricao: 'Joga 4 partidas como capitão esta semana.', tipo: 'capitao', alvo: 4, ambito: 'semanal', xp: 350 },
+  { id: 'm-seq', titulo: 'Em série', descricao: 'Ganha 4 partidas seguidas nesta temporada.', tipo: 'sequencia', alvo: 4, ambito: 'temporada', xp: 800 },
+  { id: 'm-acs', titulo: 'Noite inspirada', descricao: 'Acaba uma partida com 300 de ACS ou mais.', tipo: 'acs', alvo: 300, ambito: 'temporada', xp: 600 },
+  { id: 'm-pontos', titulo: 'Rumo aos 1200', descricao: 'Chega aos 1200 pontos nesta temporada.', tipo: 'pontos', alvo: 1200, ambito: 'temporada', xp: 1000 },
+  { id: 't-veterano', titulo: 'Veterano', descricao: 'Joga 50 partidas nesta temporada.', tipo: 'jogos', alvo: 50, ambito: 'temporada', xp: 1000 },
 ]
 
 const JOGADORES: [string, string][] = [

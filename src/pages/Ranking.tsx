@@ -1,12 +1,13 @@
 import { Minus, Plus, RefreshCw, Search, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type LinhaRanking } from '@/lib/dados'
+import { formatarXp } from '@/lib/experiencia'
 import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
 import { BONUS_MAX, BONUS_MIN, PONTOS_BASE, POR_DIVISAO, bonusDesnivel, comSinal } from '@/lib/pontos'
 import { divisao, nomeDivisao } from '@/lib/ranks'
@@ -137,7 +138,74 @@ function Simulador({ divMinha }: { divMinha: number }) {
   )
 }
 
+/** Ranking de nível: quem tem mais XP do Rangify Experience. */
+function RankingNivel({ eu }: { eu?: string }) {
+  const lista = useCarregar(() => dados.rankingNivel(50), [], ['partida', 'staff'], { minimo: 300 })
+  const minha = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'])
+  return (
+    <div className="flex flex-wrap items-start gap-4">
+      <Painel aria-labelledby="rg-nivel" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]">
+        <TituloPainel eyebrow="RANGIFY EXPERIENCE" titulo="Ranking de nível" id="rg-nivel" />
+        <p className="m-0 text-[13px] text-mudo">Ordenado pelo XP das missões completas. Em caso de empate, ganha quem tem mais pontos.</p>
+        {lista.carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : lista.valor?.length ? (
+          <div className="-mx-2 overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="rotulo text-left">
+                  <th scope="col" className="py-2 pl-3 font-normal">#</th>
+                  <th scope="col" className="py-2 font-normal">Jogador</th>
+                  <th scope="col" className="hidden px-2 font-normal sm:table-cell">Progresso</th>
+                  <th scope="col" className="px-2 text-right font-normal">XP</th>
+                  <th scope="col" className="pr-3 text-right font-normal">Nível</th>
+                </tr>
+              </thead>
+              <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
+                {lista.valor.map((l) => {
+                  const p = l.perfil
+                  const sou = p.id === eu
+                  return (
+                    <tr key={p.id} className={sou ? 'bg-laranja/[0.06]' : ''}>
+                      <td className={`py-2.5 pl-3 font-mono text-[13px] ${l.posicao <= 3 ? 'font-bold text-laranja' : 'text-mudo'}`}>{l.posicao}</td>
+                      <td className="py-2.5">
+                        <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline">
+                          <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={30} destaque={sou} />
+                          <span className="truncate text-[14px] font-semibold">{nomeJogador(p)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(p)}</span></span>
+                        </Link>
+                      </td>
+                      <td className="hidden w-[30%] px-2 sm:table-cell">
+                        <span className="block h-1.5 overflow-hidden rounded-full bg-white/7"><span className="block h-full rounded-full bg-laranja" style={{ width: `${Math.round((l.xpNoNivel / l.xpParaProximo) * 100)}%` }} /></span>
+                      </td>
+                      <td className="px-2 text-right font-mono text-[13px] text-suave">{formatarXp(l.xp)}</td>
+                      <td className="pr-3 text-right"><span className="inline-grid min-w-9 place-items-center rounded-[9px] border border-laranja/40 bg-laranja/10 px-2 py-1 font-mono text-[13px] font-bold text-pessego">{l.nivel}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <Vazio icone={<Trophy size={22} />} titulo="Ainda ninguém tem XP" texto="Completa missões para apareceres aqui." />}
+      </Painel>
+      {minha.valor && (
+        <Painel aria-labelledby="rg-meu-nivel" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 p-[22px]">
+          <span id="rg-meu-nivel" className="eyebrow">O TEU NÍVEL</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] text-laranja">#{minha.valor.posicao}</span>
+            <span className="flex flex-col">
+              <span className="text-[15px] font-bold">Nível {minha.valor.nivel}</span>
+              <span className="font-mono text-[12px] text-suave">{formatarXp(minha.valor.xp)} XP · {minha.valor.total} jogadores</span>
+            </span>
+          </div>
+          <Link to="/missoes" className="text-[13px] font-semibold text-pessego no-underline hover:text-pessego-claro">Ver as missões ›</Link>
+        </Painel>
+      )}
+    </div>
+  )
+}
+
 export function Ranking() {
+  const [params, setParams] = useSearchParams()
+  const tipo = params.get('tipo') === 'nivel' ? 'nivel' : 'pontos'
+  const mudarTipo = (t: 'pontos' | 'nivel') => setParams(t === 'nivel' ? { tipo: 'nivel' } : {}, { replace: true })
   const { perfil } = useSessao()
   const acao = useAcao()
   const { sincronizar, aSincronizar } = useSincronizarRank()
@@ -177,9 +245,18 @@ export function Ranking() {
       <Cabecalho
         migalhas={['Hub', 'Ranking']}
         titulo="Ranking da temporada"
-        descricao={<>Ordenado pelos pontos do hub. Toda a gente começa com 1000; o rank oficial só ajusta quanto vale cada vitória e cada derrota.</>}
-        acoes={<BotaoAjuda topico="ranking">Como funciona o ranking</BotaoAjuda>}
+        descricao={tipo === 'nivel'
+          ? <>Quem subiu mais no passe da temporada com o XP das missões.</>
+          : <>Ordenado pelos pontos do hub. Toda a gente começa com 1000; o rank oficial só ajusta quanto vale cada vitória e cada derrota.</>}
+        acoes={
+          <>
+            <Segmentado rotulo="Tipo de ranking" valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: 'Pontos' }, { valor: 'nivel', texto: 'Nível' }]} />
+            <BotaoAjuda topico="ranking">Como funciona o ranking</BotaoAjuda>
+          </>
+        }
       />
+
+      {tipo === 'nivel' ? <RankingNivel eu={perfil?.id} /> : <>
 
       {pagina.carregando && !q ? <PodioEsqueleto /> : comPodio && <Podio top={linhas.slice(0, 3)} eu={perfil?.id} />}
 
@@ -249,6 +326,7 @@ export function Ranking() {
           )}
         </div>
       </div>
+      </>}
     </>
   )
 }

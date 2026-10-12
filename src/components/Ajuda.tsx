@@ -93,11 +93,12 @@ const TOPICOS: Record<TopicoAjuda, Topico> = {
   },
   missoes: {
     eyebrow: 'Missões', titulo: 'Como funcionam as missões', icone: <Target size={20} />,
-    intro: <>Objetivos que se completam a jogar no hub. Contam só as partidas confirmadas.</>,
+    intro: <>Objetivos que se completam a jogar no hub. Cada missão dá XP para o Rangify Experience, o passe da temporada.</>,
     passos: [
-      { titulo: 'Semanais', texto: 'Renovam à segunda-feira às 00:00 (UTC). O progresso volta a zero.' },
+      { titulo: 'Diárias e semanais', texto: 'Aparecem 4 diárias e 8 semanais, sorteadas de um catálogo maior. Mudam todos os dias às 00:00 e à segunda-feira (UTC), e o progresso volta a zero.' },
       { titulo: 'De temporada', texto: 'Ficam abertas até ao fim da temporada, como chegar aos 1200 pontos.' },
-      { titulo: 'Progresso automático', texto: 'Os first bloods, o ACS e os MVP vêm das estatísticas que o sistema tira de cada partida.' },
+      { titulo: 'XP e nível', texto: 'Completar uma missão dá o XP dela. Passar do nível N para o seguinte custa 400 + 100 x N de XP, e o ranking de nível mostra quem vai mais à frente.' },
+      { titulo: 'Progresso automático', texto: 'Os kills, os first bloods, o ACS e os MVP vêm das estatísticas que o sistema tira de cada partida.' },
     ],
   },
   funcoes: {

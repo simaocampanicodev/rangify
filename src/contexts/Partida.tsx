@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { aoMudarDados, dados, type EstadoFila, type Partida } from '@/lib/dados'
+import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
 import { acertarRelogio } from '@/lib/tempo'
 import { useAvisos } from './Avisos'
@@ -30,6 +30,7 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   const ultima = useRef<string | null>(null)
   const fechada = useRef<string | null>(null)
   const aCorrer = useRef(false)
+  const terminada = useRef<string | null>(null)
 
   const atualizar = useCallback(async () => {
     if (!sessao || sessao.incompleta || aCorrer.current) return
@@ -54,6 +55,12 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
             : 'A partida foi cancelada.', f.naFila ? 'ok' : 'erro')
         } else {
           setPartida(p)
+          // No Supabase nada avisa as outras páginas: o Dashboard, as missões e o perfil
+          // só voltam a carregar se avisarmos uma vez que esta partida terminou.
+          if (p?.estado === 'COMPLETED' && terminada.current !== p.id) {
+            terminada.current = p.id
+            avisarMudanca('partida')
+          }
         }
       } else {
         setPartida(null)
