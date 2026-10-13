@@ -103,3 +103,15 @@ npm run testar-sql
 - os pontos, comparados com a fórmula do site;
 - as disputas e as simulações;
 - a segurança: RLS, funções internas e o código do grupo.
+
+## Vídeo de apresentação
+
+`video/video.html` é o vídeo de apresentação do Rangify (52 s, 16:9), com música e efeitos sonoros sintetizados na própria página (Web Audio API, sem ficheiros de som). Abre-o no browser e carrega em Reproduzir; `?lingua=en` dá a versão em inglês.
+
+Para gerar os MP4 (1920x1080, H.264 + AAC) em `video/rangify-pt.mp4` e `video/rangify-en.mp4`:
+
+```bash
+node scripts/gravar-video.mjs
+```
+
+O script abre o Brave, o Chrome ou o Edge sem janela, tira uma foto da página por fotograma (as animações avançam 1/30 s de cada vez) e a página junta as fotos e o som num MP4 com a biblioteca `mp4-muxer`. Só a página é fotografada, nunca o ecrã.

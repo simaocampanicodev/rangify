@@ -256,6 +256,23 @@ export interface LinhaNivel {
   xpParaProximo: number
 }
 
+/** Uma linha da tabela do Rangify Score: a média de RS das partidas do jogador. */
+export interface LinhaRankingRs {
+  posicao: number
+  perfil: Perfil
+  media: number
+  melhor: number
+  partidas: number
+}
+
+export interface RankingRs {
+  /** Partidas com RS precisas para entrar na tabela. */
+  minimo: number
+  linhas: LinhaRankingRs[]
+  /** O próprio jogador; posicao null enquanto não tiver partidas suficientes. */
+  eu: { posicao: number | null; media: number; melhor: number; partidas: number } | null
+}
+
 /** Novidade do Dashboard, publicada pela staff. */
 export interface Novidade {
   id: string
@@ -412,6 +429,8 @@ export interface Dados {
   missoes(): Promise<Missao[]>
   experiencia(perfilId?: string): Promise<Experiencia>
   rankingNivel(limite?: number): Promise<LinhaNivel[]>
+  /** Tabela pela média de Rangify Score (só quem tem partidas suficientes). */
+  rankingRs(limite?: number): Promise<RankingRs>
   /** Owner e Dev: sorteia já diárias e semanais novas. */
   resetarMissoes(): Promise<Missao[]>
 

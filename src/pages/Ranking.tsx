@@ -139,6 +139,79 @@ function Simulador({ divMinha }: { divMinha: number }) {
   )
 }
 
+/** Ranking do Rangify Score: quem tem a melhor média de RS (com partidas suficientes). */
+function RankingRs({ eu }: { eu?: string }) {
+  const r = useCarregar(() => dados.rankingRs(50), [], ['partida', 'staff'], { minimo: 300 })
+  const v = r.valor
+  const meu = v?.eu
+  const faltam = v && meu ? Math.max(0, v.minimo - meu.partidas) : v?.minimo ?? 0
+  return (
+    <div className="flex flex-wrap items-start gap-4">
+      <Painel aria-labelledby="rg-rs" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]">
+        <TituloPainel eyebrow={tx('DESEMPENHO', 'PERFORMANCE')} titulo={tx('Tabela do Rangify Score', 'Rangify Score leaderboard')} id="rg-rs" />
+        <p className="m-0 text-[13px] text-mudo">{tx(`A média do RS de cada um: ACS, KDA, KAST e trades comparados com a média de cada partida (100 é a média). Entra quem tem pelo menos ${v?.minimo ?? 3} partidas com RS.`, `Each player's average RS: ACS, KDA, KAST and trades compared with each match's average (100 is average). Players with at least ${v?.minimo ?? 3} matches with RS are listed.`)}</p>
+        {r.carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : v?.linhas.length ? (
+          <div className="-mx-2 overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="rotulo text-left">
+                  <th scope="col" className="py-2 pl-3 font-normal">#</th>
+                  <th scope="col" className="py-2 font-normal">{tx('Jogador', 'Player')}</th>
+                  <th scope="col" className="hidden px-2 font-normal sm:table-cell">{tx('Média da partida = 100', 'Match average = 100')}</th>
+                  <th scope="col" className="px-2 text-right font-normal">{tx('Partidas', 'Matches')}</th>
+                  <th scope="col" className="hidden px-2 text-right font-normal sm:table-cell">{tx('Melhor', 'Best')}</th>
+                  <th scope="col" className="pr-3 text-right font-normal">RS</th>
+                </tr>
+              </thead>
+              <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
+                {v.linhas.map((l) => {
+                  const p = l.perfil
+                  const sou = p.id === eu
+                  return (
+                    <tr key={p.id} className={sou ? 'bg-laranja/[0.06]' : ''}>
+                      <td className={`py-2.5 pl-3 font-mono text-[13px] ${l.posicao <= 3 ? 'font-bold text-laranja' : 'text-mudo'}`}>{l.posicao}</td>
+                      <td className="py-2.5">
+                        <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline">
+                          <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={30} destaque={sou} />
+                          <span className="truncate text-[14px] font-semibold">{nomeJogador(p)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(p)}</span></span>
+                        </Link>
+                      </td>
+                      <td className="hidden w-[28%] px-2 sm:table-cell">
+                        {/* A barra vai de 50 a 150: o traço a meio é a média da partida. */}
+                        <span className="relative block h-1.5 overflow-hidden rounded-full bg-white/7">
+                          <span className="block h-full rounded-full bg-laranja" style={{ width: `${Math.max(0, Math.min(100, l.media - 50))}%` }} />
+                          <span aria-hidden className="absolute top-0 left-1/2 h-full w-px bg-white/40" />
+                        </span>
+                      </td>
+                      <td className="px-2 text-right font-mono text-[13px] text-suave">{l.partidas}</td>
+                      <td className="hidden px-2 text-right font-mono text-[13px] text-suave sm:table-cell">{l.melhor}</td>
+                      <td className="pr-3 text-right"><span className={`inline-grid min-w-12 place-items-center rounded-[9px] border px-2 py-1 font-mono text-[13px] font-bold ${l.media >= 100 ? 'border-laranja/40 bg-laranja/10 text-pessego' : 'border-white/10 bg-white/[0.04] text-suave'}`}>{Math.round(l.media)}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda ninguém entrou', 'Nobody is in yet')} texto={tx(`A tabela aparece quando alguém tiver ${v?.minimo ?? 3} partidas confirmadas com estatísticas.`, `The leaderboard shows up once someone has ${v?.minimo ?? 3} confirmed matches with stats.`)} />}
+      </Painel>
+      {v && (
+        <Painel aria-labelledby="rg-meu-rs" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 p-[22px]">
+          <span id="rg-meu-rs" className="eyebrow">{tx('O TEU RANGIFY SCORE', 'YOUR RANGIFY SCORE')}</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] text-laranja">{meu ? Math.round(meu.media) : '-'}</span>
+            <span className="flex flex-col">
+              <span className="text-[15px] font-bold">{meu?.posicao ? `#${meu.posicao}` : tx('Fora da tabela', 'Not listed yet')}</span>
+              <span className="font-mono text-[12px] text-suave">{meu ? tx(`${meu.partidas} ${meu.partidas === 1 ? 'partida' : 'partidas'} · melhor ${meu.melhor}`, `${meu.partidas} ${meu.partidas === 1 ? 'match' : 'matches'} · best ${meu.melhor}`) : tx('Sem partidas com RS', 'No matches with RS')}</span>
+            </span>
+          </div>
+          {faltam > 0 && <p className="m-0 text-[13px] text-mudo">{tx(`Faltam ${faltam} ${faltam === 1 ? 'partida' : 'partidas'} para entrares na tabela.`, `${faltam} more ${faltam === 1 ? 'match' : 'matches'} to get on the leaderboard.`)}</p>}
+          <BotaoAjuda topico="ranking">{tx('Como se calcula o RS', 'How RS is calculated')}</BotaoAjuda>
+        </Painel>
+      )}
+    </div>
+  )
+}
+
 /** Ranking de nível: quem tem mais XP do Rangify Experience. */
 function RankingNivel({ eu }: { eu?: string }) {
   const lista = useCarregar(() => dados.rankingNivel(50), [], ['partida', 'staff'], { minimo: 300 })
@@ -205,8 +278,9 @@ function RankingNivel({ eu }: { eu?: string }) {
 
 export function Ranking() {
   const [params, setParams] = useSearchParams()
-  const tipo = params.get('tipo') === 'nivel' ? 'nivel' : 'pontos'
-  const mudarTipo = (t: 'pontos' | 'nivel') => setParams(t === 'nivel' ? { tipo: 'nivel' } : {}, { replace: true })
+  const pedido = params.get('tipo')
+  const tipo = pedido === 'nivel' || pedido === 'rs' ? pedido : 'pontos'
+  const mudarTipo = (t: 'pontos' | 'nivel' | 'rs') => setParams(t === 'pontos' ? {} : { tipo: t }, { replace: true })
   const { perfil } = useSessao()
   const acao = useAcao()
   const { sincronizar, aSincronizar } = useSincronizarRank()
@@ -248,16 +322,18 @@ export function Ranking() {
         titulo={tx('Tabela da temporada', 'Season leaderboard')}
         descricao={tipo === 'nivel'
           ? tx('Quem subiu mais no passe da temporada com o XP das missões.', 'Who has climbed the season pass furthest with mission XP.')
+          : tipo === 'rs'
+          ? tx('Quem joga melhor, em média, segundo o Rangify Score de cada partida.', 'Who plays best on average, by the Rangify Score of each match.')
           : tx('Ordenada pelos pontos do hub. Toda a gente começa com 1000; o rank oficial é usado para atribuir os pontos de cada vitória e derrota.', 'Sorted by hub points. Everyone starts at 1000; the official rank is used to award the points for each win and loss.')}
         acoes={
           <>
-            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }]} />
+            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }]} />
             <BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>
           </>
         }
       />
 
-      {tipo === 'nivel' ? <RankingNivel eu={perfil?.id} /> : <>
+      {tipo === 'rs' ? <RankingRs eu={perfil?.id} /> : tipo === 'nivel' ? <RankingNivel eu={perfil?.id} /> : <>
 
       {pagina.carregando && !q ? <PodioEsqueleto /> : comPodio && <Podio top={linhas.slice(0, 3)} eu={perfil?.id} />}
 

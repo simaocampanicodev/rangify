@@ -594,5 +594,14 @@ const r3 = await rpc(uids[0], 'recalcular_partida', { p_match: rec.id })
 ok(r3.jogadores.length === jogRec.length, 'numa partida de teste, Owner e Dev recalculam com o que ela já tem')
 await raiz(`update matches set simulated = $2 where id = $1`, [rec.id, rec.simulated])
 
+// ------------------------------------------------------------ tabela do Rangify Score
+console.log('\nTabela do Rangify Score')
+const trs = await rpc(uids[0], 'ranking_rs', { p_limite: 50, p_minimo: 1 })
+ok(trs.minimo === 1 && trs.linhas.length > 0 && trs.linhas.every((l, i, a) => i === 0 || a[i - 1].media >= l.media), 'ordenada pela média de RS, da maior para a menor')
+ok(trs.linhas.every((l) => l.partidas >= 1 && l.melhor >= l.media && !l.perfil.bot), 'cada linha traz as partidas e o melhor RS, sem bots')
+ok(trs.eu && trs.eu.partidas >= 1 && trs.linhas.find((l) => l.perfil.id === pid(0))?.posicao === trs.eu.posicao, 'traz o próprio jogador com a posição dele')
+const trs99 = await rpc(uids[0], 'ranking_rs', { p_limite: 50, p_minimo: 99 })
+ok(trs99.linhas.length === 0 && trs99.eu && trs99.eu.posicao === null, 'sem partidas suficientes ninguém entra, mas o próprio vê a média')
+
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

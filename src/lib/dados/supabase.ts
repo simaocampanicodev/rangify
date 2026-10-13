@@ -9,7 +9,7 @@ import { supabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
-  Amizade, Dados, Denuncia, EstadoDiscord, RecargaPartida, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoDiscord, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -47,6 +47,9 @@ function processar(id: string) {
   ultimoProcessamento.set(id, agora)
   cliente().functions.invoke('processar-partida', { body: { matchId: id } }).catch(() => {})
 }
+
+/** Partidas com RS precisas para entrar na tabela do Rangify Score. */
+const MINIMO_RS = 3
 
 /** Fica a true se a base de dados ainda não tiver a função situacao (migração 0009). */
 let semSituacao = false
@@ -204,6 +207,7 @@ export const dadosSupabase: Dados = {
   missoes: () => rpc<Missao[]>('missoes'),
   experiencia: (perfilId) => rpc<Experiencia>('experiencia', { p_perfil: perfilId ?? null }),
   rankingNivel: (limite = 50) => rpc<LinhaNivel[]>('ranking_nivel', { p_limite: limite }),
+  rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }),
   resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),
   amigos: () => rpc<Amizade[]>('amigos'),
   async pedirAmizade(alvo) { await rpc('pedir_amizade', { p_alvo: alvo }) },

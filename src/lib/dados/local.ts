@@ -1185,6 +1185,29 @@ export const dadosLocais: Dados = {
     return noRankingDeNivel(e).slice(0, limite).map((l, i): LinhaNivel => ({ posicao: i + 1, perfil: { ...l.perfil }, xp: l.xp, ...nivelDe(l.xp) }))
   },
 
+  async rankingRs(limite = 50) {
+    const e = await pronto()
+    const minimo = 3
+    const por = new Map<string, number[]>()
+    for (const p of terminadas(e)) for (const j of p.jogadores) {
+      if (!j.equipa || j.rangifyScore == null) continue
+      const perfil = e.perfis[j.perfilId]
+      if (!perfil || perfil.bot || !perfil.riotId) continue
+      por.set(j.perfilId, [...(por.get(j.perfilId) ?? []), j.rangifyScore])
+    }
+    const todos = [...por.entries()].map(([id, rs]) => ({
+      perfil: e.perfis[id], media: Math.round((rs.reduce((s, x) => s + x, 0) / rs.length) * 10) / 10, melhor: Math.max(...rs), partidas: rs.length,
+    }))
+    const ordem = todos.filter((x) => x.partidas >= minimo)
+      .sort((x, y) => y.media - x.media || y.partidas - x.partidas || y.perfil.pontos - x.perfil.pontos || x.perfil.utilizador.localeCompare(y.perfil.utilizador))
+    const meu = e.sessao ? todos.find((x) => x.perfil.id === e.sessao!.perfilId) : undefined
+    return {
+      minimo,
+      linhas: ordem.slice(0, limite).map((x, i) => ({ posicao: i + 1, perfil: { ...x.perfil }, media: x.media, melhor: x.melhor, partidas: x.partidas })),
+      eu: meu ? { posicao: ordem.indexOf(meu) + 1 || null, media: meu.media, melhor: meu.melhor, partidas: meu.partidas } : null,
+    }
+  },
+
   async resetarMissoes() {
     const e = await pronto()
     const me = eu(e)

@@ -11,6 +11,8 @@
 -- Cada jogador recebe só a diferença entre os pontos novos e os que a partida
 -- já lhe tinha dado. O resultado e o vencedor não mudam.
 --
+-- Também traz a tabela do Rangify Score (ranking_rs).
+--
 -- Corre depois de 0001 a 0012. Pode correr outra vez sem estragar nada.
 -- =============================================================================
 
@@ -104,3 +106,39 @@ end $$;
 revoke all on function public._recalcular(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public._recalcular(uuid, jsonb) to service_role;
 grant execute on function public.recalcular_partida(uuid) to authenticated;
+
+-- ------------------------------------------------------------ Tabela do Rangify Score
+-- Ordenada pela média de RS. Só entra quem tem pelo menos p_minimo partidas com RS,
+-- para uma partida com sorte não chegar ao primeiro lugar. "eu" traz o próprio
+-- jogador mesmo que ainda não tenha partidas suficientes.
+create or replace function public.ranking_rs(p_limite int default 50, p_minimo int default 3) returns jsonb
+language sql stable security definer set search_path = public as $$
+  with base as (
+    select p.id, avg(mp.rangify_score) as media, max(mp.rangify_score) as melhor, count(*) as n
+    from match_players mp
+    join matches m on m.id = mp.match_id
+    join profiles p on p.id = mp.profile_id
+    where m.state = 'COMPLETED' and mp.team is not null and mp.rangify_score is not null
+      and not p.is_bot and p.riot_id is not null
+    group by p.id
+  ),
+  ord as (
+    select b.*, row_number() over (order by b.media desc, b.n desc, p.points desc, p.username) as pos
+    from base b join profiles p on p.id = b.id
+    where b.n >= greatest(1, p_minimo)
+  )
+  select jsonb_build_object(
+    'minimo', greatest(1, p_minimo),
+    'linhas', coalesce((
+      select jsonb_agg(jsonb_build_object('posicao', o.pos, 'perfil', _perfil_json(p), 'media', round(o.media, 1), 'melhor', o.melhor, 'partidas', o.n) order by o.pos)
+      from ord o join profiles p on p.id = o.id
+      where o.pos <= least(100, greatest(1, p_limite))
+    ), '[]'::jsonb),
+    'eu', (
+      select jsonb_build_object('posicao', (select o.pos from ord o where o.id = b.id), 'media', round(b.media, 1), 'melhor', b.melhor, 'partidas', b.n)
+      from base b where b.id = eu()
+    )
+  )
+$$;
+
+grant execute on function public.ranking_rs(int, int) to authenticated;
