@@ -49,7 +49,7 @@ function processar(id: string) {
 }
 
 /** Partidas com RS precisas para entrar na tabela do Rangify Score. */
-const MINIMO_RS = 3
+const MINIMO_RS = 1
 
 /** Fica a true se a base de dados ainda não tiver a função situacao (migração 0009). */
 let semSituacao = false

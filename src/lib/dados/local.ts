@@ -1187,7 +1187,7 @@ export const dadosLocais: Dados = {
 
   async rankingRs(limite = 50) {
     const e = await pronto()
-    const minimo = 3
+    const minimo = 1
     const por = new Map<string, number[]>()
     for (const p of terminadas(e)) for (const j of p.jogadores) {
       if (!j.equipa || j.rangifyScore == null) continue

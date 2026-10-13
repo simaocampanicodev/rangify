@@ -108,10 +108,10 @@ grant execute on function public._recalcular(uuid, jsonb) to service_role;
 grant execute on function public.recalcular_partida(uuid) to authenticated;
 
 -- ------------------------------------------------------------ Tabela do Rangify Score
--- Ordenada pela média de RS. Só entra quem tem pelo menos p_minimo partidas com RS,
--- para uma partida com sorte não chegar ao primeiro lugar. "eu" traz o próprio
+-- Ordenada pela média de RS. Entra quem tem pelo menos p_minimo partidas com RS (por
+-- defeito, uma). "eu" traz o próprio
 -- jogador mesmo que ainda não tenha partidas suficientes.
-create or replace function public.ranking_rs(p_limite int default 50, p_minimo int default 3) returns jsonb
+create or replace function public.ranking_rs(p_limite int default 50, p_minimo int default 1) returns jsonb
 language sql stable security definer set search_path = public as $$
   with base as (
     select p.id, avg(mp.rangify_score) as media, max(mp.rangify_score) as melhor, count(*) as n
