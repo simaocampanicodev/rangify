@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
+import { iconeAgente } from '@/lib/agentes'
 import { useAjuda, type TopicoAjuda } from './Ajuda'
 import { l } from '@/lib/idioma'
 
@@ -105,11 +106,11 @@ export function Avatar({ nome, url, tamanho = 38, destaque = false }: { nome: st
   )
 }
 
-export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo }: {
-  opcoes: { valor: T; texto: ReactNode }[]; valor: T; onChange: (v: T) => void; rotulo: string
+export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo, pequeno = false }: {
+  opcoes: { valor: T; texto: ReactNode }[]; valor: T; onChange: (v: T) => void; rotulo: string; pequeno?: boolean
 }) {
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex gap-1 rounded-xl border border-white/7 bg-white/[0.035] p-1">
+    <div role="group" aria-label={rotulo} className="inline-flex shrink-0 gap-1 rounded-xl border border-white/7 bg-white/[0.035] p-1">
       {opcoes.map((o) => {
         const ativo = o.valor === valor
         return (
@@ -118,7 +119,7 @@ export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo }
             type="button"
             aria-pressed={ativo}
             onClick={() => onChange(o.valor)}
-            className={`h-9 cursor-pointer rounded-lg border px-3.5 text-[13px] font-semibold transition-colors ${ativo ? 'border-laranja/32 bg-laranja/14 text-pessego-claro' : 'border-transparent bg-transparent text-suave hover:text-texto'}`}
+            className={`${pequeno ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13px]'} cursor-pointer rounded-lg border font-semibold transition-colors ${ativo ? 'border-laranja/32 bg-laranja/14 text-pessego-claro' : 'border-transparent bg-transparent text-suave hover:text-texto'}`}
           >
             {o.texto}
           </button>
@@ -253,6 +254,18 @@ export function BarraProgresso({ valor, alvo, rotulo }: { valor: number; alvo: n
       <div className="h-full rounded-full bg-laranja transition-[width] duration-500" style={{ width: `${pct}%` }} />
     </div>
   )
+}
+
+/** O ícone do agente; sem agente conhecido, um quadrado com a inicial. */
+export function IconeAgente({ nome, tamanho = 24 }: { nome: string | null | undefined; tamanho?: number }) {
+  const url = iconeAgente(nome)
+  const estilo = { width: tamanho, height: tamanho }
+  if (!url) {
+    return nome
+      ? <span aria-hidden style={estilo} className="inline-grid shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/5 font-mono text-[11px] text-suave">{nome[0]}</span>
+      : null
+  }
+  return <img src={url} alt="" title={nome ?? undefined} loading="lazy" style={estilo} className="shrink-0 rounded-[6px] border border-white/10 bg-white/5 object-cover" />
 }
 
 /** MVP da partida: só uma estrela laranja dentro de um quadrado. */

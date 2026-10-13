@@ -1,8 +1,8 @@
-import { Activity, Crosshair, Crown, Flame, Map as MapIcon, Trophy } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Activity, Crosshair, Crown, Flame, Map as MapIcon, Trophy, UserRound } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import type { EstatisticasPerfil } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
-import { Painel, TituloPainel, Vazio } from './ui'
+import { IconeAgente, Painel, Segmentado, TituloPainel, Vazio } from './ui'
 import { l } from '@/lib/idioma'
 
 const umaCasa = (v: number | null | undefined) => (v != null ? v.toFixed(1) : '-')
@@ -37,7 +37,7 @@ function Grupo({ icone, nome, children }: { icone: ReactNode; nome: string; chil
 export function Desempenho({ s }: { s: EstatisticasPerfil }) {
   const seq = s.sequenciaAtual
   return (
-    <Painel aria-labelledby="rg-desempenho" className="flex min-w-0 flex-[2_1_560px] flex-col gap-4 p-[22px]">
+    <Painel aria-labelledby="rg-desempenho" className="flex min-w-0 flex-col gap-4 p-[22px]">
       <TituloPainel eyebrow={l('DESEMPENHO', 'PERFORMANCE')} titulo={l('Em média, por partida', 'Average per match')} id="rg-desempenho" direita={<span className="font-mono text-[11px] text-mudo">{s.partidas} {s.partidas === 1 ? l('partida', 'match') : l('partidas', 'matches')}</span>} />
       {!s.partidas ? <div className="flex flex-1 items-center justify-center"><Vazio icone={<Activity size={22} />} titulo={l('Ainda sem partidas', 'No matches yet')} texto={l('As estatísticas aparecem depois da primeira partida confirmada.', 'Stats show up after the first confirmed match.')} /></div> : (
         <>
@@ -76,31 +76,53 @@ export function Desempenho({ s }: { s: EstatisticasPerfil }) {
   )
 }
 
-/** Partidas, vitórias e ACS em cada mapa, do mais jogado para o menos jogado. */
-export function PorMapa({ s }: { s: EstatisticasPerfil }) {
+interface LinhaOnde { chave: string; nome: string; arte: ReactNode; partidas: number; vitorias: number; acs: number | null; rs: number | null }
+
+/** Partidas, vitórias, ACS e RS em cada mapa ou com cada agente, do mais jogado para o menos jogado. */
+export function OndeJogaMelhor({ s }: { s: EstatisticasPerfil }) {
+  const [por, setPor] = useState<'mapa' | 'agente'>('mapa')
+  const linhas: LinhaOnde[] = por === 'mapa'
+    ? s.porMapa.map((m) => ({
+        chave: m.mapa, nome: m.mapa, partidas: m.partidas, vitorias: m.vitorias, acs: m.acs, rs: m.rs,
+        arte: <span aria-hidden className="mapa h-10 w-14 shrink-0 rounded-lg border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa)})` }} />,
+      }))
+    : (s.porAgente ?? []).map((a) => ({
+        chave: a.agente, nome: a.agente, partidas: a.partidas, vitorias: a.vitorias, acs: a.acs, rs: a.rs,
+        arte: <span className="grid h-10 w-14 shrink-0 place-items-center rounded-lg border border-white/8 bg-white/[0.03]"><IconeAgente nome={a.agente} tamanho={34} /></span>,
+      }))
   return (
-    <Painel aria-labelledby="rg-mapas" className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 p-[22px]">
-      <TituloPainel eyebrow={l('POR MAPA', 'BY MAP')} titulo={l('Onde joga melhor', 'Where they play best')} id="rg-mapas" />
-      {!s.porMapa.length ? (
+    <Painel aria-labelledby="rg-onde" className="flex min-w-0 flex-col gap-3 p-[22px]">
+      {/* O filtro fica sempre no canto de cima, à direita, como na Classificação. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <span className="eyebrow">{por === 'mapa' ? l('POR MAPA', 'BY MAP') : l('POR AGENTE', 'BY AGENT')}</span>
+          <h2 id="rg-onde" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Onde joga melhor', 'Where they play best')}</h2>
+        </div>
+        <Segmentado pequeno rotulo={l('Ver por', 'View by')} valor={por} onChange={setPor} opcoes={[{ valor: 'mapa', texto: l('Mapas', 'Maps') }, { valor: 'agente', texto: l('Agentes', 'Agents') }]} />
+      </div>
+      {!linhas.length ? (
         <div className="flex flex-1 items-center justify-center">
-          <Vazio icone={<MapIcon size={22} />} titulo={l('Sem mapas ainda', 'No maps yet')} texto={l('Cada mapa jogado aparece aqui com as vitórias e o ACS.', 'Each map played shows up here with wins and ACS.')} />
+          {por === 'mapa'
+            ? <Vazio icone={<MapIcon size={22} />} titulo={l('Sem mapas ainda', 'No maps yet')} texto={l('Cada mapa jogado aparece aqui com as vitórias, o ACS e o RS.', 'Each map played shows up here with wins, ACS and RS.')} />
+            : <Vazio icone={<UserRound size={22} />} titulo={l('Sem agentes ainda', 'No agents yet')} texto={l('O agente vem da Henrik Dev API em cada partida confirmada.', 'The agent comes from the Henrik Dev API in each confirmed match.')} />}
         </div>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-          {s.porMapa.map((m) => {
+          {linhas.map((m) => {
             const vit = m.partidas ? Math.round((m.vitorias / m.partidas) * 100) : 0
             return (
-              <li key={m.mapa} className="flex items-center gap-3 rounded-xl border border-white/6 bg-white/[0.02] p-2 pr-3">
-                <span aria-hidden className="mapa h-10 w-14 shrink-0 rounded-lg border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa)})` }} />
+              <li key={m.chave} className="flex items-center gap-3 rounded-xl border border-white/6 bg-white/[0.02] p-2 pr-3">
+                {m.arte}
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[13.5px] font-semibold">{m.mapa}</span>
+                    <span className="truncate text-[13.5px] font-semibold">{m.nome}</span>
                     <span className="font-mono text-[12px] text-suave">{m.vitorias}{l('V', 'W')} · {m.partidas - m.vitorias}{l('D', 'L')}</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <span aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-white/7"><span className="block h-full rounded-full bg-laranja" style={{ width: `${vit}%` }} /></span>
                     <span className="w-9 text-right font-mono text-[11px] text-pessego">{vit}%</span>
                     <span className="w-[54px] text-right font-mono text-[11px] text-mudo">{m.acs != null ? `${Math.round(m.acs)} ACS` : '-'}</span>
+                    <span className="w-[46px] text-right font-mono text-[11px] text-suave" title="Rangify Score">{m.rs != null ? `RS ${Math.round(m.rs)}` : ''}</span>
                   </span>
                 </span>
               </li>

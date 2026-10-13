@@ -83,6 +83,24 @@ Para desligar os canais de Discord a qualquer momento: `delete from public.disco
 
 ---
 
+## Discord obrigatório para a fila
+
+Com isto ligado, só entra na fila quem estiver no servidor de Discord do Rangify (com a conta de Discord com que entrou no site). Quem não estiver vê os botões **Entrar no Discord** e **Já entrei** no lugar do botão da fila.
+
+1. Corre `supabase/migrations/0012_rangify_score.sql` no **SQL Editor**.
+2. Publica a função que pergunta ao bot (usa os mesmos segredos `DISCORD_BOT_TOKEN` e `DISCORD_GUILD_ID` do passo 5):
+
+   ```bash
+   npx supabase functions deploy verificar-discord
+   ```
+
+3. No Discord, cria um convite que não expire: botão direito no canal de entrada › **Convidar pessoas** › **Editar link de convite** › **Expira depois de: Nunca**. Copia o link `https://discord.gg/...`.
+4. No site, em **Staff › Discord**, cola o convite, escolhe **Obrigatório** e carrega em **Guardar**. Depois carrega em **Verificar a minha conta** para confirmar que o bot te encontra.
+
+Como funciona: ao abrir o Painel ou o Jogar, o site pede à função `verificar-discord` que confirme com o bot (`GET /guilds/{servidor}/members/{id}`). A resposta fica no perfil durante 30 minutos e a base de dados recusa `entrar_fila` sem uma confirmação recente. Os jogadores não conseguem marcar-se a si próprios como membros. Não é preciso ligar nenhuma intenção privilegiada no portal do Discord para isto.
+
+---
+
 ## Se não aparecer nada
 
 - **Logs da função**: Supabase › **Edge Functions › discord-partida › Logs**. Os erros do Discord aparecem lá com o código (por exemplo `403 Missing Permissions`).

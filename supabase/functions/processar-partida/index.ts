@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
         const h = lido.jogadores.find((j) => mesmoJogador(j, n.riot_id, n.riot_puuid))!
         return {
           perfilId: n.perfilId, kills: h.kills, deaths: h.deaths, assists: h.assists, acs: h.acs,
-          firstBloods: h.firstBloods, trades: h.trades, hsPct: h.hsPct, kastPct: h.kastPct,
+          firstBloods: h.firstBloods, trades: h.trades, hsPct: h.hsPct, kastPct: h.kastPct, agente: h.agente,
         }
       })
       const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: a, p_b: b, p_stats: stats })

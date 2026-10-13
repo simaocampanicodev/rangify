@@ -90,6 +90,12 @@ const EN: Record<string, string> = {
   'Só são permitidas imagens PNG, JPG ou WebP. GIFs e vídeos não.': 'Only PNG, JPG or WebP images are allowed. No GIFs or videos.',
   'Tens de entrar na tua conta.': 'You have to sign in.',
   'Utilizador ou palavra-passe errados.': 'Wrong username or password.',
+  'Entra no servidor de Discord do Rangify para poderes entrar na fila.': 'Join the Rangify Discord server to be able to join the queue.',
+  'O convite tem de ser um link discord.gg ou discord.com/invite.': 'The invite has to be a discord.gg or discord.com/invite link.',
+  'Põe o link de convite do servidor antes de tornar o Discord obrigatório.': 'Add the server invite link before making Discord required.',
+  'O bot do Discord ainda não está configurado. Fala com a staff.': 'The Discord bot is not set up yet. Talk to the staff.',
+  'Não foi possível confirmar no Discord. Tenta outra vez daqui a pouco.': 'Could not check on Discord. Try again in a bit.',
+  'Guarda primeiro com "Obrigatório" ligado: a verificação só corre quando a fila exige o Discord.': 'Save with "Required" on first: the check only runs when the queue requires Discord.',
 }
 
 export function traduzirErro(mensagem: string): string {

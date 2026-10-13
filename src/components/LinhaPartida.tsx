@@ -3,7 +3,7 @@ import { imagemMapa } from '@/lib/mapas'
 import { comSinal } from '@/lib/pontos'
 import { nomeRank } from '@/lib/ranks'
 import { haQuanto } from '@/lib/tempo'
-import { Chip, SeloMvp } from './ui'
+import { Chip, IconeAgente, SeloMvp } from './ui'
 import { l } from '@/lib/idioma'
 
 /** Uma partida no histórico: mapa, resultado, contexto e pontos. */
@@ -41,7 +41,9 @@ export function LinhaPartida({ m, onClick, i }: { m: ResumoPartida; onClick?: ()
       <span className="flex shrink-0 flex-wrap gap-1.5">
         {m.simulada && <Chip tom="laranja">{l('Teste', 'Test')}</Chip>}
         {minha?.mvp && <SeloMvp tamanho={26} />}
+        {minha?.agente && <IconeAgente nome={minha.agente} tamanho={26} />}
         {minha && minha.kills != null && <Chip>{minha.kills}/{minha.deaths}/{minha.assists}</Chip>}
+        {minha?.rangifyScore != null && <Chip tom={minha.rangifyScore >= 100 ? 'laranja' : undefined}>RS {minha.rangifyScore}</Chip>}
         {!minha && m.mvp && <span className="flex items-center gap-1.5 text-[12.5px] text-suave"><SeloMvp tamanho={22} />{m.mvp}</span>}
       </span>
       <span className="flex w-[76px] shrink-0 flex-col items-end gap-0.5">

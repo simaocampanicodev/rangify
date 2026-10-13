@@ -1,7 +1,7 @@
 import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { NovidadesStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { DiscordStaff, NovidadesStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -192,7 +192,7 @@ export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
@@ -225,7 +225,7 @@ export function Admin() {
           rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
+          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
@@ -285,6 +285,12 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
             <TesteApiStaff />
+          </div>
+        )}
+        {aba === 'discord' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow="DISCORD" titulo={tx('Servidor obrigatório para a fila', 'Server required for the queue')} />
+            <DiscordStaff />
           </div>
         )}
         {aba === 'mapas' && (

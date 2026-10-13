@@ -9,7 +9,7 @@ import { supabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
-  Amizade, Dados, Denuncia, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoDiscord, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -148,7 +148,17 @@ export const dadosSupabase: Dados = {
   posicao: (perfilId) => rpc<number>('posicao', { p_perfil: perfilId }),
 
   estadoFila: () => rpc<EstadoFila>('estado_fila'),
-  async entrarFila() { await rpc('entrar_fila') },
+  async entrarFila() {
+    try {
+      await rpc('entrar_fila')
+    } catch (e) {
+      if (!(e instanceof Error) || !e.message.includes('servidor de Discord')) throw e
+      // A verificação vale 30 minutos: se expirou, pergunta outra vez ao Discord e tenta de novo.
+      const d = await dadosSupabase.estadoDiscord(true)
+      if (!d.membro) throw e
+      await rpc('entrar_fila')
+    }
+  },
   async sairFila() { await rpc('sair_fila') },
   partidaAtiva: () => rpc<Partida | null>('partida_ativa'),
   partida: (id) => rpc<Partida | null>('partida_detalhe', { p_match: id }),
@@ -211,6 +221,15 @@ export const dadosSupabase: Dados = {
   criarNovidade: (n) => rpc<Novidade[]>('criar_novidade', { p_data: n.data, p_titulo: n.titulo, p_texto: n.texto }),
   apagarNovidade: (id) => rpc<Novidade[]>('apagar_novidade', { p_id: id }),
   testarApi: () => funcao<TesteApi>('testar-api', {}),
+  async estadoDiscord(verificar) {
+    // Sem a migração 0012, a fila não exige nada.
+    const base = (await rpc<EstadoDiscord | null>('discord_fila').catch(() => null))
+      ?? { obrigatorio: false, convite: null, membro: null, verificadoEm: null }
+    if (!verificar || !base.obrigatorio) return base
+    const r = await funcao<{ membro: boolean }>('verificar-discord', {})
+    return { ...base, membro: r.membro, verificadoEm: new Date().toISOString() }
+  },
+  definirDiscordFila: (obrigatorio, convite) => rpc<EstadoDiscord>('definir_discord_fila', { p_obrigatorio: obrigatorio, p_convite: convite }),
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
 
   poolMapas: () => rpc<string[]>('pool_mapas'),
@@ -242,7 +261,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   devSaltarBloqueio: ['partida'], devAcelerar: ['partida'],
   pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],
   criarSugestao: ['sugestoes'], votar: ['sugestoes'], definirEstadoSugestao: ['sugestoes', 'staff'], apagarSugestao: ['sugestoes', 'staff'], denunciar: ['staff'],
-  criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], resetarMissoes: ['staff'],
+  criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], definirDiscordFila: ['staff'], resetarMissoes: ['staff'],
   resolverDisputa: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'],
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
 }

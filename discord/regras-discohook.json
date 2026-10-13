@@ -1,0 +1,68 @@
+{
+  "content": null,
+  "embeds": [
+    {
+      "title": "Regras do servidor",
+      "description": "<:rangify:1559320107606614087> Bem-vindo ao **Rangify**, o hub 5v5 de Valorant com draft de capitães, ban de mapas e uma tabela própria em que toda a gente começa com 1000 pontos.\n\nAo entrares no servidor e no hub, aceitas estas regras. A staff pode agir mesmo em casos que não estejam aqui escritos.",
+      "color": 16735007,
+      "author": {
+        "name": "Rangify Hub",
+        "icon_url": "https://cdn.discordapp.com/emojis/1559320107606614087.png"
+      },
+      "fields": [
+        {
+          "name": "1 · Respeito acima de tudo",
+          "value": "Sem insultos, assédio, racismo, homofobia ou qualquer tipo de discriminação, no chat, nas calls ou dentro do jogo. Discute jogadas, não pessoas."
+        },
+        {
+          "name": "2 · Joga limpo",
+          "value": "Proibido batota, scripts, macros, exploits ou jogar na conta de outra pessoa. Joga sempre com o Riot ID que ligaste no site: é por ele que o resultado é confirmado."
+        },
+        {
+          "name": "3 · Uma conta por pessoa",
+          "value": "Nada de smurfs nem contas secundárias para baixar o rank oficial ou fugir a castigos."
+        },
+        {
+          "name": "4 · Fila e partidas",
+          "value": "Só entres na fila se tiveres tempo para jogar a partida inteira. Quem não aceita a partida a tempo fica 5 minutos sem fila. Abandonar uma partida a meio dá castigo."
+        },
+        {
+          "name": "5 · Código do grupo",
+          "value": "O código do grupo personalizado é só para os 10 jogadores da partida. Não o partilhes fora do hub nem o passes a quem não está na partida."
+        },
+        {
+          "name": "6 · Resultados honestos",
+          "value": "Os capitães submetem o resultado verdadeiro. Resultados inventados ou combinados levam a partida para disputa e dão castigo a quem mentiu."
+        },
+        {
+          "name": "7 · Chats e calls das partidas",
+          "value": "Cada partida tem um chat e uma call por equipa, que desaparecem quando ela acaba. Usa a call da tua equipa e não entres na da equipa adversária."
+        },
+        {
+          "name": "8 · Sem spam nem publicidade",
+          "value": "Nada de spam, flood, menções em massa, links suspeitos ou publicidade a outros servidores sem autorização da staff. Conteúdo NSFW é proibido."
+        },
+        {
+          "name": "9 · A staff decide",
+          "value": "Disputas, denúncias e castigos são tratados pela staff. Se discordares de uma decisão, fala com a staff em privado, com calma e com provas."
+        },
+        {
+          "name": "10 · Regras do Discord e da Riot",
+          "value": "Cumpre os [Termos do Discord](https://discord.com/terms) e as regras da Riot Games. O Rangify é um projeto independente, não é desenvolvido nem apoiado pela Riot Games."
+        },
+        {
+          "name": "Castigos",
+          "value": "Conforme a gravidade: aviso, tempo sem fila, perda de pontos, remoção da tabela ou expulsão do servidor e do hub."
+        }
+      ],
+      "image": {
+        "url": "https://www.image2url.com/r2/default/images/1791842536598-ab980e12-da20-4f8d-a374-086da30e7a7e.png"
+      },
+      "footer": {
+        "text": "Rangify · Boas partidas!",
+        "icon_url": "https://cdn.discordapp.com/emojis/1559320107606614087.png"
+      }
+    }
+  ],
+  "attachments": []
+}

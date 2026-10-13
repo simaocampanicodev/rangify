@@ -69,6 +69,12 @@ export interface JogadorPartida {
   hsPct: number | null
   /** Rondas com kill, assistência, sobrevivência ou troca, em percentagem. */
   kastPct: number | null
+  /** Rangify Score: a nota de desempenho, 100 é a média da partida. */
+  rangifyScore: number | null
+  /** A parte dos pontos que veio do desempenho (de -6 a +6). */
+  deltaDesempenho: number | null
+  /** O agente que jogou (vem da Henrik Dev API). */
+  agente: string | null
 }
 
 export interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
@@ -152,6 +158,8 @@ export interface ResumoPartida {
     assists: number | null
     acs: number | null
     mvp: boolean
+    rangifyScore: number | null
+    agente: string | null
     tierAdversario: number
   } | null
 }
@@ -172,10 +180,13 @@ export interface PontoForma {
   delta: number
   kda: number | null
   acs: number | null
+  /** Rangify Score dessa partida. */
+  rs: number | null
   mvp: boolean
 }
 
-export interface EstatisticasMapa { mapa: string; partidas: number; vitorias: number; acs: number | null }
+export interface EstatisticasMapa { mapa: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
+export interface EstatisticasAgente { agente: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
 
 export interface EstatisticasPerfil {
   partidas: number
@@ -184,6 +195,9 @@ export interface EstatisticasPerfil {
   /** Kills a dividir por mortes. */
   kd: number | null
   acs: number | null
+  /** Rangify Score médio (100 é a média das partidas). */
+  rangifyScore: number | null
+  melhorRs: number | null
   killsMedia: number | null
   mortesMedia: number | null
   assistMedia: number | null
@@ -200,6 +214,7 @@ export interface EstatisticasPerfil {
   sequenciaAtual: number
   capitao: { partidas: number; vitorias: number }
   porMapa: EstatisticasMapa[]
+  porAgente: EstatisticasAgente[]
   posicao: number
   totalJogadores: number
 }
@@ -263,7 +278,7 @@ export interface TesteApi {
   rondas?: number
   mortes?: number
   jogadores: {
-    riotId: string; equipa: string; kills: number; deaths: number; assists: number; acs: number
+    riotId: string; equipa: string; agente?: string | null; kills: number; deaths: number; assists: number; acs: number
     firstBloods: number; trades: number; hsPct: number | null; kastPct: number
   }[]
   avisos: string[]
@@ -309,6 +324,14 @@ export interface Sessao {
   perfilId: string
   /** Conta acabada de criar: ainda sem Riot ID ligado. */
   incompleta: boolean
+}
+
+export interface EstadoDiscord {
+  obrigatorio: boolean
+  convite: string | null
+  /** null: ainda não verificado (ou o bot não está configurado). */
+  membro: boolean | null
+  verificadoEm: string | null
 }
 
 export interface Dados {
@@ -410,6 +433,13 @@ export interface Dados {
   apagarNovidade(id: string): Promise<Novidade[]>
   /** Owner e Dev: lê o último jogo personalizado da própria conta na Henrik Dev API. */
   testarApi(): Promise<TesteApi>
+  /**
+   * Se a fila exige estar no servidor de Discord e se o jogador está lá.
+   * Com verificar, pergunta outra vez ao Discord (só quando é obrigatório).
+   */
+  estadoDiscord(verificar?: boolean): Promise<EstadoDiscord>
+  /** Owner e Dev: torna o servidor de Discord obrigatório para a fila e guarda o convite. */
+  definirDiscordFila(obrigatorio: boolean, convite: string): Promise<EstadoDiscord>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
 

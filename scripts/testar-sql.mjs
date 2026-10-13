@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -183,23 +183,46 @@ partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
 ok(partida.estado === 'PROCESSING_API' && partida.resultadoA === 14, 'resultados iguais: PROCESSING_API')
 
 // A Edge Function devolve as estatísticas tiradas da Henrik Dev API.
-const stats = partida.jogadores.map((j, i) => ({ perfilId: j.perfilId, kills: 10 + i, deaths: 12, assists: 4, acs: 180 + i * 10, firstBloods: i % 3, trades: i % 4, hsPct: 20 + i, kastPct: 65 + i }))
+const AGENTES_TESTE = ['Jett', 'Sova', 'Omen', 'Killjoy', 'Raze', 'Skye', 'Viper', 'Cypher', 'Reyna', 'Fade']
+const stats = partida.jogadores.map((j, i) => ({ perfilId: j.perfilId, kills: 10 + i, deaths: 12, assists: 4, acs: 180 + i * 10, firstBloods: i % 3, trades: i % 4, hsPct: 20 + i, kastPct: 65 + i, agente: AGENTES_TESTE[i] }))
 await servico(`select public.aplicar_resultado($1, null, null, $2)`, [mid, JSON.stringify(stats)])
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
 ok(partida.estado === 'COMPLETED' && partida.vencedor === 'A' && partida.estatisticas, 'aplicar_resultado fecha a partida com estatísticas')
 ok(partida.jogadores.every((j) => j.trades != null && j.hsPct >= 20 && j.kastPct >= 65), 'guarda Trades, HS% e KAST%')
 
-// Os pontos batem certo com a fórmula do site.
+// O Rangify Score, com a mesma conta de src/lib/pontos.ts.
+const rangifyScores = (js, rondas) => {
+  const med = (xs) => xs.reduce((t, x) => t + x, 0) / xs.length
+  const b = js.map((j) => ({ acs: j.acs, kda: (j.kills + j.assists) / Math.max(1, j.deaths), kast: j.kastPct, tr: j.trades / Math.max(1, rondas) }))
+  const m = { acs: med(b.map((x) => x.acs)), kda: med(b.map((x) => x.kda)), kast: med(b.map((x) => x.kast)), tr: med(b.map((x) => x.tr)) }
+  const r = (x, y) => (y > 0 ? Math.min(2, Math.max(0.25, x / y)) : null)
+  const pesos = { acs: 0.35, kda: 0.25, kast: 0.25, tr: 0.15 }
+  return b.map((x) => {
+    let soma = 0, peso = 0
+    for (const k of Object.keys(pesos)) { const v = r(x[k], m[k]); if (v != null) { soma += v * pesos[k]; peso += pesos[k] } }
+    return Math.round((100 * soma) / peso)
+  })
+}
+const bonusRs = (rs) => { const x = (rs - 100) / 6; return Math.max(-6, Math.min(6, Math.sign(x) * Math.round(Math.abs(x)))) || 0 }
+const rsEsperado = new Map(rangifyScores(stats, 26).map((v, i) => [stats[i].perfilId, v]))
+ok(partida.jogadores.every((j) => j.rangifyScore === rsEsperado.get(j.perfilId)), 'Rangify Score igual ao do site para os 10 jogadores')
+const mediaRs = partida.jogadores.reduce((t, j) => t + j.rangifyScore, 0) / 10
+ok(mediaRs > 95 && mediaRs < 105, `o RS médio da partida anda à volta de 100 (${mediaRs})`)
+ok(partida.jogadores.every((j) => j.agente === stats.find((s) => s.perfilId === j.perfilId).agente), 'guarda o agente de cada jogador')
+
+// Os pontos batem certo com a fórmula do site: resultado, desnível e desempenho.
 const divisao = (t) => (t >= 3 ? Math.min(25, t - 2) : 9)
 const esperado = (j) => {
   const adv = partida.jogadores.filter((x) => x.equipa !== j.equipa).map((x) => divisao(x.tier))
   const dif = Math.round(adv.reduce((s, x) => s + x, 0) / adv.length) - divisao(j.tier)
-  return (j.equipa === partida.vencedor ? 20 : -20) + Math.max(-8, Math.min(10, 3 * dif))
+  return (j.equipa === partida.vencedor ? 20 : -20) + Math.max(-8, Math.min(10, 3 * dif)) + bonusRs(rsEsperado.get(j.perfilId))
 }
 ok(partida.jogadores.every((j) => j.deltaPontos === esperado(j)), 'deltas de pontos iguais aos do site para os 10 jogadores')
+ok(partida.jogadores.every((j) => j.deltaDesempenho === bonusRs(j.rangifyScore) && Math.abs(j.deltaDesempenho) <= 6), 'a parte do desempenho fica guardada e vai de -6 a +6')
+ok(partida.jogadores.some((j) => j.deltaDesempenho > 0) && partida.jogadores.some((j) => j.deltaDesempenho < 0), 'quem joga melhor ganha pontos extra e quem joga pior perde')
 const depois = await raiz(`select id, points, wins, losses from profiles`)
 ok(partida.jogadores.every((j) => depois.find((p) => p.id === j.perfilId).points === 1000 + j.deltaPontos), 'os pontos foram aplicados aos perfis')
-ok(partida.jogadores.filter((j) => j.mvp).length === 1 && partida.jogadores.find((j) => j.mvp).acs === Math.max(...stats.map((s) => s.acs)), 'MVP = maior ACS')
+ok(partida.jogadores.filter((j) => j.mvp).length === 1 && partida.jogadores.find((j) => j.mvp).rangifyScore === Math.max(...partida.jogadores.map((j) => j.rangifyScore)), 'MVP = maior Rangify Score')
 await falha(servico(`select public.aplicar_resultado($1, 13, 0, null)`, [mid]), 'à espera da API', 'não se aplica o resultado duas vezes')
 const primeira = partida
 
@@ -218,7 +241,11 @@ ok(est.partidas === 1 && est.vitorias === 1 && est.kda > 0, 'estatísticas do pe
 ok(est.kastPct >= 65 && est.hsPct >= 20 && est.tradesMedia != null && est.kd > 0, 'perfil com KAST, HS%, trades e K/D')
 ok(est.sequenciaAtual === 1 && est.melhorSequencia === 1 && est.capitao.partidas === 1 && est.capitao.vitorias === 1, 'sequências e registo como capitão')
 ok(est.porMapa.length === 1 && est.porMapa[0].mapa === 'Sunset' && est.porMapa[0].vitorias === 1, 'números por mapa')
-ok(forma[0].acs != null, 'a forma traz o ACS')
+ok(forma[0].acs != null && forma[0].rs === rsEsperado.get(pid(0)), 'a forma traz o ACS e o Rangify Score')
+ok(est.rangifyScore === rsEsperado.get(pid(0)) && est.melhorRs === rsEsperado.get(pid(0)), 'o perfil traz o Rangify Score médio e o melhor')
+ok(est.porAgente.length === 1 && est.porAgente[0].agente === stats.find((s) => s.perfilId === pid(0)).agente && est.porAgente[0].vitorias === 1, 'números por agente')
+ok(est.porMapa[0].rs === rsEsperado.get(pid(0)), 'o RS também vem por mapa')
+ok(historico.linhas[0].minha.rangifyScore === rsEsperado.get(pid(0)) && historico.linhas[0].minha.agente != null, 'o histórico traz o RS e o agente')
 const missoes = await rpc(uids[0], 'missoes')
 const porAmbito = (a) => missoes.filter((m) => m.ambito === a).length
 ok(missoes.length === 16 && porAmbito('diaria') === 4 && porAmbito('semanal') === 8 && porAmbito('temporada') === 4, 'aparecem 4 diárias, 8 semanais e 4 de temporada')
@@ -498,6 +525,40 @@ await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id
 ok((await raiz(`select state from matches where id = $1`, [dPartida]))[0].state === 'CANCELLED', 'acabar a partida pede a limpeza sem erros')
 await raiz(`delete from match_discord where match_id = $1`, [dPartida])
 await raiz(`delete from discord_config`)
+
+// ------------------------------------------------------------ Discord obrigatório para a fila
+console.log('\nDiscord obrigatório para a fila')
+const df0 = await rpc(uids[3], 'discord_fila')
+ok(df0.obrigatorio === false && df0.membro === null, 'por defeito a fila não exige o Discord')
+await falha(rpc(uids[3], 'definir_discord_fila', { p_obrigatorio: true, p_convite: 'https://discord.gg/rangify' }), 'Owner e Dev', 'só Owner e Dev mudam a regra')
+await falha(rpc(uids[0], 'definir_discord_fila', { p_obrigatorio: true, p_convite: '' }), 'convite', 'não fica obrigatório sem convite')
+await falha(rpc(uids[0], 'definir_discord_fila', { p_obrigatorio: true, p_convite: 'https://exemplo.pt/x' }), 'discord.gg', 'só aceita convites do Discord')
+const df1 = await rpc(uids[0], 'definir_discord_fila', { p_obrigatorio: true, p_convite: 'https://discord.gg/rangify' })
+ok(df1.obrigatorio && df1.convite === 'https://discord.gg/rangify', 'a staff torna o Discord obrigatório')
+await como(uids[3], `update profiles set discord_member = true, discord_checked_at = now() where auth_id = $1`, [uids[3]]).catch(() => null)
+ok((await raiz(`select discord_member from profiles where auth_id = $1`, [uids[3]]))[0].discord_member === null, 'um jogador não se marca a si próprio como membro')
+await falha(rpc(uids[3], 'entrar_fila'), 'servidor de Discord', 'fora do servidor não entra na fila')
+// O que a Edge Function verificar-discord grava depois de perguntar ao bot.
+await raiz(`update profiles set discord_member = true, discord_checked_at = now() where auth_id = $1`, [uids[3]])
+await rpc(uids[3], 'entrar_fila')
+ok((await rpc(uids[3], 'estado_fila')).naFila, 'no servidor (verificado há pouco), entra na fila')
+await rpc(uids[3], 'sair_fila')
+await raiz(`update profiles set discord_checked_at = now() - interval '31 minutes' where auth_id = $1`, [uids[3]])
+await falha(rpc(uids[3], 'entrar_fila'), 'servidor de Discord', 'uma verificação com mais de 30 minutos não chega')
+await raiz(`update profiles set discord_member = false, discord_checked_at = now() where auth_id = $1`, [uids[3]])
+await falha(rpc(uids[3], 'entrar_fila'), 'servidor de Discord', 'quem saiu do servidor fica fora da fila')
+await rpc(uids[0], 'definir_discord_fila', { p_obrigatorio: false, p_convite: 'https://discord.gg/rangify' })
+await rpc(uids[3], 'entrar_fila')
+ok((await rpc(uids[3], 'estado_fila')).naFila, 'desligada a regra, volta a entrar sem Discord')
+await rpc(uids[3], 'sair_fila')
+
+// ------------------------------------------------------------ agentes e desempenho
+console.log('\nAgentes e desempenho')
+const simAg = await raiz(`select public._agente_simulado('Duelista', n) as a from generate_series(1, 8) n`)
+ok(new Set(simAg.map((x) => x.a)).size === 8, 'a mesma função dá agentes diferentes a cada jogador')
+const bon = (await raiz(`select public._bonus_desempenho(null) as a, public._bonus_desempenho(160) as b, public._bonus_desempenho(40) as c, public._bonus_desempenho(97) as d`))[0]
+ok(bon.a === 0 && bon.b === 6 && bon.c === -6 && bon.d === bonusRs(97), 'sem RS vale 0, fica entre -6 e +6 e arredonda como o site')
+await falha(como(uids[1], `select public._rangify_scores($1, 24)`, ['00000000-0000-0000-0000-000000000000']), 'permission denied', 'o RS não se calcula a partir do browser')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

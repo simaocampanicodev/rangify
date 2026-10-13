@@ -46,7 +46,7 @@ export function FaixaExperiencia({ exp }: { exp: Experiencia }) {
 
         <div className="flex min-w-[240px] flex-1 flex-col gap-2.5">
           <span className="font-mono text-[11px] font-bold tracking-[0.16em] text-laranja">{l('PASSE DA TEMPORADA 1', 'SEASON 1 PASS')}</span>
-          <h2 id="rg-xp" className="m-0 text-[28px] leading-none font-extrabold tracking-[-0.03em]"><NomeRangify /> Experience</h2>
+          <h2 id="rg-xp" className="m-0 text-[28px] leading-none font-extrabold tracking-[-0.03em]"><NomeRangify className="text-laranja" /> Experience</h2>
           <div role="progressbar" aria-label={l(`XP do nível ${exp.nivel}`, `Level ${exp.nivel} XP`)} aria-valuemin={0} aria-valuemax={exp.xpParaProximo} aria-valuenow={exp.xpNoNivel} className="h-3 overflow-hidden rounded-full bg-white/7">
             <div className="h-full rounded-full bg-laranja shadow-[0_0_18px_rgba(255,91,31,0.7)] transition-[width] duration-700" style={{ width: `${pct}%` }} />
           </div>

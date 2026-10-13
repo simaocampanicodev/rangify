@@ -3,7 +3,7 @@ import {
 } from 'lucide-react'
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import { l } from '@/lib/idioma'
-import { BONUS_MAX, BONUS_MIN, PONTOS_BASE, PONTOS_INICIAIS, POR_DIVISAO } from '@/lib/pontos'
+import { BONUS_MAX, BONUS_MIN, DESEMPENHO_MAX, PONTOS_BASE, PONTOS_INICIAIS, POR_DIVISAO, RS_POR_PONTO } from '@/lib/pontos'
 import { HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { NomeRangify } from './Marca'
 import { Modal } from './ui'
@@ -82,8 +82,9 @@ function topicos(): Record<TopicoAjuda, Topico> {
         { titulo: l('O desnível', 'The rank gap'), texto: l('O teu rank oficial é comparado com a média do rank oficial da equipa adversária.', 'Your official rank is compared with the average official rank of the enemy team.') },
         { titulo: l('Adversários acima de ti', 'Opponents above you'), texto: l(`Cada divisão de diferença soma +${POR_DIVISAO}, até +${BONUS_MAX}. Ganhar vale mais e perder custa menos.`, `Each division of difference adds +${POR_DIVISAO}, up to +${BONUS_MAX}. Winning is worth more and losing costs less.`) },
         { titulo: l('Adversários abaixo de ti', 'Opponents below you'), texto: l(`Cada divisão de diferença tira ${POR_DIVISAO}, até ${BONUS_MIN}. Ganhar vale menos e perder custa mais.`, `Each division of difference takes ${POR_DIVISAO}, down to ${BONUS_MIN}. Winning is worth less and losing costs more.`) },
+        { titulo: l('O teu desempenho: Rangify Score', 'Your performance: Rangify Score'), texto: l(`O RS junta o teu ACS (35%), KDA (25%), KAST (25%) e trades (15%), comparados com a média dos 10 jogadores da partida. 100 é a média. Cada ${RS_POR_PONTO} de RS acima ou abaixo de 100 vale 1 ponto, até ${DESEMPENHO_MAX} para cada lado. O MVP é quem tem o RS mais alto.`, `RS combines your ACS (35%), KDA (25%), KAST (25%) and trades (15%), compared with the average of the 10 players in the match. 100 is average. Every ${RS_POR_PONTO} RS above or below 100 is worth 1 point, up to ${DESEMPENHO_MAX} either way. The MVP is whoever has the highest RS.`) },
       ],
-      nota: <>{l('Exemplo: és Diamante 2 e a outra equipa tem média Ascendente 1, duas divisões acima. Uma vitória dá', 'Example: you are Diamond 2 and the other team averages Ascendant 1, two divisions above. A win gives')} <b className="text-vitoria">+26</b> {l('e uma derrota tira só', 'and a loss only takes')} <b className="text-derrota">14</b>.</>,
+      nota: <>{l('Exemplo: és Diamante 2 e a outra equipa tem média Ascendente 1, duas divisões acima. Uma vitória dá', 'Example: you are Diamond 2 and the other team averages Ascendant 1, two divisions above. A win gives')} <b className="text-vitoria">+26</b> {l('e uma derrota tira só', 'and a loss only takes')} <b className="text-derrota">14</b>{l(`, antes do desempenho. Com um RS de 124, somas mais ${Math.round(24 / RS_POR_PONTO)}.`, `, before performance. With an RS of 124, you add ${Math.round(24 / RS_POR_PONTO)} more.`)}</>,
     },
     rank: {
       eyebrow: l('Rank oficial', 'Official rank'), titulo: l('Para que serve o rank oficial', 'What the official rank is for'), icone: <Shield size={20} />,
@@ -101,7 +102,7 @@ function topicos(): Record<TopicoAjuda, Topico> {
         { titulo: l('Diárias e semanais', 'Daily and weekly'), texto: l('Aparecem 4 diárias e 8 semanais, sorteadas de um catálogo maior. Mudam todos os dias às 00:00 e à segunda-feira (UTC), e o progresso volta a zero.', '4 daily and 8 weekly missions are drawn from a bigger catalogue. They change every day at 00:00 and on Mondays (UTC), and progress resets.') },
         { titulo: l('De temporada', 'Season'), texto: l('Ficam abertas até ao fim da temporada, como chegar aos 1200 pontos.', 'They stay open until the end of the season, like reaching 1200 points.') },
         { titulo: l('XP e nível', 'XP and level'), texto: l('Completar uma missão dá o XP dela. Passar do nível N para o seguinte custa 400 + 100 x N de XP, e a tabela de nível mostra quem vai mais à frente.', 'Completing a mission gives its XP. Going from level N to the next costs 400 + 100 x N XP, and the level leaderboard shows who is ahead.') },
-        { titulo: l('Progresso automático', 'Automatic progress'), texto: l('Os kills, os first bloods, o ACS e os MVP vêm das estatísticas que o sistema tira de cada partida.', 'Kills, first bloods, ACS and MVPs come from the stats the system pulls from each match.') },
+        { titulo: l('Progresso automático', 'Automatic progress'), texto: l('Os kills, os first bloods, o ACS e os MVP (o Rangify Score mais alto) vêm das estatísticas que o sistema tira de cada partida.', 'Kills, first bloods, ACS and MVPs (the highest Rangify Score) come from the stats the system pulls from each match.') },
       ],
     },
     funcoes: {

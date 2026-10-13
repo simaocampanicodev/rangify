@@ -3,7 +3,8 @@
  * a escolha dos capitães, o resultado, as estatísticas e os pontos.
  * Tudo puro, com o gerador de aleatórios passado por fora.
  */
-import { calcularPontos } from '../pontos'
+import { AGENTES_SIMULADOS } from '../agentes'
+import { bonusDesempenho, calcularPontos, rangifyScores } from '../pontos'
 import { divisao, mediaDivisoes } from '../ranks'
 import type { Equipa, Partida, Perfil } from './tipos'
 
@@ -55,6 +56,11 @@ export interface JogadorGuardado {
   trades?: number | null
   hsPct?: number | null
   kastPct?: number | null
+  /** Rangify Score: 100 é a média da partida. */
+  rangifyScore?: number | null
+  /** A parte dos pontos que veio do desempenho (de -6 a +6). */
+  deltaDesempenho?: number | null
+  agente?: string | null
 }
 
 export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[]; pontosAplicados?: boolean }
@@ -63,7 +69,7 @@ export function novoJogador(p: Perfil): JogadorGuardado {
   return {
     perfilId: p.id, tier: p.tier, equipa: null, capitao: false, aceitou: false, ordemEscolha: null,
     kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null,
-    trades: null, hsPct: null, kastPct: null,
+    trades: null, hsPct: null, kastPct: null, rangifyScore: null, deltaDesempenho: null, agente: null,
   }
 }
 
@@ -114,10 +120,12 @@ export function gerarResultado(rng: Rng, tiersA: number[], tiersB: number[]): { 
   return ganhaA ? { a: ven, b: per } : { a: per, b: ven }
 }
 
-/** KDA, ACS e first bloods para todos, como se viessem da Henrik Dev API. */
+/** KDA, ACS, first bloods e agentes para todos, como se viessem da Henrik Dev API. */
 export function gerarEstatisticas(rng: Rng, p: PartidaGuardada, perfis: Record<string, Perfil>) {
   const rondas = (p.resultadoA ?? 13) + (p.resultadoB ?? 0)
-  let melhor: JogadorGuardado | null = null
+  const desvio = Math.floor(rng() * 8)
+  // Na mesma equipa, quem tem a mesma função fica com agentes diferentes.
+  const usados = new Map<string, number>()
   for (const j of p.jogadores) {
     if (!j.equipa) continue
     const ganhou = j.equipa === p.vencedor
@@ -131,11 +139,29 @@ export function gerarEstatisticas(rng: Rng, p: PartidaGuardada, perfis: Record<s
     j.trades = Math.round(rondas * entre(rng, 0.03, 0.15))
     j.hsPct = Math.min(45, Math.round(entre(rng, 13, 27) + Math.max(0, acs - 200) / 25))
     j.kastPct = Math.min(95, Math.round(entre(rng, ganhou ? 70 : 58, ganhou ? 88 : 76)))
+    const pool = AGENTES_SIMULADOS[funcao ?? 'outro']
+    const k = `${j.equipa}:${funcao ?? 'outro'}`
+    const n = (usados.get(k) ?? 0) + 1
+    usados.set(k, n)
+    j.agente = pool[(desvio + n) % pool.length]
+  }
+  calcularRangifyScore(p)
+}
+
+/** O RS de cada jogador e o MVP (o RS mais alto; desempata o ACS). */
+export function calcularRangifyScore(p: PartidaGuardada) {
+  const rondas = (p.resultadoA ?? 13) + (p.resultadoB ?? 0)
+  const lista = p.jogadores.filter((j) => j.equipa)
+  const rs = rangifyScores(lista, rondas)
+  let melhor: JogadorGuardado | null = null
+  for (const [i, j] of lista.entries()) {
+    const v = rs[i]
+    j.rangifyScore = v
     j.mvp = false
-    if (!melhor || acs > (melhor.acs ?? 0)) melhor = j
+    if (v != null && (!melhor || v > (melhor.rangifyScore ?? 0) || (v === melhor.rangifyScore && (j.acs ?? 0) > (melhor.acs ?? 0)))) melhor = j
   }
   if (melhor) melhor.mvp = true
-  p.estatisticas = true
+  p.estatisticas = rs.some((x) => x != null)
 }
 
 /** Fecha a partida: vencedor, pontos de cada jogador e vitórias/derrotas. */
@@ -148,11 +174,13 @@ export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perf
     if (!j.equipa) continue
     const venceu = j.equipa === p.vencedor
     const r = calcularPontos(j.tier, tiers(j.equipa === 'A' ? 'B' : 'A'), venceu)
-    j.deltaPontos = r.total
+    const perf = bonusDesempenho(j.rangifyScore)
+    j.deltaDesempenho = j.rangifyScore != null ? perf : null
+    j.deltaPontos = r.total + perf
     const perfil = perfis[j.perfilId]
     if (!perfil) continue
     // Todas as partidas contam, também as de teste: remover a partida devolve tudo.
-    perfil.pontos += r.total
+    perfil.pontos += j.deltaPontos
     if (venceu) perfil.vitorias++
     else perfil.derrotas++
     j.pontosDepois = perfil.pontos

@@ -3,6 +3,8 @@
 
 export interface JogadorHenrik {
   puuid: string; name: string; tag: string; team: string
+  /** O agente (na v3 vem como texto, por exemplo "Jett"). */
+  character?: string | { name?: string } | null
   stats: { score: number; kills: number; deaths: number; assists: number; headshots?: number; bodyshots?: number; legshots?: number }
 }
 export interface MorteHenrik {
@@ -75,7 +77,7 @@ function estatisticasDasRondas(p: PartidaHenrik, equipaDe: Map<string, string>) 
 }
 
 export interface EstatisticasJogador {
-  puuid: string; riotId: string; equipa: string
+  puuid: string; riotId: string; equipa: string; agente: string | null
   kills: number; deaths: number; assists: number; acs: number
   firstBloods: number; trades: number; hsPct: number | null; kastPct: number
 }
@@ -91,6 +93,7 @@ export function lerPartida(p: PartidaHenrik) {
     const tiros = (h.stats.headshots ?? 0) + (h.stats.bodyshots ?? 0) + (h.stats.legshots ?? 0)
     return {
       puuid: h.puuid, riotId: `${h.name}#${h.tag}`, equipa: h.team.toLowerCase(),
+      agente: (typeof h.character === 'string' ? h.character : h.character?.name) || null,
       kills: h.stats.kills, deaths: h.stats.deaths, assists: h.stats.assists,
       acs: Math.round(h.stats.score / rondas), firstBloods: ronda.fb.get(h.puuid) ?? 0,
       trades: ronda.trades.get(h.puuid) ?? 0,

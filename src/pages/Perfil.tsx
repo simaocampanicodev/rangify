@@ -1,7 +1,7 @@
 import { BadgeCheck, Flag, RefreshCw, Shield, Swords, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Desempenho, PorMapa } from '@/components/DesempenhoPerfil'
+import { Desempenho, OndeJogaMelhor } from '@/components/DesempenhoPerfil'
 import { EditarPerfil } from '@/components/EditarPerfil'
 import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
@@ -112,6 +112,7 @@ export function Perfil() {
           [l('Posição', 'Position'), s ? `#${s.posicao}` : '-', s ? l(`de ${s.totalJogadores} jogadores`, `of ${s.totalJogadores} players`) : '', 'text-mudo'],
           [l('Registo', 'Record'), `${p.vitorias}${l('V', 'W')} · ${p.derrotas}${l('D', 'L')}`, s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : l('sem partidas', 'no matches'), 'text-mudo'],
           ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-', s?.acs != null ? l(`${Math.round(s.acs)} ACS de média`, `${Math.round(s.acs)} average ACS`) : '', 'text-mudo'],
+          ['Rangify Score', s?.rangifyScore != null ? String(Math.round(s.rangifyScore)) : '-', s?.melhorRs != null ? l(`melhor: ${s.melhorRs}`, `best: ${s.melhorRs}`) : l('100 é a média', '100 is average'), 'text-mudo'],
           ['MVP', s ? String(s.mvps) : '-', s ? `${s.firstBloods} first bloods` : '', 'text-mudo'],
         ].map(([rotulo, valor, sub, cor]) => (
           <Painel key={rotulo} as="div" className="flex flex-col gap-1.5 !rounded-[14px] p-4">
@@ -128,22 +129,21 @@ export function Perfil() {
           : <Vazio icone={<Swords size={22} />} titulo={l('Ainda sem forma para mostrar', 'No form to show yet')} texto={l('O gráfico aparece depois de duas partidas confirmadas.', 'The chart shows up after two confirmed matches.')} />}
       </Painel>
 
-      {s && (
-        <div className="flex flex-wrap items-stretch gap-4">
-          <Desempenho s={s} />
-          <PorMapa s={s} />
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-stretch gap-4">
-        <Painel aria-labelledby="rg-perfil-hist" className="flex min-w-0 flex-[2_1_540px] flex-col px-[22px] pt-[22px] pb-2">
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.56fr)]">
+        {s && (
+          <>
+            <Desempenho s={s} />
+            <OndeJogaMelhor s={s} />
+          </>
+        )}
+        <Painel aria-labelledby="rg-perfil-hist" className="flex min-w-0 flex-col px-[22px] pt-[22px] pb-2">
           <div className="pb-3"><TituloPainel eyebrow={l('HISTÓRICO', 'HISTORY')} titulo={l('Partidas recentes', 'Recent matches')} id="rg-perfil-hist" /></div>
           {historico.valor?.linhas.length
             ? historico.valor.linhas.slice(0, 8).map((m) => <LinhaPartida key={m.id} m={m} />)
             : <div className="flex flex-1 items-center justify-center"><Vazio icone={<Swords size={22} />} titulo={l('Sem partidas', 'No matches')} /></div>}
           {souEu && <div className="mt-auto border-t border-white/6"><LinkSeta to="/partidas">{l('Ver histórico completo', 'View full history')}</LinkSeta></div>}
         </Painel>
-        <Painel aria-labelledby="rg-perfil-rank" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 p-[22px]">
+        <Painel aria-labelledby="rg-perfil-rank" className="flex min-w-0 flex-col gap-3 p-[22px]">
           <TituloPainel eyebrow={l('RANK OFICIAL', 'OFFICIAL RANK')} titulo={l('Da Riot, para atribuir pontos', 'From Riot, used to award points')} id="rg-perfil-rank" />
           <RankBadge tier={p.tier} rr={p.rr} />
           <p className="m-0 text-[13px] leading-normal text-suave">{l('Sincronizado', 'Synced')} {haQuanto(p.rankAtualizadoEm)}. {l(`Atualiza no máximo a cada ${HORAS_CACHE_RANK} horas, através da Henrik Dev API.`, `Updates at most every ${HORAS_CACHE_RANK} hours, through the Henrik Dev API.`)}</p>

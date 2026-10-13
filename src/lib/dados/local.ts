@@ -32,7 +32,7 @@ import type {
 } from './tipos'
 
 // v6: novidades publicadas pela staff; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v6'
+const CHAVE = 'rangify:demo:v7'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -42,7 +42,7 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 6
+  versao: 7
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -59,6 +59,8 @@ interface Estado {
   rotacoes: Partial<Record<'diaria' | 'semanal', Rotacao>>
   conclusoes: Conclusao[]
   novidades: Novidade[]
+  /** Discord obrigatório para a fila. No demo, "verificar" faz de conta que entraste no servidor. */
+  discord?: { obrigatorio: boolean; convite: string | null; membro: boolean }
 }
 
 interface Rotacao { id: string; inicio: string; ids: string[] }
@@ -119,13 +121,14 @@ async function carregar(): Promise<Estado> {
       localStorage.removeItem('rangify:demo:v3')
       localStorage.removeItem('rangify:demo:v4')
       localStorage.removeItem('rangify:demo:v5')
+      localStorage.removeItem('rangify:demo:v6')
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 6) {
+    if (!lido || lido.versao !== 7) {
       const s = gerarSemente()
       lido = {
-        versao: 6, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        versao: 7, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
         amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false, poolMapas: [...ROTACAO_PADRAO],
         rotacoes: {}, conclusoes: [],
@@ -219,6 +222,7 @@ function jogadorPublico(e: Estado, j: JogadorGuardado): JogadorPartida {
     equipa: j.equipa, capitao: j.capitao, aceitou: j.aceitou, ordemEscolha: j.ordemEscolha,
     kills: j.kills, deaths: j.deaths, assists: j.assists, acs: j.acs, firstBloods: j.firstBloods, mvp: j.mvp, deltaPontos: j.deltaPontos,
     trades: j.trades ?? null, hsPct: j.hsPct ?? null, kastPct: j.kastPct ?? null,
+    rangifyScore: j.rangifyScore ?? null, deltaDesempenho: j.deltaDesempenho ?? null, agente: j.agente ?? null,
   }
 }
 
@@ -249,7 +253,8 @@ function resumo(e: Estado, p: PartidaGuardada, ref: string | null): ResumoPartid
     mvp: mvp ? nomeCurto(e.perfis[mvp.perfilId]) : null,
     minha: meu && meu.equipa ? {
       equipa: meu.equipa, venceu: p.vencedor === meu.equipa, deltaPontos: meu.deltaPontos, kills: meu.kills,
-      deaths: meu.deaths, assists: meu.assists, acs: meu.acs, mvp: meu.mvp, tierAdversario: media(outra),
+      deaths: meu.deaths, assists: meu.assists, acs: meu.acs, mvp: meu.mvp,
+      rangifyScore: meu.rangifyScore ?? null, agente: meu.agente ?? null, tierAdversario: media(outra),
     } : null,
   }
 }
@@ -805,7 +810,8 @@ export const dadosLocais: Dados = {
     }
     let k = 0, d = 0, a = 0, comAcs = 0, mvps = 0, fb = 0, vit = 0, seq = 0, melhorSeq = 0, atual = 0, capP = 0, capV = 0
     const js: JogadorGuardado[] = []
-    const mapas = new Map<string, { partidas: number; vitorias: number; acs: number[] }>()
+    const mapas = new Map<string, { partidas: number; vitorias: number; acs: number[]; rs: number[] }>()
+    const agentes = new Map<string, { partidas: number; vitorias: number; acs: number[]; rs: number[] }>()
     for (const p of lista) {
       const j = p.jogadores.find((x) => x.perfilId === perfilId)!
       const ganhou = p.vencedor === j.equipa
@@ -818,11 +824,16 @@ export const dadosLocais: Dados = {
       melhorSeq = Math.max(melhorSeq, seq)
       atual = ganhou ? (atual > 0 ? atual + 1 : 1) : (atual < 0 ? atual - 1 : -1)
       if (j.capitao) { capP++; if (ganhou) capV++ }
-      const m = mapas.get(p.mapa ?? '?') ?? { partidas: 0, vitorias: 0, acs: [] }
-      m.partidas++
-      if (ganhou) m.vitorias++
-      if (j.acs != null) m.acs.push(j.acs)
-      mapas.set(p.mapa ?? '?', m)
+      const somar = (tabela: typeof mapas, chave: string) => {
+        const m = tabela.get(chave) ?? { partidas: 0, vitorias: 0, acs: [], rs: [] }
+        m.partidas++
+        if (ganhou) m.vitorias++
+        if (j.acs != null) m.acs.push(j.acs)
+        if (j.rangifyScore != null) m.rs.push(j.rangifyScore)
+        tabela.set(chave, m)
+      }
+      somar(mapas, p.mapa ?? '?')
+      if (j.agente) somar(agentes, j.agente)
     }
     const comStats = js.filter((j) => j.acs != null)
     const ordem = classificados(e)
@@ -830,6 +841,8 @@ export const dadosLocais: Dados = {
       partidas: lista.length, vitorias: vit,
       kda: comAcs ? (k + a) / Math.max(1, d) : null, kd: comAcs ? k / Math.max(1, d) : null,
       acs: media(comStats.map((j) => j.acs)),
+      rangifyScore: media(js.map((j) => j.rangifyScore)),
+      melhorRs: js.some((j) => j.rangifyScore != null) ? Math.max(...js.map((j) => j.rangifyScore ?? 0)) : null,
       killsMedia: media(comStats.map((j) => j.kills)), mortesMedia: media(comStats.map((j) => j.deaths)), assistMedia: media(comStats.map((j) => j.assists)),
       hsPct: media(js.map((j) => j.hsPct)), kastPct: media(js.map((j) => j.kastPct)), tradesMedia: media(js.map((j) => j.trades)),
       fbMedia: media(comStats.map((j) => j.firstBloods)),
@@ -839,8 +852,11 @@ export const dadosLocais: Dados = {
       melhorSequencia: melhorSeq, sequenciaAtual: atual,
       capitao: { partidas: capP, vitorias: capV },
       porMapa: [...mapas.entries()]
-        .map(([mapa, m]) => ({ mapa, partidas: m.partidas, vitorias: m.vitorias, acs: media(m.acs) }))
+        .map(([mapa, m]) => ({ mapa, partidas: m.partidas, vitorias: m.vitorias, acs: media(m.acs), rs: media(m.rs) }))
         .sort((x, y) => y.partidas - x.partidas || x.mapa.localeCompare(y.mapa)),
+      porAgente: [...agentes.entries()]
+        .map(([agente, m]) => ({ agente, partidas: m.partidas, vitorias: m.vitorias, acs: media(m.acs), rs: media(m.rs) }))
+        .sort((x, y) => y.partidas - x.partidas || x.agente.localeCompare(y.agente)),
       posicao: ordem.findIndex((p) => p.id === perfilId) + 1, totalJogadores: ordem.length,
     }
   },
@@ -860,7 +876,7 @@ export const dadosLocais: Dados = {
       return {
         partidaId: p.id, data: p.terminouEm!, mapa: p.mapa ?? '?', adversario: `Equipa ${nomeCurto(e.perfis[adv ?? ''])}`,
         venceu: p.vencedor === j.equipa, resultado: `${meus}-${deles}`, pontos: j.pontosDepois ?? 0, delta: j.deltaPontos ?? 0,
-        kda: j.kills != null ? ((j.kills ?? 0) + (j.assists ?? 0)) / Math.max(1, j.deaths ?? 1) : null, acs: j.acs, mvp: j.mvp,
+        kda: j.kills != null ? ((j.kills ?? 0) + (j.assists ?? 0)) / Math.max(1, j.deaths ?? 1) : null, acs: j.acs, rs: j.rangifyScore ?? null, mvp: j.mvp,
       }
     })
   },
@@ -916,6 +932,7 @@ export const dadosLocais: Dados = {
     if (!p.riotId) throw new Error('Liga o teu Riot ID antes de entrar na fila.')
     if (p.cooldownAte && ms(p.cooldownAte) > Date.now()) throw new Error('Ainda estás de castigo por não aceitares uma partida.')
     if (noJogo(e, p.id)) throw new Error('Já tens uma partida a decorrer.')
+    if (e.discord?.obrigatorio && !e.discord.membro) throw new Error('Entra no servidor de Discord do Rangify para poderes entrar na fila.')
     if (e.fila.some((f) => f.perfilId === p.id)) return
     e.fila.push({ perfilId: p.id, desde: iso(Date.now()) })
     // Há sempre alguém à espera, como num hub com gente.
@@ -1340,6 +1357,27 @@ export const dadosLocais: Dados = {
   // O modo demo não tem servidor de Discord.
   async discordPartida() {
     return null
+  },
+
+  async estadoDiscord(verificar) {
+    const e = await carregar()
+    const d = e.discord ?? { obrigatorio: false, convite: null, membro: false }
+    if (verificar && d.obrigatorio && !d.membro) { e.discord = { ...d, membro: true }; guardar() }
+    const atual = e.discord ?? d
+    return { obrigatorio: atual.obrigatorio, convite: atual.convite, membro: atual.obrigatorio ? atual.membro : null, verificadoEm: null }
+  },
+
+  async definirDiscordFila(obrigatorio, convite) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    const c = convite.trim() || null
+    if (c && !/^https:\/\/(discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]+\/?$/.test(c)) throw new Error('O convite tem de ser um link discord.gg ou discord.com/invite.')
+    if (obrigatorio && !c) throw new Error('Põe o link de convite do servidor antes de tornar o Discord obrigatório.')
+    e.discord = { obrigatorio, convite: c, membro: e.discord?.membro ?? false }
+    guardar()
+    avisarMudanca('staff')
+    return dadosLocais.estadoDiscord(false)
   },
 
   async testarApi() {

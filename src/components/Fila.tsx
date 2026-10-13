@@ -1,6 +1,8 @@
-import { ArrowRight, LoaderCircle, LogOut, Timer } from 'lucide-react'
+import { ArrowRight, LoaderCircle, LogOut, RefreshCw, Timer } from 'lucide-react'
 import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
+import { useDiscordFila } from '@/hooks/useDiscordFila'
+import { IconeDiscord } from '@/pages/Entrar'
 import { useFila } from '@/hooks/useFila'
 import { relogio } from '@/lib/tempo'
 import { NomeRangify } from './Marca'
@@ -26,7 +28,25 @@ export function useVistaFila() {
 /** Entrar, sair ou a contagem do castigo. */
 export function BotaoFila({ grande = false }: { grande?: boolean }) {
   const { naFila, ocupado, alternar, castigo } = useVistaFila()
+  const discord = useDiscordFila()
   const tamanho = grande ? '!h-[50px] !rounded-xl !px-6 !text-[15px] !font-extrabold' : ''
+  // A staff exige o servidor de Discord e o bot não te encontrou lá: primeiro o convite.
+  if (!naFila && discord.bloqueado) {
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        {discord.convite && (
+          <a href={discord.convite} target="_blank" rel="noreferrer" className={`btn btn-primario no-underline ${tamanho}`}>
+            <IconeDiscord tamanho={18} />{l('Entrar no Discord', 'Join the Discord')}
+          </a>
+        )}
+        <button type="button" className={`btn btn-fantasma ${grande ? '!h-[50px] !rounded-xl !px-5' : ''}`} disabled={discord.aVerificar} onClick={discord.verificar}>
+          {discord.aVerificar ? <LoaderCircle size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} className="text-laranja" aria-hidden />}
+          {l('Já entrei', 'I joined')}
+        </button>
+        <span className="basis-full text-[12.5px] text-mudo">{l('Para entrar na fila tens de estar no servidor de Discord do Rangify, com a conta com que entraste no site.', 'To join the queue you have to be in the Rangify Discord server, with the account you signed in with.')}</span>
+      </span>
+    )
+  }
   if (naFila) {
     return (
       <button type="button" className={`btn btn-fantasma ${grande ? '!h-[50px] !rounded-xl !px-5' : ''}`} disabled={ocupado} onClick={alternar}>

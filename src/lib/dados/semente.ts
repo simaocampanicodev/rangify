@@ -248,7 +248,7 @@ function desfazer(p: PartidaGuardada, perfis: Record<string, Perfil>) {
     perfil.pontos -= j.deltaPontos
     if (j.equipa === p.vencedor) perfil.vitorias--
     else perfil.derrotas--
-    Object.assign(j, { kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null, trades: null, hsPct: null, kastPct: null })
+    Object.assign(j, { kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null, trades: null, hsPct: null, kastPct: null, rangifyScore: null, deltaDesempenho: null, agente: null })
   }
   p.resultadoA = null
   p.resultadoB = null

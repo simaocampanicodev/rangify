@@ -9,7 +9,7 @@ import { caminhoPerfil, capitao, equipa, nomeJogador, souCapitao } from '@/lib/p
 import { calcularPontos, comSinal } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { validarResultado } from '@/lib/regras'
-import { Chip, SeloMvp } from '../ui'
+import { Chip, IconeAgente, SeloMvp } from '../ui'
 import { Iniciais } from './comum'
 import { l } from '@/lib/idioma'
 
@@ -169,6 +169,7 @@ const pct = (v: number | null | undefined) => (v != null ? `${v}%` : '-')
 
 /** As colunas da tabela da partida, com a explicação de cada uma ao passar o rato. */
 const colunas = (): { rotulo: string; titulo: string; largura: number }[] => [
+  { rotulo: 'RS', titulo: l('Rangify Score: ACS, KDA, KAST e trades comparados com a média desta partida (100 é a média). Dá de -6 a +6 pontos.', 'Rangify Score: ACS, KDA, KAST and trades compared with this match average (100 is average). Worth -6 to +6 points.'), largura: 52 },
   { rotulo: 'K/D/A', titulo: l('Kills, mortes e assistências', 'Kills, deaths and assists'), largura: 92 },
   { rotulo: 'ACS', titulo: l('Average Combat Score: pontuação de combate por ronda', 'Average Combat Score per round'), largura: 54 },
   { rotulo: 'KAST', titulo: l('Rondas com kill, assistência, sobrevivência ou troca', 'Rounds with a kill, assist, survival or trade'), largura: 58 },
@@ -185,18 +186,20 @@ function LinhaEstatisticas({ j, eu }: { j: JogadorPartida; eu: string }) {
       <td className="py-2 pr-2 pl-3">
         <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
           <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} />
+          <IconeAgente nome={j.agente} tamanho={24} />
           <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
           {j.capitao && <span className="font-mono text-[11px] font-bold text-laranja">(C)</span>}
           {j.mvp && <SeloMvp tamanho={20} />}
         </Link>
       </td>
+      <td className={`${num} font-semibold ${(j.rangifyScore ?? 0) >= 100 ? 'text-pessego' : 'text-suave'}`}>{j.rangifyScore ?? '-'}</td>
       <td className={num}>{j.kills ?? '-'}/{j.deaths ?? '-'}/{j.assists ?? '-'}</td>
       <td className={num}>{j.acs ?? '-'}</td>
       <td className={num}>{pct(j.kastPct)}</td>
       <td className={num}>{pct(j.hsPct)}</td>
       <td className={num}>{j.trades ?? '-'}</td>
       <td className={num}>{j.firstBloods ?? '-'}</td>
-      <td className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? comSinal(j.deltaPontos) : '-'}</td>
+      <td title={j.deltaPontos != null && j.deltaDesempenho != null ? l(`Resultado e rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Desempenho: ${comSinal(j.deltaDesempenho)}`, `Result and rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Performance: ${comSinal(j.deltaDesempenho)}`) : undefined} className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? comSinal(j.deltaPontos) : '-'}</td>
     </tr>
   )
 }
@@ -207,7 +210,7 @@ export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
   return (
     <div className="flex flex-col gap-4 overflow-x-auto">
       {(['A', 'B'] as const).map((eq) => (
-        <table key={eq} className="w-full min-w-[760px] table-fixed border-collapse">
+        <table key={eq} className="w-full min-w-[840px] table-fixed border-collapse">
           <colgroup>
             <col />
             {COLUNAS.map((c) => <col key={c.rotulo} style={{ width: c.largura }} />)}
@@ -225,7 +228,7 @@ export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
             </tr>
           </thead>
           <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
-            {[...equipa(p, eq)].sort((x, y) => (y.acs ?? 0) - (x.acs ?? 0)).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} />)}
+            {[...equipa(p, eq)].sort((x, y) => (y.rangifyScore ?? 0) - (x.rangifyScore ?? 0) || (y.acs ?? 0) - (x.acs ?? 0)).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} />)}
           </tbody>
         </table>
       ))}
@@ -255,6 +258,11 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
             <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-5 py-3">
               <span className="rotulo">{l('Os teus pontos', 'Your points')}</span>
               <span className={`font-mono text-[34px] leading-none font-semibold ${minha.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(minha.deltaPontos)}</span>
+              {minha.deltaDesempenho != null && (
+                <span className="font-mono text-[11.5px] text-mudo">
+                  {comSinal(minha.deltaPontos - minha.deltaDesempenho)} {l('resultado e rank', 'result and rank')} · <span className={minha.deltaDesempenho >= 0 ? 'text-pessego' : 'text-derrota'}>{comSinal(minha.deltaDesempenho)}</span> RS {minha.rangifyScore}
+                </span>
+              )}
             </div>
           )}
         />
@@ -262,7 +270,7 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
               <span className="eyebrow">{l('ESTATÍSTICAS DA PARTIDA', 'MATCH STATS')}</span>
-              <span className="text-[13px] text-mudo">{l('KDA, ACS, KAST, HS%, trades e first bloods tirados da Henrik Dev API.', 'KDA, ACS, KAST, HS%, trades and first bloods from the Henrik Dev API.')}</span>
+              <span className="text-[13px] text-mudo">{l('Tirados da Henrik Dev API. O Rangify Score (RS) junta o ACS, o KDA, o KAST e os trades: 100 é a média da partida.', 'From the Henrik Dev API. The Rangify Score (RS) combines ACS, KDA, KAST and trades: 100 is the match average.')}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link to={`/partidas?p=${p.id}`} className="btn btn-fantasma !min-h-9 !px-3 !text-[13px]">{l('Ver no histórico', 'View in history')}</Link>

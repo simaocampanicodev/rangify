@@ -6,7 +6,7 @@ import { useAgora } from '@/hooks/useAgora'
 import { dados, type Partida } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
 import { capitao, equipa, nomeJogador } from '@/lib/partida'
-import { emJogo, comSinal } from '@/lib/pontos'
+import { DESEMPENHO_MAX, emJogo, comSinal } from '@/lib/pontos'
 import { MINUTOS_BLOQUEIO, PADRAO_CODIGO, limparCodigo } from '@/lib/regras'
 import { emFalta, relogio } from '@/lib/tempo'
 import { ColunaEquipa } from './comum'
@@ -77,6 +77,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
             <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-4 py-3">
               <span className="rotulo">{l('Em jogo para ti', 'At stake for you')}</span>
               <span className="font-mono text-[15px] font-semibold"><span className="text-vitoria">{comSinal(aposta.vitoria)}</span> <span className="text-mudo">/</span> <span className="text-derrota">{comSinal(aposta.derrota)}</span></span>
+              <span className="font-mono text-[11px] text-mudo" title={l('O Rangify Score da partida soma ou tira até 6 pontos.', 'The match Rangify Score adds or takes up to 6 points.')}>{l(`± ${DESEMPENHO_MAX} pelo RS`, `± ${DESEMPENHO_MAX} from RS`)}</span>
             </div>
           )}
         </div>

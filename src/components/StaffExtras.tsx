@@ -5,7 +5,8 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type EstadoSugestao, type TesteApi } from '@/lib/dados'
 import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
-import { BotaoSegurar, Carregando, Chip, Vazio } from './ui'
+import { rangifyScores } from '@/lib/pontos'
+import { BotaoSegurar, Carregando, Chip, IconeAgente, Segmentado, Vazio } from './ui'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
 
@@ -88,6 +89,8 @@ const pct = (n: number | null) => (n == null ? '-' : `${n}%`)
 export function TesteApiStaff() {
   const acao = useAcao()
   const [teste, setTeste] = useState<TesteApi | null>(null)
+  // O Rangify Score que cada um teria, com a mesma conta da base de dados.
+  const rs = teste ? rangifyScores(teste.jogadores, teste.rondas ?? 1) : []
   const [aTestar, setATestar] = useState(false)
 
   const testar = async () => {
@@ -131,15 +134,17 @@ export function TesteApiStaff() {
                 <tr className="rotulo text-left">
                   <th scope="col" className="py-2 pl-3 font-normal">{l('Jogador', 'Player')}</th>
                   <th scope="col" className="px-2 font-normal">{l('Equipa', 'Team')}</th>
-                  {['K', 'D', 'A', 'ACS', 'FB', 'Trades', 'HS%', 'KAST'].map((c) => <th key={c} scope="col" className="px-2 text-right font-normal">{c}</th>)}
+                  <th scope="col" className="px-2 font-normal">{l('Agente', 'Agent')}</th>
+                  {['K', 'D', 'A', 'ACS', 'FB', 'Trades', 'HS%', 'KAST', 'RS'].map((c) => <th key={c} scope="col" className="px-2 text-right font-normal">{c}</th>)}
                 </tr>
               </thead>
               <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
-                {teste.jogadores.map((j) => (
+                {teste.jogadores.map((j, n) => (
                   <tr key={j.riotId} className={j.riotId === teste.riotId ? 'bg-laranja/[0.06]' : ''}>
                     <td className="py-2 pl-3 font-semibold">{j.riotId}</td>
                     <td className={`px-2 font-mono text-[12px] ${j.equipa === 'red' ? 'text-pessego' : 'text-suave'}`}>{j.equipa === 'red' ? l('Vermelha', 'Red') : l('Azul', 'Blue')}</td>
-                    {[j.kills, j.deaths, j.assists, j.acs, j.firstBloods, j.trades, pct(j.hsPct), pct(j.kastPct)].map((v, i) => (
+                    <td className="px-2"><span className="inline-flex items-center gap-1.5"><IconeAgente nome={j.agente} tamanho={20} />{j.agente ?? '-'}</span></td>
+                    {[j.kills, j.deaths, j.assists, j.acs, j.firstBloods, j.trades, pct(j.hsPct), pct(j.kastPct), rs[n] ?? '-'].map((v, i) => (
                       <td key={i} className="px-2 text-right font-mono">{v}</td>
                     ))}
                   </tr>
@@ -213,6 +218,59 @@ export function SugestoesStaff() {
           ))}
         </ul>
       ) : <Vazio icone={<Lightbulb size={22} />} titulo={l('Sem sugestões', 'No suggestions')} texto={l('Quando a comunidade propuser ideias, aparecem aqui.', 'When the community suggests ideas, they show up here.')} />}
+    </div>
+  )
+}
+
+/** Owner e Dev: exigir o servidor de Discord para entrar na fila. */
+export function DiscordStaff() {
+  const acao = useAcao()
+  const estado = useCarregar(() => dados.estadoDiscord(false), [], ['staff'])
+  const [obrigatorio, setObrigatorio] = useState<'sim' | 'nao' | null>(null)
+  const [convite, setConvite] = useState<string | null>(null)
+  const [eu, setEu] = useState<boolean | null>(null)
+  const [aTestar, setATestar] = useState(false)
+  if (!estado.valor) return <Carregando />
+  const valorObrigatorio = obrigatorio ?? (estado.valor.obrigatorio ? 'sim' : 'nao')
+  const valorConvite = convite ?? estado.valor.convite ?? ''
+
+  const guardar = () => acao(async () => {
+    await dados.definirDiscordFila(valorObrigatorio === 'sim', valorConvite)
+    setObrigatorio(null)
+    setConvite(null)
+  }, valorObrigatorio === 'sim' ? l('A fila passa a exigir o servidor de Discord.', 'The queue now requires the Discord server.') : l('A fila já não exige o Discord.', 'The queue no longer requires Discord.'))
+
+  const testar = async () => {
+    setATestar(true)
+    const r = await acao(async () => {
+      if (!estado.valor?.obrigatorio) throw new Error('Guarda primeiro com "Obrigatório" ligado: a verificação só corre quando a fila exige o Discord.')
+      return dados.estadoDiscord(true)
+    })
+    setATestar(false)
+    if (r) setEu(r.membro)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 max-w-[640px] text-[13px] leading-normal text-mudo">
+        {l('Com isto ligado, só entra na fila quem o bot encontrar no servidor de Discord. Quem não estiver vê o botão para entrar no servidor em vez do botão da fila. A confirmação vale 30 minutos e repete-se sozinha.', 'With this on, only players the bot finds in the Discord server can join the queue. Anyone else sees a button to join the server instead of the queue button. The check lasts 30 minutes and repeats on its own.')}
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
+          {l('Discord para a fila', 'Discord for the queue')}
+          <Segmentado rotulo={l('Discord para a fila', 'Discord for the queue')} valor={valorObrigatorio} onChange={setObrigatorio} opcoes={[{ valor: 'nao', texto: l('Opcional', 'Optional') }, { valor: 'sim', texto: l('Obrigatório', 'Required') }]} />
+        </div>
+        <label className="flex min-w-[260px] flex-1 flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
+          {l('Convite do servidor', 'Server invite')}
+          <input className="campo" value={valorConvite} onChange={(e) => setConvite(e.target.value)} placeholder="https://discord.gg/..." />
+        </label>
+        <button type="button" className="btn btn-primario" onClick={guardar}>{l('Guardar', 'Save')}</button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-white/6 pt-4">
+        <button type="button" className="btn btn-fantasma" disabled={aTestar} onClick={testar}><PlugZap size={15} className="text-laranja" aria-hidden />{aTestar ? l('A perguntar ao Discord…', 'Asking Discord…') : l('Verificar a minha conta', 'Check my account')}</button>
+        {eu != null && <Chip tom={eu ? 'vitoria' : 'derrota'}>{eu ? l('O bot encontrou-te no servidor', 'The bot found you in the server') : l('O bot não te encontrou no servidor', 'The bot did not find you in the server')}</Chip>}
+        <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver DISCORD.md).', 'Needs the verificar-discord Edge Function deployed (see DISCORD.md).')}</span>
+      </div>
     </div>
   )
 }
