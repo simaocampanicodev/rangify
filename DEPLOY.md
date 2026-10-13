@@ -102,6 +102,7 @@ npx supabase functions deploy testar-api
 npx supabase functions deploy discord-partida --no-verify-jwt
 npx supabase functions deploy verificar-discord
 npx supabase functions deploy recarregar-partida
+npx supabase functions deploy puxar-call
 ```
 
 - `xxxx` é o mesmo do Project URL.

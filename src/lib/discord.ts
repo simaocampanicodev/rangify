@@ -1,6 +1,9 @@
 /**
  * Abrir um canal do Discord na própria aplicação.
  *
+ * O discord:// abre a versão do Discord que o Windows tem associada a esse endereço
+ * (a última instalada: a normal, a PTB ou a Canary). O site não consegue escolher.
+ *
  * No computador, um link https abre o Discord no browser. O endereço discord://
  * abre a aplicação já no canal (no caso da call, no canal de voz, onde basta
  * carregar em "Entrar na voz"). No telemóvel o link https já abre a aplicação.
@@ -8,7 +11,7 @@
 export const urlCanalWeb = (servidor: string, canal: string) => `https://discord.com/channels/${servidor}/${canal}`
 export const urlCanalApp = (servidor: string, canal: string) => `discord://-/channels/${servidor}/${canal}`
 
-const telemovel = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+export const telemovel = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
 
 /**
  * Tenta abrir a aplicação. Devolve false (em vez de abrir) no telemóvel, para o

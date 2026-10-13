@@ -477,6 +477,8 @@ export interface Dados {
   definirDiscordFila(obrigatorio: boolean, convite: string): Promise<EstadoDiscord>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
+  /** Muda-te para a call da tua equipa, se já estiveres numa call do servidor (o Discord não deixa de outra forma). */
+  puxarCall(id: string): Promise<{ movido: boolean; foraDaVoz?: boolean }>
 
   // Staff
   disputas(): Promise<Partida[]>

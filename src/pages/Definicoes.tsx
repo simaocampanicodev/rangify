@@ -157,19 +157,21 @@ export function Definicoes() {
       </Painel>
 
       <Painel aria-labelledby="rg-def-fundo" className="flex flex-wrap items-center justify-between gap-4 p-[22px]">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Sparkles size={18} aria-hidden /></span>
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Sparkles size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
             <h2 id="rg-def-fundo" className="m-0 text-[16px] font-bold">{l('Efeitos do fundo', 'Background effects')}</h2>
-            <span className="text-[13px] text-mudo">{l('O modo leve deixa o fundo parado e tira o vidro dos painéis. O automático usa-o quando o portátil está na bateria ou o computador é mais lento.', 'Light mode keeps the background still and removes the glass from the panels. Automatic uses it when the laptop is on battery or the computer is slower.')}</span>
+            <span className="text-[13px] text-mudo">{l('O leve deixa o fundo parado, para o site ficar mais rápido.', 'Light keeps the background still, so the site runs faster.')}</span>
           </div>
         </div>
-        <Segmentado<PreferenciaFundo>
-          rotulo={l('Efeitos do fundo', 'Background effects')}
-          valor={fundo}
-          onChange={(v) => { setFundo(v); definirPreferenciaFundo(v) }}
-          opcoes={[{ valor: 'auto', texto: l('Automático', 'Automatic') }, { valor: 'completo', texto: l('Completo', 'Full') }, { valor: 'leve', texto: l('Leve', 'Light') }]}
-        />
+        <div className="ml-auto">
+          <Segmentado<PreferenciaFundo>
+            rotulo={l('Efeitos do fundo', 'Background effects')}
+            valor={fundo}
+            onChange={(v) => { setFundo(v); definirPreferenciaFundo(v) }}
+            opcoes={[{ valor: 'auto', texto: l('Automático', 'Automatic') }, { valor: 'completo', texto: l('Completo', 'Full') }, { valor: 'leve', texto: l('Leve', 'Light') }]}
+          />
+        </div>
       </Painel>
 
       {dados.modo === 'demo' && (

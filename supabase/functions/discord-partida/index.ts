@@ -1,6 +1,7 @@
 // Chamada pela base de dados (trigger em matches, via pg_net), nunca pelo site.
 // { tipo: 'criar' }  : cargos RG-1234 / Team A / Team B, dados aos jogadores, e uma
-//                      categoria com o chat da partida e uma call por equipa.
+//                      categoria com o chat da partida e uma call por equipa. Quem já
+//                      está numa call do servidor é logo mudado para a da sua equipa.
 // { tipo: 'limpar' } : apaga os canais e os cargos (o Discord tira-os a toda a gente).
 // O que foi criado fica em match_discord, para a limpeza saber o que apagar.
 import { admin, erro, resposta } from '../_shared/comum.ts'
@@ -99,6 +100,7 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
 
   // Os cargos a cada jogador. Quem não está no servidor do Discord fica de fora (sem erro).
   const semDiscord: string[] = []
+  const comDiscord: { id: string; equipa: string }[] = []
   for (const j of jogadores ?? []) {
     const perfil = j.profiles as { auth_id: string | null; riot_id: string | null; username: string; is_bot: boolean } | null
     if (!perfil || perfil.is_bot || !perfil.auth_id || !j.team) continue
@@ -107,6 +109,7 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
     try {
       await discord('PUT', `/guilds/${guild}/members/${id}/roles/${cargo}`)
       await discord('PUT', `/guilds/${guild}/members/${id}/roles/${j.team === 'A' ? cargoA : cargoB}`)
+      comDiscord.push({ id, equipa: j.team })
     } catch (e) {
       if (e instanceof ErroDiscord && e.estado === 404) semDiscord.push(perfil.riot_id ?? perfil.username)
       else throw e
@@ -144,6 +147,13 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
   await guardar({ voz_a_id: vozA })
   const vozB = await voz('「🔊」Team B', cargoB)
   await guardar({ voz_b_id: vozB, estado: 'criado' })
+
+  // Quem já está numa call do servidor (por exemplo, à espera) passa logo para a da equipa.
+  // O Discord não deixa puxar quem não está em nenhuma call: esses entram pelo link.
+  // Precisa da permissão "Mover membros" no cargo do bot; sem ela, isto falha em silêncio.
+  for (const j of comDiscord) {
+    await discord('PATCH', `/guilds/${guild}/members/${j.id}`, { channel_id: j.equipa === 'A' ? vozA : vozB }).catch(() => null)
+  }
 
   const site = Deno.env.get('SITE_URL')
   await discord('POST', `/channels/${texto}/messages`, {

@@ -9,7 +9,8 @@ import { dados, type EstadoPartida, type Partida } from '@/lib/dados'
 import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { abrirNaApp, urlCanalWeb } from '@/lib/discord'
+import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
+import { useAvisos } from '@/contexts/Avisos'
 import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
@@ -41,10 +42,14 @@ const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
 /**
  * O chat e a call da tua equipa no Discord, quando o bot já os criou.
  * No computador abrem a aplicação do Discord já no canal; se ela não abrir, aparece o link para o browser.
+ * A call primeiro pede ao bot que te mude para lá: funciona se já estiveres numa call do servidor.
  */
 function LinksDiscord({ p }: { p: Partida }) {
   const links = useCarregar(() => dados.discordPartida(p.id), [p.id, p.estado])
+  const avisar = useAvisos()
   const [semApp, setSemApp] = useState<string | null>(null)
+  const [dica, setDica] = useState(false)
+  const [aPuxar, setAPuxar] = useState(false)
   // A criação demora uns segundos depois de as equipas fecharem: volta a perguntar até aparecer.
   const { recarregar, valor } = links
   useIntervalo(recarregar, valor ? null : 8000)
@@ -53,11 +58,30 @@ function LinksDiscord({ p }: { p: Partida }) {
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return
     if (abrirNaApp(valor.servidor, canal, () => setSemApp(canal))) { e.preventDefault(); setSemApp(null) }
   }
+  // No telemóvel o link segue normalmente e o pedido ao bot vai ao mesmo tempo.
+  const entrarCall = async (e: React.MouseEvent) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return
+    if (telemovel()) { dados.puxarCall(p.id).catch(() => null); return }
+    e.preventDefault()
+    setAPuxar(true)
+    const r = await Promise.race([
+      dados.puxarCall(p.id).catch(() => ({ movido: false, foraDaVoz: false })),
+      new Promise<{ movido: boolean; foraDaVoz?: boolean }>((ok) => setTimeout(() => ok({ movido: false }), 3000)),
+    ])
+    setAPuxar(false)
+    if (r.movido) { setDica(false); avisar(l('Estás na call da tua equipa.', 'You are in your team call.')); return }
+    setDica(!!r.foraDaVoz)
+    abrirNaApp(valor.servidor, valor.call, () => setSemApp(valor.call))
+    setSemApp(null)
+  }
   const botao = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-laranja/35 bg-laranja/10 px-2.5 text-[12.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/20'
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <a href={urlCanalWeb(valor.servidor, valor.chat)} onClick={abrir(valor.chat)} target="_blank" rel="noreferrer" className={botao}><Hash size={13} aria-hidden />{l('Chat da partida', 'Match chat')}</a>
-      <a href={urlCanalWeb(valor.servidor, valor.call)} onClick={abrir(valor.call)} target="_blank" rel="noreferrer" className={botao}><Volume2 size={13} aria-hidden />{l('Call da equipa', 'Team call')}</a>
+      <a href={urlCanalWeb(valor.servidor, valor.call)} onClick={entrarCall} aria-busy={aPuxar} target="_blank" rel="noreferrer" className={botao}><Volume2 size={13} aria-hidden />{aPuxar ? l('A entrar…', 'Joining…') : l('Call da equipa', 'Team call')}</a>
+      {dica && !semApp && (
+        <span className="text-[12px] text-mudo">{l('Dica: se já estiveres numa call do servidor, o Rangify muda-te sozinho para a da equipa.', 'Tip: if you are already in a voice channel on the server, Rangify moves you to your team call.')}</span>
+      )}
       {semApp && (
         <span className="text-[12px] text-mudo">
           {l('A aplicação não abriu?', 'The app did not open?')}{' '}

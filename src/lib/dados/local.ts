@@ -1392,6 +1392,9 @@ export const dadosLocais: Dados = {
   async discordPartida() {
     return null
   },
+  async puxarCall() {
+    return { movido: false, foraDaVoz: true }
+  },
 
   async estadoDiscord(verificar) {
     const e = await carregar()

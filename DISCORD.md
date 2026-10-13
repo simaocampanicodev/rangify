@@ -28,10 +28,12 @@ Não há nenhum bot a correr 24 horas: a base de dados chama a Edge Function `di
 Abre este link no browser, trocando `APPLICATION_ID` pelo ID do passo anterior:
 
 ```
-https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=271649808
+https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=288427024
 ```
 
-Escolhe o servidor do Rangify e autoriza. As permissões pedidas são só as necessárias: **Gerir cargos**, **Gerir canais**, **Ver canais**, **Enviar mensagens**, **Ler o histórico**, **Ligar** e **Falar**.
+Escolhe o servidor do Rangify e autoriza. As permissões pedidas são só as necessárias: **Gerir cargos**, **Gerir canais**, **Ver canais**, **Enviar mensagens**, **Ler o histórico**, **Ligar**, **Falar** e **Mover membros**.
+
+Se o bot já estava no servidor, não é preciso convidá-lo outra vez: em **Definições do servidor › Cargos › Rangify**, liga **Mover membros**.
 
 Depois, em **Definições do servidor › Cargos**, confirma que o cargo do bot (`Rangify`) está **acima** dos cargos normais dos membros. Os cargos das partidas são criados por baixo do cargo do bot, por isso ele consegue dá-los e apagá-los.
 
@@ -98,6 +100,20 @@ Com isto ligado, só entra na fila quem estiver no servidor de Discord do Rangif
 4. No site, em **Staff › Discord**, cola o convite, escolhe **Obrigatório** e carrega em **Guardar**. Depois carrega em **Verificar a minha conta** para confirmar que o bot te encontra.
 
 Como funciona: ao abrir o Painel ou o Jogar, o site pede à função `verificar-discord` que confirme com o bot (`GET /guilds/{servidor}/members/{id}`). A resposta fica no perfil durante 30 minutos e a base de dados recusa `entrar_fila` sem uma confirmação recente. Os jogadores não conseguem marcar-se a si próprios como membros. Não é preciso ligar nenhuma intenção privilegiada no portal do Discord para isto.
+
+### Entrar na call sem cliques
+
+O Discord não deixa nenhum site (nem bot) ligar alguém a uma call do zero: a pessoa tem de já estar ligada a uma call. Por isso:
+
+- Quando as equipas fecham, o bot muda logo para a call da equipa quem já estiver numa call do servidor. Vale a pena ter um canal de voz **Sala de espera** para a fila.
+- No site, o botão **Call da equipa** pede o mesmo ao bot (função `puxar-call`). Se a pessoa não estiver em nenhuma call, abre a aplicação no canal e falta um clique em **Entrar na voz**.
+
+```bash
+npx supabase functions deploy puxar-call
+npx supabase functions deploy discord-partida --no-verify-jwt
+```
+
+O link `discord://` abre a versão do Discord que o Windows tem associada (a última instalada: normal, PTB ou Canary). Se abrir a PTB e quiseres a normal, desinstala a PTB ou reinstala o Discord normal.
 
 ---
 
