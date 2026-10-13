@@ -695,19 +695,23 @@ ok((await raiz(`select count(*)::int as n from shop_inventory where profile_id =
 
 // ------------------------------------------------------------ ping para a fila no Discord
 console.log('\nPing para a fila (Discord)')
-const quemPinga = '123456789012345678'
-const p1 = (await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r
-ok(p1.ok === true, 'o primeiro clique pinga')
-const p2 = (await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r
-const espera = (Date.parse(p2.livreEm) - Date.now()) / 1000
-ok(p2.ok === false && espera > 170 && espera <= 181, `o segundo clique logo a seguir não pinga e diz quando pode (${Math.round(espera)} s)`)
-ok((await servico(`select public._discord_ping($1, 180) as r`, ['223456789012345678']))[0].r.ok === true, 'outra pessoa pode chamar na mesma')
-await raiz(`update discord_ping set last_at = now() - interval '181 seconds' where user_id = $1`, [quemPinga])
-ok((await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r.ok === true, 'passados 3 minutos, volta a poder chamar')
-await falha(servico(`select public._discord_ping($1, 180) as r`, ['abc']), 'inválido', 'recusa um ID que não é do Discord')
-await falha(como(uids[3], `select public._discord_ping('323456789012345678', 180)`), 'permission denied', 'os jogadores não chamam a função diretamente')
+const pingar = async (quem) => (await servico(`select public._discord_ping($1, 300) as r`, [quem]))[0].r
+const ana = '123456789012345678', rui = '223456789012345678'
+const chamada1 = await pingar(ana)
+ok(chamada1.ok === true && chamada1.mensagemAnterior === null, 'a primeira chamada passa')
+await servico(`select public._discord_ping_mensagem($1)`, ['900000000000000001'])
+const chamada2 = await pingar(rui)
+const espera = (Date.parse(chamada2.livreEm) - Date.now()) / 1000
+ok(chamada2.ok === false && chamada2.quem === ana && espera > 290 && espera <= 301, `outra pessoa logo a seguir não chama: só uma de 5 em 5 minutos para o servidor todo (${Math.round(espera)} s, por ${chamada2.quem})`)
+ok((await pingar(ana)).ok === false, 'nem quem chamou')
+await raiz(`update discord_ping_estado set last_at = now() - interval '301 seconds'`)
+const chamada3 = await pingar(rui)
+ok(chamada3.ok === true && chamada3.mensagemAnterior === '900000000000000001', 'passados 5 minutos, a próxima chamada passa e sabe que mensagem apagar')
+await servico(`select public._discord_ping_desfazer($1, $2)`, [rui, chamada3.anterior])
+ok((await pingar(ana)).ok === true, 'se o Discord recusar a chamada, a reserva é desfeita e outra pessoa pode chamar')
+await falha(servico(`select public._discord_ping($1, 300) as r`, ['abc']), 'inválido', 'recusa um ID que não é do Discord')
+await falha(como(uids[3], `select public._discord_ping('323456789012345678', 300)`), 'permission denied', 'os jogadores não chamam a função diretamente')
 await db.exec(readFileSync(new URL('../supabase/migrations/0016_discord_ping.sql', import.meta.url), 'utf8'))
-ok(true, 'correr a 0016 outra vez não dá erro')
-
+ok((await raiz(`select count(*)::int as n from discord_ping_estado`))[0].n === 1, 'correr a 0016 outra vez não dá erro e continua a haver uma só linha')
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

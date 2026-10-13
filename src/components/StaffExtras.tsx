@@ -277,7 +277,7 @@ export function DiscordStaff() {
   )
 }
 
-/** A mensagem do canal de ping, com o botão "Chamar para a fila" (3 minutos entre chamadas de cada pessoa). */
+/** A mensagem do canal de ping, com o botão "Chamar para a fila" (uma chamada de 5 em 5 minutos para o servidor todo). */
 function MensagemPing() {
   const acao = useAcao()
   const [aPublicar, setAPublicar] = useState(false)
@@ -290,7 +290,7 @@ function MensagemPing() {
     <div className="flex flex-col gap-3 border-t border-white/6 pt-4">
       <span className="flex flex-col gap-1">
         <span className="text-[14px] font-bold">{l('Botão "Chamar para a fila"', '"Call to the queue" button')}</span>
-        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping e só pode voltar a chamar 3 minutos depois. Carregar outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role and can only call again 3 minutes later. Clicking again updates the same message instead of creating a new one.')}</span>
+        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping. Só pode haver uma chamada de 5 em 5 minutos para o servidor todo, e cada chamada nova apaga a anterior. Carregar aqui outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role. Only one call every 5 minutes for the whole server, and each new call deletes the previous one. Clicking here again updates the same message instead of creating a new one.')}</span>
       </span>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-suave" disabled={aPublicar} onClick={publicar}><Megaphone size={15} aria-hidden />{aPublicar ? l('A publicar…', 'Posting…') : l('Publicar ou atualizar a mensagem', 'Post or update the message')}</button>

@@ -119,7 +119,12 @@ O link `discord://` abre a versão do Discord que o Windows tem associada (a úl
 
 ## Botão "Chamar para a fila" (canal de ping)
 
-No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor) e só pode voltar a carregar **3 minutos** depois; antes disso, só essa pessoa vê "Podes voltar a chamar daqui a X". Os IDs do canal e do cargo estão em `supabase/functions/_shared/discord-ping.ts`.
+No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor).
+
+- Só pode haver **uma chamada de 5 em 5 minutos para o servidor todo**. Quem carrega antes disso vê, só para si, quem chamou e quando fica livre outra vez.
+- O bot publica a chamada e **apaga a anterior**, por isso no canal fica sempre só a mensagem do botão e a última chamada. Apagar mensagens do próprio bot não precisa de permissões a mais.
+
+Os IDs do canal e do cargo estão em `supabase/functions/_shared/discord-ping.ts`.
 
 Uma mensagem de webhook (como as regras, feitas no Discohook) não pode ter botões que façam alguma coisa, por isso esta é publicada pelo bot. E como não há bot ligado 24 horas, o Discord manda os cliques para uma Edge Function (o "Interactions Endpoint URL" da aplicação).
 

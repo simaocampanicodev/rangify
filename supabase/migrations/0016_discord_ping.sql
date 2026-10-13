@@ -1,8 +1,11 @@
 -- Botão "Chamar para a fila" no canal de ping do Discord.
 --
--- Quem carrega no botão pinga o cargo de ping, e depois tem de esperar 3 minutos
--- para voltar a carregar. O clique chega à Edge Function discord-interacoes, que
--- usa _discord_ping para saber se a pessoa já pode chamar outra vez.
+-- Só pode haver uma chamada de 5 em 5 minutos para o servidor todo (não por pessoa:
+-- com muita gente, cada um a chamar de 3 em 3 minutos continuava a ser spam). Quem
+-- carrega antes disso vê, só para si, quando fica livre outra vez. Cada chamada nova
+-- apaga a anterior, para o canal ficar só com a mensagem do botão e a última chamada.
+--
+-- O clique chega à Edge Function discord-interacoes, que usa estas funções.
 -- A mensagem com o botão é publicada (ou atualizada) pela Staff, com a função
 -- discord-ping; o id dela fica em config, para não haver duas.
 --
@@ -10,30 +13,49 @@
 
 alter table public.config add column if not exists discord_ping_message text;
 
-create table if not exists public.discord_ping (
-  user_id text primary key,
-  last_at timestamptz not null default now()
+-- A versão anterior contava por pessoa; agora há uma só linha para o servidor todo.
+drop table if exists public.discord_ping;
+
+create table if not exists public.discord_ping_estado (
+  id boolean primary key default true check (id),
+  last_at timestamptz not null default '-infinity',
+  last_user text,
+  last_message text
 );
-alter table public.discord_ping enable row level security;
+insert into public.discord_ping_estado (id) values (true) on conflict do nothing;
+alter table public.discord_ping_estado enable row level security;
 
 /**
- * Regista um ping de quem carregou no botão, se já passaram p_segundos desde o último.
- * { ok: true } ou { ok: false, livreEm } com a hora a partir da qual pode chamar outra vez.
- * Numa só instrução, para dois cliques ao mesmo tempo não pingarem duas vezes.
+ * Tenta reservar a chamada. Com a linha trancada, dois cliques ao mesmo tempo não
+ * passam os dois. { ok: true, anterior, mensagemAnterior } ou
+ * { ok: false, livreEm, quem } (quem fez a última chamada e quando fica livre).
  */
-create or replace function public._discord_ping(p_user text, p_segundos int default 180) returns jsonb
+create or replace function public._discord_ping(p_user text, p_segundos int default 300) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
-declare v timestamptz;
+declare e discord_ping_estado;
 begin
   if p_user !~ '^\d{15,22}$' then raise exception 'ID do Discord inválido.'; end if;
-  insert into discord_ping (user_id, last_at) values (p_user, now())
-  on conflict (user_id) do update set last_at = now()
-    where discord_ping.last_at <= now() - make_interval(secs => p_segundos)
-  returning last_at into v;
-  if v is not null then return jsonb_build_object('ok', true); end if;
-  select last_at + make_interval(secs => p_segundos) into v from discord_ping where user_id = p_user;
-  return jsonb_build_object('ok', false, 'livreEm', v);
+  select * into e from discord_ping_estado where id for update;
+  if e.last_at > now() - make_interval(secs => p_segundos) then
+    return jsonb_build_object('ok', false, 'livreEm', e.last_at + make_interval(secs => p_segundos), 'quem', e.last_user);
+  end if;
+  update discord_ping_estado set last_at = now(), last_user = p_user where id;
+  return jsonb_build_object('ok', true, 'anterior', e.last_at::text, 'mensagemAnterior', e.last_message);
 end $$;
 
-revoke all on function public._discord_ping(text, int) from public, anon, authenticated;
-grant execute on function public._discord_ping(text, int) to service_role;
+/** Guarda o id da chamada que acabou de ser publicada (é a que a próxima apaga). */
+create or replace function public._discord_ping_mensagem(p_mensagem text) returns void
+language sql volatile security definer set search_path = public as $$
+  update discord_ping_estado set last_message = p_mensagem where id
+$$;
+
+/** Se o Discord recusar a chamada, a reserva é desfeita para outra pessoa poder chamar. */
+create or replace function public._discord_ping_desfazer(p_user text, p_anterior timestamptz) returns void
+language sql volatile security definer set search_path = public as $$
+  update discord_ping_estado set last_at = p_anterior where id and last_user = p_user
+$$;
+
+revoke all on function public._discord_ping(text, int), public._discord_ping_mensagem(text), public._discord_ping_desfazer(text, timestamptz)
+  from public, anon, authenticated;
+grant execute on function public._discord_ping(text, int), public._discord_ping_mensagem(text), public._discord_ping_desfazer(text, timestamptz)
+  to service_role;

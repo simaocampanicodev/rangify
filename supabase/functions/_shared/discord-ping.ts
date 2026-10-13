@@ -5,7 +5,8 @@
 export const CANAL_PING = Deno.env.get('DISCORD_PING_CANAL') ?? '1559654941952577688'
 export const CARGO_PING = Deno.env.get('DISCORD_PING_CARGO') ?? '1559654502137602178'
 export const BOTAO_PING = 'rangify:ping-fila'
-export const SEGUNDOS_ENTRE_PINGS = 180
+// Uma chamada para o servidor todo, no máximo, de 5 em 5 minutos.
+export const SEGUNDOS_ENTRE_PINGS = 300
 
 const EMOJI = '<:rangify:1559320107606614087>'
 const ICONE = 'https://cdn.discordapp.com/emojis/1559320107606614087.png'
@@ -26,7 +27,8 @@ export function mensagemPing() {
         '• Chama só quando estiveres mesmo para jogar.',
         '',
         '**Sem spam**',
-        '• Cada pessoa só pode chamar uma vez a cada 3 minutos.',
+        '• Só pode haver uma chamada de 5 em 5 minutos, para o servidor todo.',
+        '• Cada chamada nova apaga a anterior, para este canal não encher.',
         '• Quem abusar do botão perde o acesso a este canal.',
         '',
         'Já não queres receber estes pings? Muda as tuas respostas em **Canais e cargos**.',
