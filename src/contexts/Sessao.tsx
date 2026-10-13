@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { definirDonoCache } from '@/hooks/useCarregar'
 import { aoMudarDados, dados, type Perfil, type Sessao } from '@/lib/dados'
 
 interface ValorSessao {
@@ -18,6 +19,8 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
   const [carregando, setCarregando] = useState(true)
   const [sessao, setSessao] = useState<Sessao | null>(null)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
+  // Os dados guardados em memória são de uma conta: ao mudar de conta, esvaziam.
+  definirDonoCache(perfil?.id ?? null)
 
   const recarregar = useCallback(async () => {
     try {

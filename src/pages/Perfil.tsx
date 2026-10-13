@@ -63,13 +63,13 @@ export function Perfil() {
   const acao = useAcao()
   const { sincronizar, aSincronizar } = useSincronizarRank()
   const riotId = riot ? riotIdDoCaminho(riot) : eu?.riotId ?? ''
-  const alvo = useCarregar(() => dados.perfilPorRiotId(riotId), [riotId, eu?.pontos, eu?.rankAtualizadoEm], ['perfil', 'partida'])
+  const alvo = useCarregar(() => dados.perfilPorRiotId(riotId), [riotId, eu?.pontos, eu?.rankAtualizadoEm], ['perfil', 'partida'], { chave: `perfil:${riotId}:${eu?.pontos}:${eu?.rankAtualizadoEm}` })
   const p = alvo.valor
   const id = p?.id ?? ''
-  const stats = useCarregar(() => (id ? dados.estatisticas(id) : Promise.resolve(null)), [id], ['partida'])
-  const forma = useCarregar(() => (id ? dados.forma(id, 20) : Promise.resolve([])), [id], ['partida'])
-  const historico = useCarregar(() => (id ? dados.partidas({ minhas: true, perfilId: id }) : Promise.resolve(null)), [id], ['partida'])
-  const amigos = useCarregar(() => dados.amigos(), [], ['amigos'])
+  const stats = useCarregar(() => (id ? dados.estatisticas(id) : Promise.resolve(null)), [id], ['partida'], { chave: `estatisticas:${id}` })
+  const forma = useCarregar(() => (id ? dados.forma(id, 20) : Promise.resolve([])), [id], ['partida'], { chave: `forma:${id}:20` })
+  const historico = useCarregar(() => (id ? dados.partidas({ minhas: true, perfilId: id }) : Promise.resolve(null)), [id], ['partida'], { chave: `partidas:perfil:${id}` })
+  const amigos = useCarregar(() => dados.amigos(), [], ['amigos'], { chave: 'amigos' })
 
   if (!riot && eu?.riotId) return <Navigate to={caminhoPerfil(eu.riotId)} replace />
   if (alvo.carregando && !p) return <Carregando />

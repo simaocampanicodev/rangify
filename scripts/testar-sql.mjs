@@ -75,6 +75,8 @@ await db.exec(`
   $$;
   grant usage on schema storage to anon, authenticated, service_role;
   grant all on storage.objects to authenticated;
+  -- A publicação do Realtime, vazia como num projeto novo.
+  create publication supabase_realtime;
 `)
 
 console.log('\nMigrações')
@@ -602,6 +604,13 @@ ok(trs.linhas.every((l) => l.partidas >= 1 && l.melhor >= l.media && !l.perfil.b
 ok(trs.eu && trs.eu.partidas >= 1 && trs.linhas.find((l) => l.perfil.id === pid(0))?.posicao === trs.eu.posicao, 'traz o próprio jogador com a posição dele')
 const trs99 = await rpc(uids[0], 'ranking_rs', { p_limite: 50, p_minimo: 99 })
 ok(trs99.linhas.length === 0 && trs99.eu && trs99.eu.posicao === null, 'sem partidas suficientes ninguém entra, mas o próprio vê a média')
+
+// ------------------------------------------------------------ tempo real
+console.log('\nTempo real')
+const publicadas = (await raiz(`select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by tablename`)).map((x) => x.tablename)
+ok(['friends', 'match_players', 'matches', 'queue_entries'].every((t) => publicadas.includes(t)), `amizades, fila e partidas no Realtime (${publicadas.join(', ')})`)
+await db.exec(readFileSync(new URL('../supabase/migrations/0014_tempo_real.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0014 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

@@ -88,10 +88,13 @@ export function Sidebar() {
       assinatura = nova
     }).catch(() => {})
     ler(false)
-    const t = window.setInterval(() => ler(true), 60_000)
+    // A reserva só corre com o separador à frente; ao voltar, relê logo.
+    const t = window.setInterval(() => { if (document.visibilityState !== 'hidden') ler(true) }, 60_000)
+    const voltar = () => { if (document.visibilityState !== 'hidden') ler(true) }
+    document.addEventListener('visibilitychange', voltar)
     const off = aoMudarDados((o) => { if (o === 'amigos') ler(false) })
     const offRealtime = dados.aoMudarAmizades(perfil.id, () => ler(true))
-    return () => { window.clearInterval(t); off(); offRealtime() }
+    return () => { window.clearInterval(t); document.removeEventListener('visibilitychange', voltar); off(); offRealtime() }
   }, [perfil?.id])
 
   const alternar = () => {

@@ -81,12 +81,12 @@ export function Dashboard() {
   const fila = useVistaFila()
   const [minhas, setMinhas] = useState<'minhas' | 'todas'>('minhas')
   const id = perfil?.id ?? ''
-  const posicao = useCarregar(() => dados.posicao(id), [id, perfil?.pontos], ['partida'])
-  const forma = useCarregar(() => dados.forma(id, 10), [id], ['partida'])
-  const historico = useCarregar(() => dados.partidas({ minhas: minhas === 'minhas' }), [minhas], ['partida'], { minimo: 350 })
-  const missoes = useCarregar(() => dados.missoes(), [], ['partida'])
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
-  const novidades = useCarregar(() => dados.novidades(1), [], ['staff'])
+  const posicao = useCarregar(() => dados.posicao(id), [id, perfil?.pontos], ['partida'], { chave: `posicao:${id}:${perfil?.pontos}` })
+  const forma = useCarregar(() => dados.forma(id, 10), [id], ['partida'], { chave: `forma:${id}:10` })
+  const historico = useCarregar(() => dados.partidas({ minhas: minhas === 'minhas' }), [minhas], ['partida'], { minimo: 350, chave: `partidas:${minhas}` })
+  const missoes = useCarregar(() => dados.missoes(), [], ['partida'], { chave: 'missoes' })
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
+  const novidades = useCarregar(() => dados.novidades(1), [], ['staff'], { chave: 'novidades:1', fresco: 300_000 })
   if (!perfil) return <Carregando />
 
   const nome = nomeJogador(perfil)

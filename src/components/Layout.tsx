@@ -1,5 +1,5 @@
 import { ArrowRight, LogOut, Radio, Users } from 'lucide-react'
-import { Suspense } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { usePartida } from '@/contexts/Partida'
 import { useAgora } from '@/hooks/useAgora'
@@ -11,7 +11,6 @@ import { Fundo } from './Fundo'
 import { Confirmar } from './partida/Confirmar'
 import { Rodape } from './Rodape'
 import { Sidebar } from './Sidebar'
-import { Tour } from './Tour'
 import { Carregando } from './ui'
 import { l } from '@/lib/idioma'
 
@@ -29,19 +28,24 @@ function FaixaPartida() {
   )
 }
 
+/** Só este número muda a cada segundo, não a faixa toda. */
+function TempoNaFila({ desde }: { desde: string | null }) {
+  const agora = useAgora(1000)
+  const espera = desde ? (agora - new Date(desde).getTime()) / 1000 : 0
+  return <span className="font-mono text-texto">{relogio(espera)}</span>
+}
+
 /** Enquanto estás na fila e andas pelo site: há quanto tempo e quantos já lá estão. */
 function FaixaFila() {
   const { ativa } = usePartida()
   const { fila, ocupado, alternar } = useFila()
   const local = useLocation()
-  const agora = useAgora(1000)
   if (!fila?.naFila || ativa || local.pathname === '/jogar') return null
-  const espera = fila.desde ? (agora - new Date(fila.desde).getTime()) / 1000 : 0
   return (
     <div role="status" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-b border-laranja/30 bg-laranja/12 px-4 py-2 text-[13.5px] font-semibold text-pessego-claro">
       <span className="flex items-center gap-2.5">
         <span className="relative size-2"><span className="ping absolute inset-0 rounded-full bg-laranja" /><span className="absolute inset-0 rounded-full bg-laranja" /></span>
-        {l('Na fila há', 'In queue for')} <span className="font-mono text-texto">{relogio(espera)}</span>
+        {l('Na fila há', 'In queue for')} <TempoNaFila desde={fila.desde} />
       </span>
       <span className="flex items-center gap-2">
         <Users size={15} className="text-laranja" aria-hidden />
@@ -86,9 +90,25 @@ export function Layout() {
         </div>
       </div>
       <Confirmar />
-      <Tour />
+      <TourSoQuandoPreciso />
     </div>
   )
+}
+
+// O guia da primeira visita só descarrega para contas novas ou quando alguém o pede.
+const Tour = lazy(() => import('./Tour').then((m) => ({ default: m.Tour })))
+
+function TourSoQuandoPreciso() {
+  const { perfil, sessao } = useSessao()
+  const [pedido, setPedido] = useState(false)
+  useEffect(() => {
+    const abrir = () => setPedido(true)
+    window.addEventListener('rangify:tour', abrir)
+    return () => window.removeEventListener('rangify:tour', abrir)
+  }, [])
+  const novo = !!perfil && !!sessao && !sessao.incompleta && !perfil.tourVistoEm
+  if (!novo && !pedido) return null
+  return <Suspense fallback={null}><Tour abrirJa={pedido} /></Suspense>
 }
 
 /** Páginas sem sessão (entrar e primeiro acesso): o mesmo fundo e o mesmo rodapé no fim do ecrã. */

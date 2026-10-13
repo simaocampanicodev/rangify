@@ -77,7 +77,7 @@ function Rotacao() {
   const acao = useAcao()
   const { perfil: eu } = useSessao()
   const podeEditar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
-  const atual = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const atual = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas' })
   const [escolha, setEscolha] = useState<string[] | null>(null)
   const guardada = atual.valor ?? []
   const lista = escolha ?? guardada

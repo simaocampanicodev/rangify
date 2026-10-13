@@ -56,3 +56,20 @@ export function blobParaDataUrl(b: Blob): Promise<string> {
     r.readAsDataURL(b)
   })
 }
+
+/**
+ * O avatar no tamanho em que aparece (o dobro, para ecrãs de alta densidade).
+ * Os avatares do Discord aceitam ?size= (potências de 2 entre 16 e 4096);
+ * sem isso vinham sempre no tamanho original.
+ */
+export function urlAvatar(url: string, px: number): string {
+  try {
+    const u = new URL(url)
+    if (u.hostname !== 'cdn.discordapp.com' && u.hostname !== 'media.discordapp.net') return url
+    const alvo = Math.min(1024, Math.max(32, 2 ** Math.ceil(Math.log2(px * 2))))
+    u.searchParams.set('size', String(alvo))
+    return u.toString()
+  } catch {
+    return url
+  }
+}

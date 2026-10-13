@@ -5,8 +5,8 @@
  * mono em maiúsculas para os rótulos. Tudo o que é cor vem daqui.
  */
 @theme {
-  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
   --font-serif: 'Instrument Serif', Georgia, serif;
 
   --color-fundo: #09090b;

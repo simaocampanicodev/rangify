@@ -1,8 +1,9 @@
 import { ChevronUp, Lightbulb, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Cabecalho, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
+import { useIntervalo } from '@/hooks/useVisivel'
 import { dados, type EstadoSugestao } from '@/lib/dados'
 import { haQuanto } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
@@ -60,13 +61,10 @@ export function Sugestoes() {
   const acao = useAcao()
   const [ordem, setOrdem] = useState<'votos' | 'recentes'>('votos')
   const [estado, setEstado] = useState<EstadoSugestao | 'todas'>('todas')
-  const lista = useCarregar(() => dados.sugestoes(ordem), [ordem], ['sugestoes'])
-  // As sugestões e os votos dos outros aparecem sozinhos, a cada 30 s.
+  const lista = useCarregar(() => dados.sugestoes(ordem), [ordem], ['sugestoes'], { chave: `sugestoes:${ordem}` })
+  // As sugestões e os votos dos outros aparecem sozinhos, a cada 30 s (só com o separador à frente).
   const { recarregar } = lista
-  useEffect(() => {
-    const t = window.setInterval(recarregar, 30_000)
-    return () => window.clearInterval(t)
-  }, [recarregar])
+  useIntervalo(recarregar, 30_000)
 
   /** O voto muda logo no ecrã; se o servidor recusar, volta atrás. */
   const votar = async (id: string) => {

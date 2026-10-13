@@ -50,7 +50,7 @@ function LinhaAmigo({ index, style, lista, remover, dica }: RowComponentProps<{ 
 export function Amigos() {
   const acao = useAcao()
   const avisar = useAvisos()
-  const amigos = useCarregar(() => dados.amigos(), [], ['amigos', 'partida', 'fila'], { minimo: 450 })
+  const amigos = useCarregar(() => dados.amigos(), [], ['amigos', 'partida', 'fila'], { minimo: 450, chave: 'amigos' })
   const [alvo, setAlvo] = useState('')
   const [filtro, setFiltro] = useState('')
   const [ver, setVer] = useState<'todos' | 'ativos'>('todos')

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
 import { acertarRelogio } from '@/lib/tempo'
+import { useVisivel } from '@/hooks/useVisivel'
 import { useAvisos } from './Avisos'
 import { useSessao } from './Sessao'
 import { l } from '@/lib/idioma'
@@ -21,7 +22,10 @@ const ativo = (p: Partida | null) => !!p && (ESTADOS_ATIVOS as readonly string[]
 /**
  * Segue a fila e a partida do utilizador em todo o site: a janela de
  * confirmação aparece em qualquer página e o resto das fases vive em /jogar.
- * Pergunta ao servidor a cada segundo enquanto há fila ou partida.
+ * No site real, o Realtime avisa quando a fila muda, quando entras numa partida e
+ * quando ela avança; perguntar ao servidor fica como reserva (e, numa partida, para
+ * fazer andar os prazos e os bots, que só avançam quando alguém pergunta).
+ * Com o separador escondido pergunta menos ou nada.
  */
 export function ProvedorPartida({ children }: { children: ReactNode }) {
   const { sessao } = useSessao()
@@ -86,14 +90,34 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
     await emCurso.current
   }, [buscar])
 
-  const emJogo = ativo(partida) || !!fila?.naFila
+  const visivel = useVisivel()
+  const naPartida = ativo(partida)
+  const naFila = !!fila?.naFila
+  const demo = dados.modo === 'demo'
+  // De quanto em quanto tempo pergunta (null: só quando o Realtime avisa).
+  const intervalo = naPartida ? (visivel ? 1000 : 3000)
+    : naFila ? (demo ? 1000 : visivel ? 5000 : 10_000)
+    : visivel ? (demo ? 8000 : 30_000) : null
   useEffect(() => {
     if (!sessao) { setFila(null); setPartida(null); ultima.current = null; return }
     ciclo()
-    const t = window.setInterval(ciclo, emJogo ? 1000 : 8000)
+    const t = intervalo == null ? null : window.setInterval(ciclo, intervalo)
     const off = aoMudarDados((o) => { if (o === 'partida' || o === 'fila') ciclo() })
-    return () => { window.clearInterval(t); off() }
-  }, [sessao, emJogo, ciclo])
+    return () => { if (t != null) window.clearInterval(t); off() }
+  }, [sessao, intervalo, ciclo])
+
+  // Os avisos do Realtime chegam em rajadas (dez jogadores a entrar): junta-os num só pedido.
+  const perfilId = sessao && !sessao.incompleta ? sessao.perfilId : null
+  const partidaId = naPartida ? partida!.id : null
+  useEffect(() => {
+    if (!perfilId) return
+    let t: number | undefined
+    const off = dados.aoMudarJogo(perfilId, partidaId, () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(ciclo, 200)
+    })
+    return () => { window.clearTimeout(t); off() }
+  }, [perfilId, partidaId, ciclo])
 
   const fecharResumo = useCallback(() => {
     fechada.current = ultima.current

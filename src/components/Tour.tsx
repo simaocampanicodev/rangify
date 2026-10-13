@@ -40,9 +40,10 @@ function procurar(alvo: string | null): HTMLElement | null {
 }
 
 /** Visita guiada para contas novas, ancorada aos itens da barra lateral. */
-export function Tour() {
+export function Tour({ abrirJa = false }: { abrirJa?: boolean }) {
   const { perfil, sessao } = useSessao()
-  const [passo, setPasso] = useState<number | null>(null)
+  // Carregado a pedido (rever o guia nas Definições): abre logo no primeiro passo.
+  const [passo, setPasso] = useState<number | null>(abrirJa ? 0 : null)
   const [caixa, setCaixa] = useState<Caixa | null>(null)
   const mostrado = useRef(false)
 

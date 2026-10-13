@@ -4,7 +4,7 @@ import { useAgora } from '@/hooks/useAgora'
 import { useDiscordFila } from '@/hooks/useDiscordFila'
 import { IconeDiscord } from '@/pages/Entrar'
 import { useFila } from '@/hooks/useFila'
-import { relogio } from '@/lib/tempo'
+import { agoraCerto, relogio } from '@/lib/tempo'
 import { NomeRangify } from './Marca'
 import { l } from '@/lib/idioma'
 
@@ -12,8 +12,10 @@ import { l } from '@/lib/idioma'
 export function useVistaFila() {
   const { fila, ocupado, alternar } = useFila()
   const { perfil } = useSessao()
-  const agora = useAgora(1000)
   const naFila = !!fila?.naFila
+  // Só conta os segundos na fila ou durante um castigo; fora disso o painel não se redesenha.
+  const comCastigo = !!fila?.cooldownAte && new Date(fila.cooldownAte).getTime() > agoraCerto()
+  const agora = useAgora(1000, naFila || comCastigo)
   return {
     naFila,
     ocupado,

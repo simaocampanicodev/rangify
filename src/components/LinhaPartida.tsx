@@ -14,7 +14,7 @@ export function LinhaPartida({ m, onClick, i }: { m: ResumoPartida; onClick?: ()
   const cor = minha ? (minha.venceu ? 'text-vitoria' : 'text-derrota') : 'text-texto'
   const conteudo = (
     <>
-      <span aria-hidden className="mapa relative h-[50px] w-[78px] shrink-0 overflow-hidden rounded-[10px] border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa)})` }}>
+      <span aria-hidden className="mapa relative h-[50px] w-[78px] shrink-0 overflow-hidden rounded-[10px] border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa, 'mini')})` }}>
         <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 20%, rgba(0,0,0,0.75) 100%)' }} />
         <span className="absolute bottom-1.5 left-2 font-mono text-[9.5px] font-bold tracking-[0.12em] text-white/92">{m.mapa?.toUpperCase()}</span>
       </span>

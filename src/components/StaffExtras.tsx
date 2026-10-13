@@ -13,7 +13,7 @@ const hoje = () => new Date().toISOString().slice(0, 10)
 /** Publicar e apagar as novidades que aparecem no Dashboard (a mais recente fica lá). */
 export function NovidadesStaff({ podeEditar }: { podeEditar: boolean }) {
   const acao = useAcao()
-  const lista = useCarregar(() => dados.novidades(50), [], ['staff'])
+  const lista = useCarregar(() => dados.novidades(50), [], ['staff'], { chave: 'novidades:50' })
   const [data, setData] = useState(hoje)
   const [titulo, setTitulo] = useState('')
   const [texto, setTexto] = useState('')

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
 import { iconeAgente } from '@/lib/agentes'
+import { urlAvatar } from '@/lib/imagem'
 import { useAjuda, type TopicoAjuda } from './Ajuda'
 import { l } from '@/lib/idioma'
 
@@ -89,7 +90,7 @@ export function iniciais(nome: string) {
 /** Avatar do Discord ou, sem ele, as iniciais num quadrado escuro com laranja. */
 export function Avatar({ nome, url, tamanho = 38, destaque = false }: { nome: string; url?: string | null; tamanho?: number; destaque?: boolean }) {
   const r = Math.round(tamanho * 0.27)
-  if (url) return <img src={url} alt="" width={tamanho} height={tamanho} className="shrink-0 object-cover" style={{ borderRadius: r }} />
+  if (url) return <img src={urlAvatar(url, tamanho)} alt="" width={tamanho} height={tamanho} loading="lazy" decoding="async" className="shrink-0 object-cover" style={{ borderRadius: r }} />
   return (
     <span
       aria-hidden

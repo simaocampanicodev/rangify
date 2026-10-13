@@ -17,7 +17,7 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
   const { perfil, podeTestar } = useSessao()
   const acao = useAcao()
   const [aRemover, setARemover] = useState(false)
-  const p = useCarregar(() => (id ? dados.partida(id) : Promise.resolve(null)), [id])
+  const p = useCarregar(() => (id ? dados.partida(id) : Promise.resolve(null)), [id], [], { chave: `partida:${id}` })
   const partida = p.valor
 
   // Owner e Dev podem tirar uma partida do histórico; os pontos e as estatísticas dela voltam atrás.
@@ -86,7 +86,7 @@ export function Partidas() {
   const [mais, setMais] = useState(false)
   const aberta = params.get('p')
 
-  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa }), [ambito, mapa], ['partida'], { minimo: 450 })
+  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa }), [ambito, mapa], ['partida'], { minimo: 450, chave: `partidas:${ambito}:${mapa ?? ''}` })
   useEffect(() => {
     if (pagina.valor) { setLinhas(pagina.valor.linhas); setCursor(pagina.valor.cursor) }
   }, [pagina.valor])

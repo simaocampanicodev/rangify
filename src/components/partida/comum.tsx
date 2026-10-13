@@ -1,4 +1,5 @@
 import { Crosshair, Eye, Shield, Sparkles } from 'lucide-react'
+import { urlAvatar } from '@/lib/imagem'
 import type { ReactNode } from 'react'
 import type { FuncaoJogo, JogadorPartida } from '@/lib/dados'
 import { iniciais } from '../ui'
@@ -16,7 +17,7 @@ export const ICONE_FUNCAO: Record<FuncaoJogo, ReactNode> = {
 /** Quadrado com iniciais: laranja para a Equipa A, escuro para a B. */
 export function Iniciais({ nome, equipa, tamanho = 34, url }: { nome: string; equipa: 'A' | 'B' | null; tamanho?: number; url?: string | null }) {
   if (url) {
-    return <img src={url} alt="" width={tamanho} height={tamanho} className="shrink-0 object-cover" style={{ borderRadius: Math.round(tamanho * 0.27), border: equipa === 'A' ? '1px solid rgba(255,91,31,0.45)' : '1px solid rgba(255,255,255,0.12)' }} />
+    return <img src={urlAvatar(url, tamanho)} alt="" width={tamanho} height={tamanho} loading="lazy" decoding="async" className="shrink-0 object-cover" style={{ borderRadius: Math.round(tamanho * 0.27), border: equipa === 'A' ? '1px solid rgba(255,91,31,0.45)' : '1px solid rgba(255,255,255,0.12)' }} />
   }
   return (
     <span

@@ -1,20 +1,32 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
-import { Codigo } from '@/components/partida/Codigo'
-import { Draft } from '@/components/partida/Draft'
-import { Mapas } from '@/components/partida/Mapas'
-import { Resultado } from '@/components/partida/Resultado'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { dados, type EstadoPartida, type Partida } from '@/lib/dados'
 import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
+import { useIntervalo } from '@/hooks/useVisivel'
 import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
+
+// Os ecrãs da partida só descarregam quando há fila ou partida (ver preCarregarPartida).
+const carregarCodigo = () => import('@/components/partida/Codigo')
+const carregarDraft = () => import('@/components/partida/Draft')
+const carregarMapas = () => import('@/components/partida/Mapas')
+const carregarResultado = () => import('@/components/partida/Resultado')
+const Codigo = lazy(() => carregarCodigo().then((m) => ({ default: m.Codigo })))
+const Draft = lazy(() => carregarDraft().then((m) => ({ default: m.Draft })))
+const Mapas = lazy(() => carregarMapas().then((m) => ({ default: m.Mapas })))
+const Resultado = lazy(() => carregarResultado().then((m) => ({ default: m.Resultado })))
+
+/** Ao entrar na fila já se descarregam os ecrãs, para a partida abrir sem espera. */
+function preCarregarPartida() {
+  carregarDraft(); carregarMapas(); carregarCodigo(); carregarResultado()
+}
 
 const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
   { estados: ['READY_CHECK'], nome: l('Confirmar', 'Ready check') },
@@ -30,11 +42,7 @@ function LinksDiscord({ p }: { p: Partida }) {
   const links = useCarregar(() => dados.discordPartida(p.id), [p.id, p.estado])
   // A criação demora uns segundos depois de as equipas fecharem: volta a perguntar até aparecer.
   const { recarregar, valor } = links
-  useEffect(() => {
-    if (valor) return
-    const t = window.setInterval(recarregar, 8000)
-    return () => window.clearInterval(t)
-  }, [valor, recarregar])
+  useIntervalo(recarregar, valor ? null : 8000)
   if (!valor) return null
   const url = (canal: string) => `https://discord.com/channels/${valor.servidor}/${canal}`
   const botao = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-laranja/35 bg-laranja/10 px-2.5 text-[12.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/20'
@@ -76,7 +84,7 @@ function Progresso({ p }: { p: Partida }) {
 }
 
 function ComoFunciona() {
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const bans = totalBans(rotacao.valor ?? ROTACAO_PADRAO)
   const passos = [
     { icone: <Users size={18} />, titulo: l('Fila e confirmação', 'Queue and ready check'), texto: l(`10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, `10 players, ${SEGUNDOS_CONFIRMAR} s to accept.`), topico: 'fila' as const },
@@ -112,7 +120,7 @@ function ComoFunciona() {
 /** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
 function PainelFila() {
   const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'])
+  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const faltam = 10 - contagem
   const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
   return (
@@ -151,8 +159,10 @@ function PainelFila() {
 }
 
 export function Jogar() {
-  const { partida } = usePartida()
+  const { partida, fila } = usePartida()
   const { perfil } = useSessao()
+  const preparar = !!partida || !!fila?.naFila
+  useEffect(() => { if (preparar) preCarregarPartida() }, [preparar])
   if (!perfil) return <Carregando />
   const eu = perfil.id
 
@@ -169,7 +179,7 @@ export function Jogar() {
     return (
       <>
         <Progresso p={partida} />
-        {fase}
+        <Suspense fallback={<Carregando />}>{fase}</Suspense>
         <FerramentasDev />
       </>
     )

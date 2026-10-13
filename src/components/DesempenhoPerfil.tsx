@@ -84,7 +84,7 @@ export function OndeJogaMelhor({ s }: { s: EstatisticasPerfil }) {
   const linhas: LinhaOnde[] = por === 'mapa'
     ? s.porMapa.map((m) => ({
         chave: m.mapa, nome: m.mapa, partidas: m.partidas, vitorias: m.vitorias, acs: m.acs, rs: m.rs,
-        arte: <span aria-hidden className="mapa h-10 w-14 shrink-0 rounded-lg border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa)})` }} />,
+        arte: <span aria-hidden className="mapa h-10 w-14 shrink-0 rounded-lg border border-white/8" style={{ backgroundImage: `url(${imagemMapa(m.mapa, 'mini')})` }} />,
       }))
     : (s.porAgente ?? []).map((a) => ({
         chave: a.agente, nome: a.agente, partidas: a.partidas, vitorias: a.vitorias, acs: a.acs, rs: a.rs,

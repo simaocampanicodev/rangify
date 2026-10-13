@@ -368,6 +368,11 @@ export interface Dados {
   aoMudarSessao(cb: () => void): () => void
   /** Chama cb logo que um pedido de amizade chega, é aceite ou removido (no site real, pelo Realtime). */
   aoMudarAmizades(perfilId: string, cb: () => void): () => void
+  /**
+   * Chama cb quando a fila muda, quando entras numa partida nova ou quando a partida
+   * partidaId avança (no site real, pelo Realtime; no demo não faz nada).
+   */
+  aoMudarJogo(perfilId: string, partidaId: string | null, cb: () => void): () => void
   entrarComDiscord(): Promise<void>
   entrarComPassword(utilizador: string, password: string): Promise<void>
   /** Só no modo demo: entra na conta de exemplo com histórico. */

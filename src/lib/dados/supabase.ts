@@ -207,9 +207,24 @@ export const dadosSupabase: Dados = {
   missoes: () => rpc<Missao[]>('missoes'),
   experiencia: (perfilId) => rpc<Experiencia>('experiencia', { p_perfil: perfilId ?? null }),
   rankingNivel: (limite = 50) => rpc<LinhaNivel[]>('ranking_nivel', { p_limite: limite }),
-  rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }),
+  rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }).catch((e) => {
+    // Sem a versão mais recente da migração 0013, a função não existe no servidor.
+    if (e instanceof Error && /ranking_rs/.test(e.message)) throw new Error('A tabela do Rangify Score ainda não está ativa no servidor.')
+    throw e
+  }),
   resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),
   amigos: () => rpc<Amizade[]>('amigos'),
+  aoMudarJogo(perfilId, partidaId, cb) {
+    let canal = cliente().channel(`jogo-${perfilId}-${partidaId ?? 'fila'}`)
+      // Alguém entrou ou saiu da fila (a contagem muda).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, cb)
+      // A sala encheu e entraste numa partida.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_players', filter: `profile_id=eq.${perfilId}` }, cb)
+    // A tua partida avançou: escolhas, bans, código, resultado.
+    if (partidaId) canal = canal.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${partidaId}` }, cb)
+    canal.subscribe()
+    return () => { cliente().removeChannel(canal) }
+  },
   aoMudarAmizades(perfilId, cb) {
     // Pedidos que te chegam e pedidos teus que foram aceites. As remoções não se
     // filtram no servidor: confirma-se aqui se a amizade era tua.

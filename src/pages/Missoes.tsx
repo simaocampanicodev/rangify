@@ -65,8 +65,8 @@ export function Missoes() {
   const acao = useAcao()
   const { perfil } = useSessao()
   const podeSortear = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
-  const missoes = useCarregar(() => dados.missoes(), [], ['partida', 'staff'])
-  const exp = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'])
+  const missoes = useCarregar(() => dados.missoes(), [], ['partida', 'staff'], { chave: 'missoes' })
+  const exp = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'], { chave: 'experiencia' })
   const [aSortear, setASortear] = useState(false)
   if (missoes.carregando && !missoes.valor) return <Carregando />
   const lista = (missoes.valor ?? []).map(traduzirMissao)

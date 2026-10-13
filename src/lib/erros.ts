@@ -90,6 +90,7 @@ const EN: Record<string, string> = {
   'Só são permitidas imagens PNG, JPG ou WebP. GIFs e vídeos não.': 'Only PNG, JPG or WebP images are allowed. No GIFs or videos.',
   'Tens de entrar na tua conta.': 'You have to sign in.',
   'Utilizador ou palavra-passe errados.': 'Wrong username or password.',
+  'A tabela do Rangify Score ainda não está ativa no servidor.': 'The Rangify Score leaderboard is not active on the server yet.',
   'Só se recarregam partidas terminadas.': 'Only finished matches can be reloaded.',
   'Numa partida real, os dados vêm outra vez da Henrik Dev API: usa Recarregar dados.': 'In a real match, the data comes again from the Henrik Dev API: use Reload data.',
   'Não encontrámos este jogo nos últimos 10 jogos personalizados dos capitães.': 'We could not find this game in the captains\' last 10 custom games.',

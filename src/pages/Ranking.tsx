@@ -190,7 +190,7 @@ function useFiltroTabela(eu?: string) {
     const t = window.setTimeout(() => setQ(pesquisa.trim().toLowerCase()), 250)
     return () => window.clearTimeout(t)
   }, [pesquisa])
-  const amigos = useCarregar(() => (ambito === 'amigos' ? dados.amigos() : Promise.resolve([])), [ambito], ['amigos'])
+  const amigos = useCarregar(() => (ambito === 'amigos' ? dados.amigos() : Promise.resolve([])), [ambito], ['amigos'], { chave: ambito === 'amigos' ? 'amigos' : undefined })
   const ids = new Set([...(amigos.valor ?? []).filter((a) => a.estado === 'aceite').map((a) => a.perfil.id), eu ?? ''])
   const aceita = (p: Perfil) =>
     (ambito === 'global' || ids.has(p.id)) && (!q || `${nomeJogador(p)}${tagJogador(p)} ${p.riotId ?? ''} ${p.utilizador}`.toLowerCase().includes(q))
@@ -203,7 +203,7 @@ const vazioFiltro = (ambito: Ambito, geral: ReactNode) => ambito === 'amigos'
 
 /** Tabela do Rangify Score: quem tem a melhor média de RS. */
 function RankingRs({ perfil }: { perfil: Perfil | null }) {
-  const r = useCarregar(() => dados.rankingRs(100), [], ['partida', 'staff'], { minimo: 300 })
+  const r = useCarregar(() => dados.rankingRs(100), [], ['partida', 'staff'], { minimo: 300, chave: 'ranking_rs' })
   const f = useFiltroTabela(perfil?.id)
   const todas = (r.valor?.linhas ?? []).filter((l) => f.aceita(l.perfil))
   const carregando = r.carregando || f.aCarregar
@@ -242,7 +242,9 @@ function RankingRs({ perfil }: { perfil: Perfil | null }) {
           ))}
           vazio={vazioFiltro(f.ambito, f.q
             ? <Vazio icone={<Trophy size={22} />} titulo={tx('Ninguém com esse nome', 'Nobody with that name')} texto={tx('Experimenta outro Riot ID.', 'Try another Riot ID.')} />
-            : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda sem Rangify Score', 'No Rangify Score yet')} texto={tx('A tabela enche-se com as partidas confirmadas com estatísticas da API.', 'The leaderboard fills up with matches confirmed with API stats.')} />)}
+            : r.erro
+              ? <Vazio icone={<Trophy size={22} />} titulo={tx('Não foi possível carregar a tabela', 'Could not load the leaderboard')} texto={r.erro} />
+              : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda sem Rangify Score', 'No Rangify Score yet')} texto={tx('A tabela enche-se com as partidas confirmadas com estatísticas da API.', 'The leaderboard fills up with matches confirmed with API stats.')} />)}
         />
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           {perfil && <CartaoPosicao posicao={meu?.posicao} perfil={perfil} resumo={meu ? `RS ${Math.round(meu.media)} · ${meu.partidas} ${de(meu.partidas)} · ${tx('melhor', 'best')} ${meu.melhor}` : tx('Sem partidas com RS', 'No matches with RS')} />}
@@ -260,8 +262,8 @@ function RankingRs({ perfil }: { perfil: Perfil | null }) {
 
 /** Tabela de nível: quem tem mais XP do Rangify Experience. */
 function RankingNivel({ perfil }: { perfil: Perfil | null }) {
-  const lista = useCarregar(() => dados.rankingNivel(100), [], ['partida', 'staff'], { minimo: 300 })
-  const minha = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'])
+  const lista = useCarregar(() => dados.rankingNivel(100), [], ['partida', 'staff'], { minimo: 300, chave: 'ranking_nivel' })
+  const minha = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'], { chave: 'experiencia' })
   const f = useFiltroTabela(perfil?.id)
   const todas = (lista.valor ?? []).filter((l) => f.aceita(l.perfil))
   const carregando = lista.carregando || f.aCarregar
@@ -353,11 +355,11 @@ export function Ranking() {
     return () => window.clearTimeout(t)
   }, [pesquisa])
 
-  const pagina = useCarregar(() => dados.ranking({ soAmigos: ambito === 'amigos', pesquisa: q, limite: 50 }), [ambito, q], ['partida', 'amigos'], { minimo: 450 })
+  const pagina = useCarregar(() => dados.ranking({ soAmigos: ambito === 'amigos', pesquisa: q, limite: 50 }), [ambito, q], ['partida', 'amigos'], { minimo: 450, chave: `ranking:${ambito}:${q}` })
   useEffect(() => {
     if (pagina.valor) { setLinhas(pagina.valor.linhas); setCursor(pagina.valor.cursor) }
   }, [pagina.valor])
-  const minhaPos = useCarregar(() => dados.posicao(perfil?.id ?? ''), [perfil?.id, perfil?.pontos])
+  const minhaPos = useCarregar(() => dados.posicao(perfil?.id ?? ''), [perfil?.id, perfil?.pontos], [], { chave: `posicao:${perfil?.id}:${perfil?.pontos}` })
 
   const carregarMais = async () => {
     setMais(true)

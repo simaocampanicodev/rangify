@@ -1221,6 +1221,11 @@ export const dadosLocais: Dados = {
   },
 
   // No demo, as mudanças de amizade já avisam a página (avisarMudanca).
+  // No demo, a fila e as partidas correm no próprio browser e avisam com avisarMudanca.
+  aoMudarJogo() {
+    return () => {}
+  },
+
   aoMudarAmizades() {
     return () => {}
   },
