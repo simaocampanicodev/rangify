@@ -10,6 +10,10 @@
  *
  *   node scripts/gravar-video.mjs          (as duas línguas)
  *   node scripts/gravar-video.mjs en       (só uma)
+ *   node scripts/gravar-video.mjs --pagina=plano-sequencia pt
+ *       (o vídeo "plano sequência": video/plano-sequencia.html → video/rangify-plano-pt.mp4)
+ *   node scripts/gravar-video.mjs --pagina=plano-sequencia --amostras=1.5,12,30 --pasta=<pasta>
+ *       (só tira esses momentos em JPG, para rever sem gravar o vídeo todo)
  */
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -20,7 +24,13 @@ import { extname, join, normalize, resolve } from 'node:path'
 const RAIZ = resolve(import.meta.dirname, '..')
 const PORTA = 5178
 const PORTA_CDP = 9333
-const LINGUAS = process.argv[2] ? [process.argv[2]] : ['pt', 'en']
+const ARGS = process.argv.slice(2)
+const opcao = (nome) => ARGS.find((a) => a.startsWith(`--${nome}=`))?.split('=')[1]
+const PAGINA = opcao('pagina') ?? 'video'
+const AMOSTRAS = opcao('amostras')?.split(',').map(Number)
+const PASTA_AMOSTRAS = opcao('pasta')
+const soltas = ARGS.filter((a) => !a.startsWith('--'))
+const LINGUAS = soltas.length ? soltas : PAGINA === 'video' ? ['pt', 'en'] : ['pt']
 const BROWSERS = [
   'C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -34,7 +44,7 @@ const servidor = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost')
   if (req.method === 'POST' && url.pathname === '/guardar') {
     const nome = url.searchParams.get('nome') ?? ''
-    if (!/^rangify-(pt|en)\.mp4$/.test(nome)) { res.writeHead(400); return res.end() }
+    if (!/^rangify(-plano)?-(pt|en)\.mp4$/.test(nome)) { res.writeHead(400); return res.end() }
     const partes = []
     req.on('data', (c) => partes.push(c))
     req.on('end', () => {
@@ -84,11 +94,22 @@ async function ligar(wsUrl) {
 }
 
 async function gravar(c, lingua) {
-  const base = `http://127.0.0.1:${PORTA}/video/video.html?lingua=${lingua}`
+  const base = `http://127.0.0.1:${PORTA}/video/${PAGINA}.html?lingua=${lingua}`
   pastaQuadros = mkdtempSync(join(tmpdir(), 'rangify-quadros-'))
   try {
     await c.abrir(`${base}&modo=quadros`)
     const total = await c.avaliar('window.iniciarQuadros()')
+    if (AMOSTRAS) {
+      // Só alguns momentos (a página desenha qualquer instante sem passar pelos anteriores).
+      mkdirSync(PASTA_AMOSTRAS, { recursive: true })
+      for (const seg of AMOSTRAS) {
+        await c.avaliar(`window.quadro(${Math.round(seg * 30)})`)
+        const s = await c.enviar('Page.captureScreenshot', { format: 'jpeg', quality: 85, clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } })
+        writeFileSync(join(PASTA_AMOSTRAS, `${seg.toFixed(2)}.jpg`), Buffer.from(s.result.data, 'base64'))
+      }
+      console.log(`  ${AMOSTRAS.length} amostras em ${PASTA_AMOSTRAS}`)
+      return
+    }
     const inicio = Date.now()
     for (let i = 0; i < total; i++) {
       await c.avaliar(`window.quadro(${i})`)
@@ -99,7 +120,7 @@ async function gravar(c, lingua) {
     console.log('  a codificar o MP4…')
     await c.abrir(`${base}&modo=codificar`)
     const r = await c.avaliar(`window.codificar(${total})`)
-    console.log(`  video/rangify-${lingua}.mp4: ${r}`)
+    console.log(`  ${PAGINA === 'video' ? `video/rangify-${lingua}.mp4` : 'video/rangify-plano-pt.mp4'}: ${r}`)
   } finally {
     rmSync(pastaQuadros, { recursive: true, force: true })
     pastaQuadros = null

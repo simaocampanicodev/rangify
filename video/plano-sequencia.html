@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rangify, plano sequência</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/geist/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource/instrument-serif/400-italic.css">
+<style>
+  /*
+    Vídeo "plano sequência" do Rangify (40 s, 1920x1080), na sequência do vídeo de referência:
+    1) o problema: um convite no Discord, a malta junta-se e o jogo perde-se;
+    2) o Rangify: uma linha laranja, câmara sempre a seguir, por fila, draft, mapas, código e resultado.
+    Tudo é desenhado em função do tempo (desenhar(t)), por isso cada fotograma é exato.
+    A música e os efeitos são sintetizados aqui (Web Audio), sem ficheiros de som.
+    Abrir no browser: Reproduzir. Gravar o MP4: node scripts/gravar-video.mjs --pagina=plano-sequencia pt
+  */
+  html, body { margin: 0; height: 100%; background: #050506; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: 'Geist Variable', Geist, system-ui, sans-serif; color: #f3f0eb; }
+  #palco { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #09090b; flex-shrink: 0; }
+  .mono { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace; }
+  .serif { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; }
+  .abs { position: absolute; }
+  #fundo { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  #luzes { position: absolute; inset: 0; background: radial-gradient(60% 50% at 12% 8%, rgba(255,91,31,0.10), transparent 70%), radial-gradient(50% 45% at 92% 96%, rgba(255,91,31,0.07), transparent 70%); }
+  #camara { position: absolute; inset: 0; perspective: 1900px; }
+  #mundo { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; transform-origin: 0 0; }
+  .cartao { position: absolute; border-radius: 26px; background: #111114; border: 1.5px solid rgba(255,255,255,0.1); overflow: hidden; box-sizing: border-box; }
+  .cartao.vivo { box-shadow: 0 0 0 1px rgba(255,91,31,0.25), 0 40px 120px -30px rgba(255,91,31,0.55); }
+  .esqueleto { position: absolute; border-radius: 18px; background: #151518; border: 1.5px solid rgba(255,255,255,0.09); box-sizing: border-box; padding: 22px 24px; }
+  .barra-esq { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.08); margin-top: 14px; }
+  .etiqueta { position: absolute; background: #ff5b1f; color: #170802; font-family: 'JetBrains Mono Variable', monospace; font-weight: 700; font-size: 22px; letter-spacing: 0.08em; padding: 6px 12px; white-space: nowrap; }
+  .porta { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #09090b; border: 4px solid #ff5b1f; box-sizing: border-box; box-shadow: 0 0 18px rgba(255,91,31,0.8); }
+  .linha-texto { overflow: hidden; display: block; }
+  .linha-texto > span { display: block; will-change: transform; }
+  .grande { font-weight: 900; text-transform: uppercase; letter-spacing: -0.045em; line-height: 0.92; }
+  .pilula { height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.16); font-family: 'JetBrains Mono Variable', monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; display: inline-flex; align-items: center; color: #8a857e; background: rgba(9,9,11,0.7); }
+  .pilula.ativa { background: #ff5b1f; color: #170802; border-color: #ff5b1f; }
+  .linha-ui { display: flex; align-items: center; gap: 16px; padding: 16px 26px; border-top: 1.5px solid rgba(255,255,255,0.06); }
+  .chip { height: 38px; padding: 0 16px; border-radius: 11px; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .chip.botao { background: #ff5b1f; color: #170802; }
+  .chip.ok { border: 1.5px solid rgba(255,91,31,0.45); background: rgba(255,91,31,0.12); color: #ffb592; }
+  .chip.vazio { border: 1.5px solid rgba(255,255,255,0.14); color: #a8a29b; }
+  .ini { display: inline-flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono Variable', monospace; font-weight: 700; flex-shrink: 0; }
+  #comecar { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(5,5,6,0.82); z-index: 20; }
+  #comecar button { height: 54px; padding: 0 28px; border-radius: 14px; border: 0; background: #ff5b1f; color: #170802; font: 800 18px 'Geist Variable', sans-serif; cursor: pointer; }
+  #comecar span { font-size: 14px; color: #a8a29b; }
+</style>
+</head>
+<body>
+<div id="palco">
+  <img id="fundo" alt="">
+  <div id="luzes"></div>
+  <div id="camara"><div id="mundo"></div></div>
+  <div id="ruido" class="abs" style="inset: 0; pointer-events: none"></div>
+  <div id="ecra" class="abs" style="inset: 0; pointer-events: none"></div>
+  <div id="glitch" class="abs" style="inset: 0; pointer-events: none"></div>
+  <div id="clarao" class="abs" style="inset: 0; background: #f3f0eb; opacity: 0; pointer-events: none"></div>
+  <div id="flash" class="abs" style="inset: 0; background: #ff5b1f; opacity: 0; pointer-events: none"></div>
+  <div id="final" class="abs" style="inset: 0; opacity: 0; pointer-events: none"></div>
+  <div class="mono abs" style="right: 44px; bottom: 30px; font-size: 13px; letter-spacing: 0.16em; color: rgba(255,255,255,0.32)">RANGIFY · DADOS ILUSTRATIVOS</div>
+</div>
+<div id="comecar"><button type="button" id="botao">Reproduzir</button><span>Com som. 40 segundos.</span></div>
+
+<script>
+// ===================================================================== utilidades
+const FPS = 30
+const TOTAL = 39.6
+const MODO = new URLSearchParams(location.search).get('modo')
+const $ = (s, r = document) => r.querySelector(s)
+const $$ = (s, r = document) => [...r.querySelectorAll(s)]
+const limitar = (v, a, b) => Math.max(a, Math.min(b, v))
+const prog = (t, a, b) => limitar((t - a) / (b - a), 0, 1)
+const misturar = (a, b, p) => a + (b - a) * p
+const suave = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2)
+const sair = (p) => 1 - Math.pow(1 - p, 3)
+const salto = (p) => { const c = 1.7; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2) }
+function aleatorio(semente) {
+  let a = semente >>> 0
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+}
+const LOGO = (cor = '#ff5b1f') => `<svg aria-hidden="true" viewBox="12 18 57 42" style="width:100%;height:100%"><path d="M23 19.5H66.25L55 35.4H67.5L40 58.75L51.25 41.25H40.25L50.6 28H27C24 28 22 30.5 22 33.75C22 37 24 39.75 27 39.75H38.2L23.1 58.5H13.1L23.1 46.25C17 46.25 13.5 40.5 13.5 33C13.5 25.5 17.5 19.5 23 19.5Z" fill="${cor}"/></svg>`
+const NOME = (px, cor = '#ff5b1f') => `<span style="font-size:${px}px;line-height:1;letter-spacing:-0.045em;color:${cor};white-space:nowrap"><b style="font-weight:800">Rang</b><span class="serif" style="font-size:1.2em">ify</span></span>`
+const mundo = $('#mundo'), ecra = $('#ecra')
+function no(pai, html) { const d = document.createElement('div'); d.innerHTML = html.trim(); const e = d.firstElementChild; pai.appendChild(e); return e }
+const mini = (m) => `../public/mapas/mini/${m.toLowerCase()}.webp`
+
+// ===================================================================== o fundo (o mesmo do vídeo anterior)
+const FIOS = [
+  ['M 1180 -60 C 1215 70 1300 150 1470 178 C 1650 208 1782 196 1806 108 C 1822 46 1798 -12 1772 -60', 90, 13, 2.6, '#ffe4d2'],
+  ['M -60 90 C 160 104 330 222 362 398 C 388 534 338 640 232 712 C 132 780 44 838 -60 950', 86, 12, 2.4, '#ffe4d2'],
+  ['M 120 1140 C 300 1000 520 948 720 990 C 880 1024 980 1080 1090 1150', 80, 11, 2.2, '#ffd9c2'],
+  ['M 1960 520 C 1840 610 1806 750 1866 870 C 1904 946 1950 994 1990 1100', 56, 7, 1.5, '#ffc8a8'],
+]
+const svgFundo = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+<defs><filter id="n" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="46"/></filter>
+<filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+<radialGradient id="l1" cx="0.12" cy="0.1" r="0.55"><stop offset="0" stop-color="#ff5b1f" stop-opacity="0.13"/><stop offset="1" stop-color="#ff5b1f" stop-opacity="0"/></radialGradient>
+<radialGradient id="l2" cx="0.92" cy="0.95" r="0.5"><stop offset="0" stop-color="#ff5b1f" stop-opacity="0.08"/><stop offset="1" stop-color="#ff5b1f" stop-opacity="0"/></radialGradient></defs>
+<rect width="1920" height="1080" fill="#09090b"/><rect width="1920" height="1080" fill="url(#l1)"/><rect width="1920" height="1080" fill="url(#l2)"/>
+<g fill="none" stroke-linecap="round">${FIOS.map(([d, n, b, c, cor]) => `<path d="${d}" stroke="#ff5b1f" stroke-width="${n}" stroke-opacity="0.13" filter="url(#n)"/><path d="${d}" stroke="#ff5b1f" stroke-width="${b}" stroke-opacity="0.8" filter="url(#b)"/><path d="${d}" stroke="${cor}" stroke-width="${c}" stroke-opacity="0.9"/>`).join('')}</g></svg>`
+$('#fundo').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgFundo)
+
+// ===================================================================== o mundo
+// Ato 1: o convite (C0) e o caminho que se perde.
+const C0 = { x: 0, y: 0, w: 460, h: 640 }
+const PROB = [
+  { id: 'lobby', x: 1000, nome: 'LOBBY', tag: 'JOGADORES: 7/10', tTag: 3.15 },
+  { id: 'equipas', x: 1700, nome: 'EQUIPAS', tag: 'QUEM ESCOLHE?', tTag: 4.35 },
+  { id: 'resultado', x: 2400, nome: 'RESULTADO', tag: 'QUEM GANHOU?', tTag: 5.95 },
+]
+const YP = -230
+
+// Ato 2: os cinco passos, em escada.
+const PASSOS = [
+  { id: 'fila', x: 1700, y: 300, h: 372, n: '01', nome: 'FILA', l1: 'ENTRA NA FILA.', l2: '10 JOGADORES.', sub: 'Da tua região e com o Riot ID ligado. Quando a sala enche, tens 20 segundos para aceitar.', ini: 12.0, fim: 15.0 },
+  { id: 'draft', x: 3250, y: 0, h: 372, n: '02', nome: 'DRAFT', l1: 'DOIS CAPITÃES.', l2: 'UM DRAFT.', sub: 'Os dois ranks oficiais mais altos são capitães e escolhem à vez, 15 segundos por escolha.', ini: 15.9, fim: 19.3 },
+  { id: 'mapas', x: 4800, y: 320, h: 392, n: '03', nome: 'MAPAS', l1: 'BANE ATÉ', l2: 'SOBRAR UM.', sub: 'Os capitães banem à vez da rotação da temporada. O último mapa é o da partida.', ini: 20.1, fim: 23.1 },
+  { id: 'codigo', x: 6350, y: 20, h: 410, n: '04', nome: 'CÓDIGO', l1: 'O CÓDIGO,', l2: 'SÓ PARA OS 10.', sub: 'O Capitão A cria o grupo e partilha o código. A partida ganha um chat e uma call por equipa.', ini: 24.0, fim: 28.0 },
+  { id: 'resultado', x: 7900, y: 300, h: 380, n: '05', nome: 'RESULTADO', l1: 'A API CONFIRMA.', l2: 'A TABELA SOBE.', sub: 'O resultado e as estatísticas vêm da Henrik Dev API. O Rangify Score dá até 6 pontos a mais.', ini: 28.9, fim: 32.2 },
+]
+const LARG = 620
+
+// --- convite no Discord
+no(mundo, `
+<div id="c0" class="cartao" style="left:${C0.x - C0.w / 2}px;top:${C0.y - C0.h / 2}px;width:${C0.w}px;height:${C0.h}px;border-radius:30px">
+  <div style="display:flex;align-items:center;gap:14px;padding:20px 22px;background:#0d0d10">
+    <span class="ini" style="width:44px;height:44px;border-radius:50%;background:#2a1d17;color:#ffd5bf;font-size:17px">NY</span>
+    <span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:19px">Nyx</b><span style="font-size:14px;color:#8a857e">#geral · hoje às 20:41</span></span>
+  </div>
+  <div style="height:388px;background:linear-gradient(160deg,#ff7a3d 0%,#ff5b1f 45%,#c23a0c 100%);padding:30px 30px 0;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+    <div class="grande" style="font-size:66px;color:#170802">Alguém para<br>um 5v5<br>hoje?</div>
+    <div class="mono" style="font-size:15px;font-weight:700;letter-spacing:0.14em;color:rgba(23,8,2,0.7);padding-bottom:22px">MENSAGEM · DISCORD</div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:26px 24px">
+    <span style="display:flex;flex-direction:column;gap:4px"><b style="font-size:20px">Custom às 21h</b><span style="font-size:15px;color:#8a857e">7 de 10 responderam</span></span>
+    <span id="bora" class="chip botao" style="height:50px;padding:0 24px;font-size:19px;border-radius:13px">Bora</span>
+  </div>
+</div>`)
+
+// --- caminho do ato 1 (branco, como quem não sabe para onde vai)
+const ESPESSURA = 4
+no(mundo, `
+<svg id="svg1" style="position:absolute;left:0;top:0;overflow:visible" width="1" height="1">
+  <polyline id="l1" points="230,215 430,215 430,${YP} 1000,${YP}" fill="none" stroke="#f3f0eb" stroke-width="${ESPESSURA}" stroke-linejoin="round"/>
+  <line id="l1b" x1="1340" y1="${YP}" x2="1700" y2="${YP}" stroke="#f3f0eb" stroke-width="${ESPESSURA}"/>
+  <line id="l1c" x1="2040" y1="${YP}" x2="2400" y2="${YP}" stroke="#f3f0eb" stroke-width="${ESPESSURA}" stroke-dasharray="22 16"/>
+  <line id="l1d" x1="2740" y1="${YP}" x2="3040" y2="${YP}" stroke="#f3f0eb" stroke-width="${ESPESSURA}" stroke-dasharray="22 16"/>
+</svg>`)
+for (const c of PROB) {
+  no(mundo, `<div id="p-${c.id}" class="esqueleto" style="left:${c.x}px;top:${YP - 100}px;width:340px;height:200px">
+    <div class="mono" style="font-size:17px;font-weight:700;letter-spacing:0.14em;color:#8a857e">${c.nome}</div>
+    <div class="barra-esq" style="width:78%"></div><div class="barra-esq" style="width:92%"></div><div class="barra-esq" style="width:60%"></div><div class="barra-esq" style="width:70%"></div>
+  </div>`)
+  no(mundo, `<div id="tag-${c.id}" class="etiqueta" style="left:${c.x + 10}px;top:${YP - 152}px">${c.tag}</div>`)
+}
+no(mundo, `<div id="interrogacao" class="abs grande" style="left:3080px;top:${YP - 150}px;font-size:300px;color:#ff5b1f">?</div>`)
+no(mundo, `<div id="ponto1" class="abs" style="width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:#fff;box-shadow:0 0 22px 6px rgba(255,255,255,0.65)"></div>`)
+
+// --- caminho do ato 2 (laranja e luminoso)
+const CAMINHO = [[230, 215], [570, 215], [570, PASSOS[0].y], [PASSOS[0].x - LARG / 2, PASSOS[0].y]]
+PASSOS.forEach((p, i) => {
+  CAMINHO.push([p.x + LARG / 2, p.y])
+  const prox = PASSOS[i + 1]
+  if (prox) { const vx = p.x + LARG / 2 + 90; CAMINHO.push([vx, p.y], [vx, prox.y], [prox.x - LARG / 2, prox.y]) }
+  else CAMINHO.push([p.x + LARG / 2 + 230, p.y])
+})
+const COMPRIMENTOS = [0]
+for (let i = 1; i < CAMINHO.length; i++) COMPRIMENTOS.push(COMPRIMENTOS[i - 1] + Math.hypot(CAMINHO[i][0] - CAMINHO[i - 1][0], CAMINHO[i][1] - CAMINHO[i - 1][1]))
+const COMP_TOTAL = COMPRIMENTOS[COMPRIMENTOS.length - 1]
+const ate = (indice) => COMPRIMENTOS[indice]
+// Onde a linha chega a cada porta: entrada do passo i = índice 3 + 4i, saída = 4 + 4i.
+const entrada = (i) => ate(3 + 4 * i), saida = (i) => ate(4 + 4 * i)
+const pontos2 = CAMINHO.map((p) => p.join(',')).join(' ')
+no(mundo, `
+<svg id="svg2" style="position:absolute;left:0;top:0;overflow:visible" width="1" height="1">
+  <polyline id="l2halo" points="${pontos2}" fill="none" stroke="#ff5b1f" stroke-width="18" stroke-opacity="0.28" stroke-linejoin="round" style="filter:blur(8px)"/>
+  <polyline id="l2" points="${pontos2}" fill="none" stroke="#ff7a3d" stroke-width="${ESPESSURA + 1}" stroke-linejoin="round"/>
+</svg>`)
+
+// --- os textos e os cartões de cada passo
+const cartoes = {}
+PASSOS.forEach((p, i) => {
+  no(mundo, `<div id="txt-${p.id}" class="abs" style="left:${p.x - LARG / 2 - 760}px;top:${p.y - 236}px;width:720px">
+    <div class="mono eyebrow" style="font-size:19px;font-weight:700;letter-spacing:0.16em;color:#ff8a5b;height:30px"></div>
+    <div class="grande" style="font-size:76px;margin-top:14px;white-space:nowrap"><span class="linha-texto"><span>${p.l1}</span></span><span class="linha-texto"><span style="color:#ff5b1f">${p.l2}</span></span></div>
+    <p class="sub" style="margin:92px 0 0;font-size:25px;line-height:1.45;color:#a8a29b;width:600px">${p.sub}</p>
+  </div>`)
+  no(mundo, `<div class="porta" style="left:${p.x - LARG / 2}px;top:${p.y}px"></div>`)
+  no(mundo, `<div class="porta" style="left:${p.x + LARG / 2}px;top:${p.y}px"></div>`)
+  no(mundo, `<div id="rot-${p.id}" class="abs" style="left:${p.x - LARG / 2}px;top:${p.y + p.h / 2 + 50}px;width:${LARG}px;opacity:0">
+    <div class="mono" style="font-size:64px;font-weight:700;color:#ff5b1f">${p.n}</div>
+    <div class="grande" style="font-size:150px">${p.nome}</div>
+  </div>`)
+  cartoes[p.id] = no(mundo, `<div id="cartao-${p.id}" class="cartao" style="left:${p.x - LARG / 2}px;top:${p.y - p.h / 2}px;width:${LARG}px;height:${p.h}px"></div>`)
+})
+no(mundo, `<div id="fim-check" class="abs" style="left:${CAMINHO[CAMINHO.length - 1][0] - 40}px;top:${CAMINHO[CAMINHO.length - 1][1] - 40}px;width:80px;height:80px;border-radius:50%;background:#ff5b1f;display:flex;align-items:center;justify-content:center;opacity:0;box-shadow:0 0 50px rgba(255,91,31,0.8)"><svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#170802" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>`)
+no(mundo, `<div id="ponto2" class="abs" style="width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fff3ea;box-shadow:0 0 26px 9px rgba(255,91,31,0.85);opacity:0"></div>`)
+
+const cab = (titulo, direita) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px"><b style="font-size:22px;letter-spacing:-0.01em">${titulo}</b><span class="mono" style="font-size:14px;color:#8a857e;letter-spacing:0.08em">${direita}</span></div>`
+// 01 · Fila
+cartoes.fila.innerHTML = cab('Pronto para jogar', 'RANGIFY HUB · EU') + `
+  <div class="linha-ui"><span class="ini" style="width:48px;height:48px;border-radius:13px;background:rgba(255,91,31,0.14);color:#ff8a5b;font-size:16px">ID</span>
+    <span style="flex:1;display:flex;flex-direction:column;gap:3px"><b style="font-size:19px">Riot ID</b><span style="font-size:15px;color:#8a857e">Nyx#4521 · Diamante 2</span></span>
+    <span id="f-riot" class="chip botao">Ligar</span></div>
+  <div class="linha-ui"><span class="ini" style="width:48px;height:48px;border-radius:13px;background:rgba(255,91,31,0.14);color:#ff8a5b;font-size:16px">DC</span>
+    <span style="flex:1;display:flex;flex-direction:column;gap:3px"><b style="font-size:19px">Discord</b><span style="font-size:15px;color:#8a857e">Servidor do Rangify</span></span>
+    <span id="f-discord" class="chip botao">Entrar</span></div>
+  <div class="linha-ui" style="flex-direction:column;align-items:stretch;gap:12px">
+    <span style="display:flex;justify-content:space-between;font-size:16px;color:#d0cbc4"><span>À procura de jogadores · EU</span><span id="f-n" class="mono" style="font-weight:700">0/10</span></span>
+    <span style="height:10px;border-radius:5px;background:rgba(255,255,255,0.07);overflow:hidden"><span id="f-barra" style="display:block;height:100%;width:0;background:#ff5b1f;box-shadow:0 0 16px rgba(255,91,31,0.7)"></span></span>
+    <span id="f-encontrada" style="display:flex;align-items:center;justify-content:space-between;opacity:0"><span class="mono" style="font-size:15px;font-weight:700;letter-spacing:0.14em;color:#ff8a5b">PARTIDA ENCONTRADA · 20 S</span><span id="f-aceitar" class="chip botao">Aceitar</span></span>
+  </div>`
+// 02 · Draft
+const DRAFT = [['Cometa', 'Duelista · Diam 3', 'A'], ['Lumi', 'Iniciador · Diam 2', 'B'], ['Pedra', 'Sentinela · Diam 1', 'A'], ['Hugo', 'Controlador · Plat 3', 'B']]
+cartoes.draft.innerHTML = cab('Draft · RG-4821', 'CAPITÃO A · NYX') + `
+  <div style="display:flex;gap:22px;padding:6px 26px 0">
+    <div style="position:relative;width:170px;height:170px;flex-shrink:0;margin-top:18px">
+      <svg viewBox="0 0 100 100" width="170" height="170"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"/><circle id="d-anel" cx="50" cy="50" r="42" fill="none" stroke="#ff5b1f" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 264" transform="rotate(-90 50 50)"/></svg>
+      <span style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><b id="d-n" class="mono" style="font-size:38px">0/8</b><span style="font-size:13px;color:#8a857e">escolhas</span></span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column">
+      ${DRAFT.map(([n, f], i) => `<div style="display:flex;align-items:center;justify-content:space-between;height:66px;border-top:${i ? '1.5px solid rgba(255,255,255,0.06)' : '0'}"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:18px">${n}</b><span style="font-size:14px;color:#8a857e">${f}</span></span><span id="d-${i}" class="chip vazio">Escolher</span></div>`).join('')}
+    </div>
+  </div>`
+// 03 · Mapas
+const MAPAS = ['Abyss', 'Ascent', 'Bind', 'Haven', 'Split', 'Sunset', 'Lotus']
+cartoes.mapas.innerHTML = cab('Ban de mapas', 'ROTAÇÃO · 7 MAPAS') + `
+  <div style="display:flex;gap:10px;padding:0 26px 14px"><span id="m-a" class="chip ok" style="height:34px">Vez da Equipa A</span><span id="m-b" class="chip vazio" style="height:34px">Equipa B</span></div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 26px">
+    ${MAPAS.map((m, i) => `<div id="m-${i}" style="position:relative;height:72px;border-radius:12px;overflow:hidden;border:1.5px solid rgba(255,255,255,0.1);background:#18181c url(${mini(m)}) center/cover">
+      <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(9,9,11,0) 20%,rgba(9,9,11,0.9))"></span>
+      <b style="position:absolute;left:10px;bottom:20px;font-size:15px">${m}</b><span class="mono m-est" style="position:absolute;left:10px;bottom:6px;font-size:11px;font-weight:700;letter-spacing:0.1em;color:#a8a29b">NA ROTAÇÃO</span></div>`).join('')}
+  </div>
+  <div style="margin:16px 26px 0;height:56px;border-radius:13px;background:#060607;border:1.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px">
+    <span id="m-info" class="mono" style="font-size:15px;color:#a8a29b">bans: 0 de 6 · pool: 7</span><span id="m-ok" class="chip ok" style="height:34px;opacity:0">✓ Mapa: Lotus</span>
+  </div>`
+// 04 · Código e chat
+cartoes.codigo.innerHTML = `
+  <div style="display:flex;align-items:center;gap:14px;padding:20px 26px 16px"><span class="ini" style="width:46px;height:46px;border-radius:13px;background:#ff5b1f;color:#170802;font-size:20px">#</span>
+    <span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:20px">rg-4821 · chat da partida</b><span style="font-size:14px;color:#8a857e">Só os 10 jogadores veem</span></span><span class="chip ok" style="height:32px;font-size:14px">Discord</span></div>
+  <div class="mono" style="padding:10px 26px;border-top:1.5px solid rgba(255,255,255,0.06);border-bottom:1.5px solid rgba(255,255,255,0.06);font-size:14px;color:#a8a29b">lobby: <u style="text-decoration-color:#ff5b1f">lotus</u> · capitão a: <u style="text-decoration-color:#ff5b1f">nyx</u></div>
+  <div style="display:flex;flex-direction:column;gap:12px;padding:16px 26px;background:#0c0c0e;height:252px;box-sizing:border-box">
+    <div id="c-1" style="align-self:flex-start;max-width:78%;opacity:0"><span class="mono" style="font-size:12px;color:#ff8a5b;font-weight:700;letter-spacing:0.1em">RANGIFY</span><div style="margin-top:4px;padding:11px 14px;border-radius:14px 14px 14px 4px;border:1.5px solid rgba(255,91,31,0.4);background:rgba(255,91,31,0.08);font-size:16px">Código do grupo, só para vocês: <b class="mono" style="color:#ffb592">K7Q2PX</b></div></div>
+    <div id="c-2" style="align-self:flex-end;max-width:78%;opacity:0"><div style="padding:11px 14px;border-radius:14px 14px 4px 14px;background:#ff5b1f;color:#170802;font-size:16px;font-weight:600">Grupo criado no Lotus. Entrem!</div></div>
+    <div id="c-3" style="align-self:flex-start;max-width:78%;opacity:0"><div style="padding:11px 14px;border-radius:14px 14px 14px 4px;background:#1b1b20;font-size:16px"><b>Draco</b> · Já está. gl hf</div></div>
+    <div id="c-4" class="mono" style="align-self:center;font-size:13px;color:#ffb592;letter-spacing:0.08em;opacity:0">CALL DA TEAM A · 5 DE 5</div>
+  </div>`
+// 05 · Resultado
+const linhaRes = (r, v, id) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 26px;border-top:1.5px solid rgba(255,255,255,0.06);font-size:16px"><span style="color:#8a857e">${r}</span><span id="${id}" class="mono" style="font-weight:700;color:#f3f0eb">${v}</span></div>`
+cartoes.resultado.innerHTML = `
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px"><b style="font-size:22px">Resultado · Lotus</b><span id="r-api" class="chip ok" style="height:34px;font-size:14px;opacity:0">✓ Confirmado pela API</span></div>
+  <div style="display:flex;align-items:center;gap:18px;padding:0 26px 20px">
+    <span style="width:92px;height:92px;border-radius:18px;background:#ff5b1f;color:#170802;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="mono" style="font-size:13px;font-weight:700;letter-spacing:0.1em">VITÓRIA</span><b class="mono" style="font-size:30px">13-9</b></span>
+    <span style="display:flex;flex-direction:column;gap:4px"><b style="font-size:21px">Equipa Nyx contra Equipa Draco</b><span style="font-size:15px;color:#8a857e">Lotus · 34 min · Omen</span></span>
+  </div>
+  ${linhaRes('Rangify Score', '<span id="r-rs">0</span> · MVP', 'r-rs-l')}
+  ${linhaRes('Os teus pontos', '<span style="color:#ff8a5b">+<span id="r-pts">0</span></span>', 'r-pts-l')}
+  ${linhaRes('Tabela', '<span id="r-pos">#4</span>', 'r-pos-l')}`
+
+// ===================================================================== o ecrã (por cima do mundo)
+no(ecra, `<div id="rotulo1" class="mono abs" style="left:48px;top:40px;font-size:18px;font-weight:700;letter-spacing:0.12em;color:#d0cbc4"></div>`)
+no(ecra, `<div id="logo2" class="abs" style="left:48px;top:30px;display:flex;align-items:center;gap:12px;opacity:0"><span style="width:44px;height:33px;display:inline-flex">${LOGO()}</span>${NOME(30, '#f3f0eb')}</div>`)
+no(ecra, `<div id="pilulas" class="abs" style="right:48px;top:32px;display:flex;gap:8px;opacity:0">${PASSOS.map((p) => `<span class="pilula">${p.n} ${p.nome}</span>`).join('')}</div>`)
+const FRASES1 = [
+  { id: 'f1', txt: 'UMA MENSAGEM.', ini: 1.7, fim: 3.55, cor: '#f3f0eb' },
+  { id: 'f2', txt: 'A MALTA JUNTA-SE…', ini: 3.6, fim: 4.95, cor: '#f3f0eb' },
+  { id: 'f3', txt: '…E O JOGO PERDE-SE.', ini: 5.0, fim: 6.95, cor: '#ff5b1f' },
+]
+for (const f of FRASES1) no(ecra, `<div id="${f.id}" class="abs grande linha-texto" style="left:70px;top:860px;font-size:118px;color:${f.cor}"><span>${f.txt}</span></div>`)
+// O cursor do clique e o anel.
+no(ecra, `<svg id="cursor" class="abs" width="44" height="52" viewBox="0 0 22 26" style="left:0;top:0;opacity:0;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7))"><path d="M2 2l17 10.5-7.5 1.6L8 22z" fill="#f3f0eb" stroke="#09090b" stroke-width="1.6" stroke-linejoin="round"/></svg>`)
+no(ecra, `<div id="anel" class="abs" style="width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;border:4px solid #ff5b1f;opacity:0"></div>`)
+// O momento "0 partidas".
+no(ecra, `<div id="stat" class="abs" style="inset:0;opacity:0">
+  <div id="stat-n" class="abs grande" style="left:70px;top:50px;font-size:420px;color:#ff5b1f;line-height:0.85">12</div>
+  <div class="abs grande" style="left:620px;top:110px;font-size:86px;line-height:0.98"><span class="linha-texto" id="s1"><span>PARTIDAS</span></span><span class="linha-texto" id="s2"><span>NO HISTÓRICO</span></span><span class="linha-texto" id="s3"><span>DO GRUPO.</span></span></div>
+  <div id="stat-fim" class="abs grande" style="left:70px;top:900px;font-size:92px;display:flex;align-items:center;gap:24px;opacity:0"><span>SEM REGISTO, É SÓ</span><span style="position:relative;padding:0 14px"><span id="caixa" style="position:absolute;inset:-4px 0;background:#ff5b1f;transform-origin:left;transform:scaleX(0)"></span><span style="position:relative;color:#170802">CONVERSA.</span></span></div>
+</div>`)
+// A faixa "De novo. Agora com Rangify".
+no(ecra, `<div id="faixa" class="abs" style="left:150px;top:690px;padding:18px 34px;background:#ff5b1f;color:#170802;display:flex;align-items:center;gap:22px;transform-origin:30% 50%;opacity:0;box-shadow:0 30px 80px rgba(0,0,0,0.55)">
+  <span class="grande" style="font-size:80px">DE NOVO. AGORA COM</span><span style="width:70px;height:52px;display:inline-flex">${LOGO('#170802')}</span>${NOME(78, '#170802')}</div>`)
+// O texto da vista geral.
+no(ecra, `<div id="geral" class="abs grande" style="left:0;right:0;top:860px;text-align:center;font-size:130px;opacity:0"><span>DA FILA </span><span style="color:#ff5b1f">À TABELA.</span></div>`)
+// Ruído (linhas cinzentas) e as cruzes.
+const rnd = aleatorio(91)
+const LINHAS_RUIDO = Array.from({ length: 74 }, () => ({ y: rnd() * 1080, x: rnd() * 1700 - 200, w: 120 + rnd() * 900, a: 0.08 + rnd() * 0.22, h: rnd() < 0.2 ? 2 : 1, v: rnd() * 2 - 1 }))
+LINHAS_RUIDO.forEach((l, i) => no($('#ruido'), `<span id="rl${i}" class="abs" style="left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px;background:rgba(255,255,255,${l.a});opacity:0"></span>`))
+const CRUZES = Array.from({ length: 26 }, (_, i) => ({ x: 480 + rnd() * 1380, y: 560 + rnd() * 470, t: 7.65 + i * 0.055 }))
+CRUZES.forEach((c, i) => no($('#ruido'), `<span id="cz${i}" class="abs mono" style="left:${c.x}px;top:${c.y}px;font-size:26px;font-weight:700;color:#ff5b1f;opacity:0">×</span>`))
+// Fatias do glitch.
+for (let i = 0; i < 14; i++) no($('#glitch'), `<span class="abs fatia" style="left:0;width:100%;opacity:0"></span>`)
+// O final.
+$('#final').innerHTML = `
+  <div class="abs" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:26px"><span id="fim-logo" style="width:150px;height:112px;display:inline-flex">${LOGO()}</span>${NOME(150)}<span class="mono" style="align-self:flex-start;margin-top:26px;background:#ff5b1f;color:#170802;border-radius:10px;padding:6px 13px;font-size:26px;font-weight:700">HUB</span></div>
+  <div class="abs" style="left:0;right:0;top:500px;text-align:center;font-size:56px;font-weight:600;letter-spacing:-0.02em;color:#e6e1da">O teu 5v5 de Valorant, <span class="serif" style="color:#ff8a5b;font-size:1.15em">a sério.</span></div>
+  <div class="abs mono" style="left:560px;top:668px;padding:7px 14px;border:1.5px solid rgba(255,255,255,0.3);font-size:17px;font-weight:700;letter-spacing:0.14em">FILA</div>
+  <div class="abs mono" style="left:1262px;top:668px;padding:7px 14px;border:1.5px solid rgba(255,255,255,0.3);font-size:17px;font-weight:700;letter-spacing:0.14em">TABELA</div>
+  <span id="fim-linha" class="abs" style="left:650px;top:688px;height:4px;width:0;background:#ff5b1f;box-shadow:0 0 16px rgba(255,91,31,0.8)"></span>
+  <span id="fim-ponto" class="abs" style="left:650px;top:690px;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fff3ea;box-shadow:0 0 26px 9px rgba(255,91,31,0.85)"></span>
+  <div id="fim-txt" class="abs mono" style="left:0;right:0;top:790px;text-align:center;font-size:24px;letter-spacing:0.2em;color:#a8a29b"></div>`
+
+// ===================================================================== a câmara
+// [tempo, x, y, escala, inclinar(0/1)]
+const CAM = [
+  [0, 0, 0, 1.16, 0], [0.9, 0, 0, 1.0, 0], [2.2, 0, 0, 1.0, 0], [3.0, 1100, -150, 1.0, 1], [3.6, 1100, -150, 1.0, 0], [4.3, 1800, -150, 1.0, 1],
+  [5.0, 1800, -150, 1.0, 0], [5.55, 2500, -150, 1.0, 1], [5.95, 2500, -150, 1.0, 0], [6.5, 3000, -150, 1.0, 1], [7.0, 3000, -150, 1.0, 0],
+  [7.45, 1700, -300, 0.3, 0], [9.99, 1700, -300, 0.3, 0],
+  [10.0, 0, 0, 1.2, 0], [10.7, 0, 0, 1.08, 0], [11.05, 0, 40, 0.58, 0], [11.3, 0, 40, 0.58, 0],
+]
+// O ato 2: chegar a cada passo e ficar até ao fim dele.
+PASSOS.forEach((p, i) => {
+  const chega = i === 0 ? 12.0 : PASSOS[i].ini
+  CAM.push([chega, p.x - 380, p.y, 1.0, 1], [p.fim, p.x - 380, p.y, 1.0, 0])
+})
+const GERAL = [4100, 170, 0.205]
+CAM.push([33.0, GERAL[0], GERAL[1], GERAL[2], 0], [35.0, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0], [39.6, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0])
+
+function camara(t) {
+  let i = 0
+  while (i < CAM.length - 2 && CAM[i + 1][0] <= t) i++
+  const a = CAM[i], b = CAM[i + 1]
+  const p = b[0] > a[0] ? suave(prog(t, a[0], b[0])) : 1
+  let x = misturar(a[1], b[1], p), y = misturar(a[2], b[2], p), s = misturar(a[3], b[3], p)
+  let rx = 0, ry = 0
+  // Nas viagens a câmara afasta-se um pouco e inclina, como quem segue a linha.
+  if (b[4]) { const k = Math.sin(Math.PI * p); s *= 1 - 0.3 * k; ry = -13 * k; rx = 7 * k }
+  return { x, y, s, rx, ry }
+}
+
+// ===================================================================== desenhar o tempo t
+const vivo = (el, p) => { el.style.opacity = String(0.28 + 0.72 * p); el.style.filter = p < 1 ? `grayscale(${1 - p})` : 'none'; el.classList.toggle('vivo', p >= 1) }
+const tipo = (texto, t, ini, vel = 0.045) => texto.slice(0, Math.floor(limitar((t - ini) / vel, 0, texto.length)))
+function entraLinha(el, t, ini, dur = 0.45) { const p = sair(prog(t, ini, ini + dur)); el.firstElementChild.style.transform = `translateY(${(1 - p) * 105}%)`; return p }
+function chip(el, t, quando, antes, depois, cls) {
+  const feito = t >= quando
+  el.textContent = feito ? depois : antes
+  el.className = 'chip ' + (feito ? (cls || 'ok') : el.dataset.inicial || 'botao')
+  const p = prog(t, quando, quando + 0.25)
+  el.style.transform = feito && p < 1 ? `scale(${1 + 0.18 * Math.sin(Math.PI * p)})` : ''
+}
+$$('#d-0,#d-1,#d-2,#d-3').forEach((e) => (e.dataset.inicial = 'vazio'))
+
+function desenhar(t) {
+  const c = camara(t)
+  mundo.style.transform = `translate(960px,540px) rotateX(${c.rx}deg) rotateY(${c.ry}deg) scale(${c.s}) translate(${-c.x}px,${-c.y}px)`
+  // Os fios aparecem no início e respiram devagar, como no site.
+  $('#fundo').style.opacity = String(sair(prog(t, 0, 1.6)) * (0.8 + 0.2 * Math.sin((t / 6) * Math.PI * 2)))
+  const ato1 = t < 10
+  const ato2 = t >= 10
+
+  // ---------------- ato 1
+  const c0 = $('#c0')
+  const entradaC0 = sair(prog(t, 0, 0.9))
+  c0.style.transform = t < 1 ? `translateY(${(1 - entradaC0) * 120}px) rotate(${(1 - entradaC0) * -7}deg)` : ''
+  c0.style.opacity = t < 0.05 ? '0' : '1'
+  c0.classList.toggle('vivo', ato2)
+  // O cursor vai ao botão "Bora" e clica (aos 1,35 s e outra vez aos 11,1 s).
+  const cur = $('#cursor'), anel = $('#anel')
+  const clique = t < 5 ? 1.35 : 11.1
+  const pc = prog(t, clique - 0.65, clique - 0.05)
+  const cx = 960 + (C0.x + 158 - c.x) * c.s, cy = 540 + (C0.y + 206 - c.y) * c.s
+  const mostrarCursor = (t > 0.6 && t < 2.2) || (t > 10.6 && t < 11.6)
+  cur.style.opacity = mostrarCursor ? String(Math.min(1, prog(t, clique - 0.75, clique - 0.55)) * (1 - prog(t, clique + 0.5, clique + 0.75))) : '0'
+  cur.style.transform = `translate(${misturar(cx + 260, cx, suave(pc))}px,${misturar(cy + 200, cy, suave(pc)) + (t > clique && t < clique + 0.12 ? 4 : 0)}px)`
+  const pa = prog(t, clique, clique + 0.6)
+  anel.style.opacity = pa > 0 && pa < 1 ? String(1 - pa) : '0'
+  anel.style.transform = `translate(${cx}px,${cy}px) scale(${0.2 + pa * 1.3})`
+  $('#bora').style.transform = t > clique && t < clique + 0.14 ? 'scale(0.92)' : ''
+  // O rótulo do canto escreve-se.
+  $('#rotulo1').innerHTML = ato1 ? tipo('#RG-????  ·  RESULTADO: ', t, 1.6, 0.035).replace(/\?/g, '<span style="color:#ff8a5b">?</span>') + (t > 2.45 ? '<span style="color:#ff5b1f">???</span>' : '') : ''
+  // As frases do ato 1.
+  for (const f of FRASES1) {
+    const el = $('#' + f.id)
+    const p = sair(prog(t, f.ini, f.ini + 0.32))
+    el.style.opacity = t >= f.ini && t < f.fim ? '1' : '0'
+    el.firstElementChild.style.transform = `translateY(${(1 - p) * 105}%)`
+  }
+  // A linha branca e o ponto que a segue.
+  const L1 = 230 + 200 + 445 + 570 // comprimento até à entrada do lobby
+  const l1 = $('#l1'); l1.setAttribute('stroke-dasharray', `${L1 * sair(prog(t, 2.2, 3.0))} 4000`)
+  const pb = sair(prog(t, 3.6, 4.2)), pcc = sair(prog(t, 5.0, 5.45)), pd = sair(prog(t, 5.95, 6.4))
+  $('#l1b').setAttribute('x2', String(1340 + 360 * pb)); $('#l1b').style.opacity = pb > 0 ? '1' : '0'
+  $('#l1c').setAttribute('x2', String(2040 + 360 * pcc)); $('#l1c').style.opacity = pcc > 0 ? '1' : '0'
+  $('#l1d').setAttribute('x2', String(2740 + 300 * pd)); $('#l1d').style.opacity = pd > 0 ? '1' : '0'
+  const p1 = $('#ponto1')
+  let px = 230, py = 215
+  if (t < 3.6) { // pelos cantos da primeira linha
+    const d = L1 * sair(prog(t, 2.2, 3.0)), seg = [[230, 215, 430, 215], [430, 215, 430, YP], [430, YP, 1000, YP]]
+    let resto = d; for (const [x1, y1, x2, y2] of seg) { const len = Math.hypot(x2 - x1, y2 - y1); if (resto <= len) { px = x1 + (x2 - x1) * resto / len; py = y1 + (y2 - y1) * resto / len; break } resto -= len; px = x2; py = y2 }
+  } else if (t < 5.0) { px = 1340 + 360 * pb; py = YP } else if (t < 5.95) { px = 2040 + 360 * pcc; py = YP } else { px = 2740 + 300 * pd; py = YP }
+  p1.style.left = px + 'px'; p1.style.top = py + 'px'
+  p1.style.opacity = t > 2.15 && t < 7.0 ? '1' : '0'
+  for (const pr of PROB) {
+    const tt = $('#tag-' + pr.id), p = salto(prog(t, pr.tTag, pr.tTag + 0.3))
+    tt.style.opacity = t >= pr.tTag ? '1' : '0'; tt.style.transform = `scale(${0.4 + 0.6 * p})`; tt.style.transformOrigin = 'left bottom'
+  }
+  const q = salto(prog(t, 6.35, 6.7)); $('#interrogacao').style.opacity = t >= 6.35 ? '1' : '0'; $('#interrogacao').style.transform = `scale(${0.3 + 0.7 * q})`
+  for (const el of [...$$('.esqueleto'), $('#svg1'), $('#interrogacao'), ...PROB.map((p) => $('#tag-' + p.id))]) el.parentElement === mundo && (el.style.visibility = ato1 ? 'visible' : 'hidden')
+
+  // O "0 partidas" e o ruído.
+  const st = $('#stat')
+  st.style.opacity = t >= 7.0 && t < 9.85 ? '1' : '0'
+  const n = Math.round(12 * (1 - sair(prog(t, 7.05, 7.75))))
+  $('#stat-n').textContent = String(n)
+  entraLinha($('#s1'), t, 7.35); entraLinha($('#s2'), t, 7.5); entraLinha($('#s3'), t, 7.65)
+  $('#stat-fim').style.opacity = t >= 8.09 ? '1' : '0'
+  $('#stat-fim').style.transform = `translateY(${(1 - sair(prog(t, 8.09, 8.4))) * 40}px)`
+  $('#caixa').style.transform = `scaleX(${sair(prog(t, 8.45, 8.75))})`
+  const ruido = t >= 7.0 && t < 9.9 ? prog(t, 7.0, 7.4) : 0
+  const g = t >= 9.0 && t < 10.0 ? prog(t, 9.0, 9.9) : 0
+  LINHAS_RUIDO.forEach((l, i) => {
+    const el = $('#rl' + i)
+    el.style.opacity = String(ruido)
+    el.style.transform = `translateX(${(t - 7) * 30 * l.v + (g ? Math.sin(t * 90 + i) * 60 * g : 0)}px)`
+  })
+  CRUZES.forEach((cz, i) => { const el = $('#cz' + i); el.style.opacity = t >= cz.t && t < 9.85 ? '1' : '0'; el.style.transform = `scale(${0.4 + 0.6 * salto(prog(t, cz.t, cz.t + 0.2))})` })
+
+  // ---------------- glitch (9,0 a 10,0)
+  const gl = $('#glitch')
+  const fr = Math.floor(t * FPS), r = aleatorio(fr * 7919 + 13)
+  const forte = (t >= 9.33 && t < 9.43) || (t >= 9.6 && t < 9.67) || (t >= 9.85 && t < 9.95)
+  $$('.fatia', gl).forEach((f) => {
+    const on = t >= 9.0 && t < 10.0 && r() < (forte ? 0.95 : 0.45)
+    f.style.opacity = on ? String(0.5 + r() * 0.5) : '0'
+    f.style.top = r() * 1080 + 'px'; f.style.height = (2 + r() * (forte ? 90 : 18)) + 'px'
+    f.style.background = r() < 0.6 ? '#f3f0eb' : '#ff5b1f'
+    f.style.transform = `translateX(${(r() - 0.5) * 400}px) scaleX(${0.3 + r() * 0.9})`
+  })
+  const palco = $('#palco')
+  // Nos picos do glitch, um clarão branco por cima (sem filtros, para as cores não mudarem).
+  $('#clarao').style.opacity = forte ? '0.55' : '0'
+  ecra.style.transform = t >= 9.0 && t < 10.0 ? `translate(${(r() - 0.5) * 40 * g}px,${(r() - 0.5) * 14 * g}px) skewX(${(r() - 0.5) * 8 * g}deg)` : ''
+  if (t >= 9.75 && t < 10.0) st.style.opacity = String(1 - prog(t, 9.75, 9.85))
+
+  // ---------------- "de novo" e o impacto
+  const fx = $('#faixa'), pf = prog(t, 10.3, 10.55)
+  fx.style.opacity = t >= 10.3 && t < 10.95 ? '1' : '0'
+  fx.style.transform = `rotate(-4deg) scale(${misturar(1.6, 1, sair(pf))})`
+  $('#flash').style.opacity = t >= 10.75 && t < 11.15 ? String(1 - sair(prog(t, 10.75, 11.15)) * 0.98) : t >= 35.0 && t < 35.5 ? String(1 - sair(prog(t, 35.0, 35.5))) : '0'
+
+  // ---------------- ato 2
+  $('#logo2').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, 34.9, 35.0)))
+  $('#pilulas').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, 32.4, 32.8)))
+  const pil = $$('.pilula')
+  PASSOS.forEach((p, i) => pil[i].classList.toggle('ativa', t >= p.ini))
+  // A linha laranja: cresce em cada viagem e o ponto segue-lhe a ponta.
+  const KL = [[11.3, 0], [11.95, entrada(0)]]
+  PASSOS.forEach((p, i) => {
+    KL.push([p.fim - 0.01, entrada(i)], [p.fim, saida(i)])
+    if (PASSOS[i + 1]) KL.push([PASSOS[i + 1].ini - 0.05, entrada(i + 1)])
+    else KL.push([32.8, COMP_TOTAL])
+  })
+  let comp = 0
+  for (let k = 0; k < KL.length - 1; k++) { if (t >= KL[k][0]) comp = t >= KL[k + 1][0] ? KL[k + 1][1] : misturar(KL[k][1], KL[k + 1][1], suave(prog(t, KL[k][0], KL[k + 1][0]))) }
+  if (t < 11.3) comp = 0
+  for (const id of ['#l2', '#l2halo']) $(id).setAttribute('stroke-dasharray', `${comp} ${COMP_TOTAL + 10}`)
+  $('#svg2').style.visibility = ato2 ? 'visible' : 'hidden'
+  let qx = CAMINHO[0][0], qy = CAMINHO[0][1]
+  for (let k = 1; k < CAMINHO.length; k++) { if (comp <= COMPRIMENTOS[k]) { const pp = (comp - COMPRIMENTOS[k - 1]) / Math.max(1, COMPRIMENTOS[k] - COMPRIMENTOS[k - 1]); qx = misturar(CAMINHO[k - 1][0], CAMINHO[k][0], pp); qy = misturar(CAMINHO[k - 1][1], CAMINHO[k][1], pp); break } qx = CAMINHO[k][0]; qy = CAMINHO[k][1] }
+  const p2 = $('#ponto2'); p2.style.left = qx + 'px'; p2.style.top = qy + 'px'
+  const emViagem = KL.some((k, j) => j < KL.length - 1 && t > k[0] && t < KL[j + 1][0] && KL[j + 1][1] > k[1])
+  p2.style.opacity = ato2 && t > 11.3 && t < 33.2 && emViagem ? '1' : '0'
+
+  PASSOS.forEach((p, i) => {
+    const el = $('#cartao-' + p.id)
+    const luz = prog(t, p.ini - 0.25, p.ini + 0.05)
+    el.style.visibility = ato2 && t > 11.0 ? 'visible' : 'hidden'
+    vivo(el, luz)
+    const txt = $('#txt-' + p.id)
+    txt.style.visibility = ato2 ? 'visible' : 'hidden'
+    $('.eyebrow', txt).textContent = tipo(`${p.n} · ${p.nome}`, t, p.ini + 0.05, 0.04)
+    const linhas = $$('.linha-texto', txt)
+    entraLinha(linhas[0], t, p.ini + 0.1); entraLinha(linhas[1], t, p.ini + 0.22)
+    const sub = $('.sub', txt); sub.style.opacity = String(prog(t, p.ini + 0.35, p.ini + 0.7)); sub.style.transform = `translateY(${(1 - sair(prog(t, p.ini + 0.35, p.ini + 0.7))) * 18}px)`
+    const rot = $('#rot-' + p.id); rot.style.opacity = String(prog(t, 32.6 + i * 0.12, 33.0 + i * 0.12)); rot.style.visibility = ato2 ? 'visible' : 'hidden'
+  })
+  $$('.porta').forEach((e) => (e.style.visibility = ato2 && t > 11.0 ? 'visible' : 'hidden'))
+  const fc = $('#fim-check'); fc.style.opacity = String(prog(t, 33.9, 34.1)); fc.style.transform = `scale(${0.3 + 0.7 * salto(prog(t, 33.9, 34.2))})`
+
+  // 01 · Fila
+  chip($('#f-riot'), t, 12.7, 'Ligar', '✓ Ligado')
+  chip($('#f-discord'), t, 13.3, 'Entrar', '✓ No servidor')
+  const nf = Math.round(10 * prog(t, 13.45, 14.55))
+  $('#f-n').textContent = `${nf}/10`; $('#f-barra').style.width = nf * 10 + '%'
+  $('#f-encontrada').style.opacity = String(prog(t, 14.6, 14.8))
+  $('#f-aceitar').style.boxShadow = t > 14.6 ? `0 0 0 ${((t - 14.6) * 40) % 18}px rgba(255,91,31,${0.5 - (((t - 14.6) * 40) % 18) / 40})` : ''
+  // 02 · Draft
+  const ESC = [16.6, 17.2, 17.8, 18.4]
+  ESC.forEach((q, i) => chip($('#d-' + i), t, q, 'Escolher', `✓ Equipa ${DRAFT[i][2]}`, DRAFT[i][2] === 'A' ? 'ok' : 'vazio'))
+  const nd = ESC.filter((q) => t >= q).length * 2
+  $('#d-n').textContent = `${nd}/8`
+  $('#d-anel').setAttribute('stroke-dasharray', `${264 * misturar((nd - 2) / 8, nd / 8, sair(prog(t, ESC[Math.max(0, nd / 2 - 1)] || 0, (ESC[Math.max(0, nd / 2 - 1)] || 0) + 0.3)))} 264`)
+  if (nd === 0) $('#d-anel').setAttribute('stroke-dasharray', '0 264')
+  // 03 · Mapas
+  const BANS = [20.6, 20.96, 21.32, 21.68, 22.04, 22.4]
+  const nb = BANS.filter((q) => t >= q).length
+  MAPAS.forEach((m, i) => {
+    const el = $('#m-' + i), est = $('.m-est', el)
+    const banido = i < 6 && t >= BANS[i], escolhido = i === 6 && nb === 6
+    el.style.filter = banido ? 'grayscale(1) brightness(0.45)' : ''
+    el.style.borderColor = escolhido ? '#ff5b1f' : 'rgba(255,255,255,0.1)'
+    el.style.boxShadow = escolhido ? '0 0 30px rgba(255,91,31,0.55)' : ''
+    est.textContent = banido ? `BAN · EQUIPA ${i % 2 ? 'B' : 'A'}` : escolhido ? 'MAPA DA PARTIDA' : 'NA ROTAÇÃO'
+    est.style.color = banido ? '#ff8a5b' : escolhido ? '#ffb592' : '#a8a29b'
+    el.style.transform = banido && t < BANS[i] + 0.15 ? 'scale(0.94)' : ''
+  })
+  $('#m-a').className = 'chip ' + (nb % 2 === 0 && nb < 6 ? 'ok' : 'vazio'); $('#m-a').textContent = nb % 2 === 0 && nb < 6 ? 'Vez da Equipa A' : 'Equipa A'
+  $('#m-b').className = 'chip ' + (nb % 2 === 1 ? 'ok' : 'vazio'); $('#m-b').textContent = nb % 2 === 1 ? 'Vez da Equipa B' : 'Equipa B'
+  $('#m-info').textContent = `bans: ${nb} de 6 · pool: 7`
+  $('#m-ok').style.opacity = String(prog(t, 22.6, 22.8))
+  // 04 · Código
+  ;[24.6, 25.4, 26.2, 27.0].forEach((q, i) => { const el = $('#c-' + (i + 1)); const p = salto(prog(t, q, q + 0.3)); el.style.opacity = t >= q ? '1' : '0'; el.style.transform = `translateY(${(1 - p) * 16}px) scale(${0.85 + 0.15 * p})` })
+  // 05 · Resultado
+  $('#r-api').style.opacity = String(prog(t, 29.6, 29.8)); $('#r-api').style.transform = `scale(${0.6 + 0.4 * salto(prog(t, 29.6, 29.9))})`
+  $('#r-rs').textContent = String(Math.round(124 * sair(prog(t, 29.9, 30.6))))
+  $('#r-pts').textContent = String(Math.round(26 * sair(prog(t, 30.2, 30.8))))
+  $('#r-pos').innerHTML = t >= 31.2 ? '#4 → <span style="color:#ff8a5b">#3</span>' : '#4'
+
+  // A vista geral e o final.
+  const pg = $('#geral'); pg.style.opacity = t >= 33.3 && t < 35.0 ? '1' : '0'; pg.style.transform = `translateY(${(1 - sair(prog(t, 33.3, 33.65))) * 60}px)`
+  const fim = $('#final'); fim.style.opacity = t >= 35.0 ? '1' : '0'
+  $('#camara').style.opacity = t >= 35.0 ? '0' : '1'
+  if (t >= 35.0) {
+    $('#fim-logo').style.transform = `scale(${0.6 + 0.4 * salto(prog(t, 35.05, 35.5))})`
+    const pl = suave(prog(t, 36.0, 36.8))
+    $('#fim-linha').style.width = pl * 590 + 'px'
+    $('#fim-ponto').style.left = 650 + pl * 590 + 'px'
+    $('#fim-ponto').style.opacity = String(prog(t, 35.5, 35.7))
+    $('#fim-txt').textContent = tipo('ENTRA NO DISCORD, LIGA O RIOT ID E JOGA.', t, 37.0, 0.04) + (t > 37.0 && Math.floor(t * 2.5) % 2 === 0 ? '▍' : '')
+  }
+  $('#luzes').style.opacity = t >= 35.0 ? '0.6' : '1'
+}
+
+// ===================================================================== o som
+function criarSom(ctx, saida, t0) {
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.2
+  const vol = ctx.createGain(); vol.gain.value = 1.55
+  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -4; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12
+  comp.connect(vol).connect(lim).connect(saida)
+  const musica = ctx.createGain(); musica.gain.value = 0.6; musica.connect(comp)
+  const fx = ctx.createGain(); fx.gain.value = 0.9; fx.connect(comp)
+  const rev = ctx.createConvolver(); const ir = ctx.createBuffer(2, ctx.sampleRate * 2.2, ctx.sampleRate)
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3) }
+  rev.buffer = ir; const envio = ctx.createGain(); envio.gain.value = 0.3; envio.connect(rev).connect(comp)
+  const ruido = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); { const d = ruido.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1 }
+  const T = (s) => t0 + s
+  const env = (g, ini, at, pico, dur) => { g.gain.setValueAtTime(0.0001, ini); g.gain.exponentialRampToValueAtTime(pico, ini + at); g.gain.exponentialRampToValueAtTime(0.0001, ini + dur) }
+  const osc = (tp, f, ini, dur, pico, dest, o = {}) => {
+    const s = ctx.createOscillator(); s.type = tp; s.frequency.setValueAtTime(f, ini); if (o.ate) s.frequency.exponentialRampToValueAtTime(o.ate, ini + dur * 0.9)
+    const g = ctx.createGain(); env(g, ini, o.at ?? 0.005, pico, dur); let n = s
+    if (o.filtro) { const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = o.filtro; s.connect(fl); n = fl }
+    n.connect(g).connect(dest); if (o.rev) { const e = ctx.createGain(); e.gain.value = o.rev; g.connect(e).connect(envio) }
+    s.start(ini); s.stop(ini + dur + 0.05)
+  }
+  const ruidoF = (ini, dur, pico, dest, tp, f, o = {}) => {
+    const s = ctx.createBufferSource(); s.buffer = ruido; const fl = ctx.createBiquadFilter(); fl.type = tp; fl.frequency.setValueAtTime(f, ini); fl.Q.value = o.q ?? 1
+    if (o.ate) fl.frequency.exponentialRampToValueAtTime(o.ate, ini + dur)
+    const g = ctx.createGain(); env(g, ini, Math.min(o.at ?? 0.01, dur / 3), pico, dur); s.connect(fl).connect(g).connect(dest)
+    if (o.rev) { const e = ctx.createGain(); e.gain.value = o.rev; g.connect(e).connect(envio) }
+    s.start(ini, Math.random()); s.stop(ini + dur + 0.05)
+  }
+
+  // ---------------- música: 89 BPM, ré menor (Dm Bb F C), escura e minimal
+  const B = 60 / 89
+  const ACORDES = [[73.42, [293.66, 349.23, 440]], [58.27, [233.08, 293.66, 349.23]], [87.31, [349.23, 440, 523.25]], [65.41, [261.63, 329.63, 392]]]
+  const t1 = 1.35 // a primeira batida é o clique
+  const pausa = (s) => (s > 6.95 && s < 8.0) || (s > 8.95 && s < 10.74) || s > 34.98
+  for (let k = 0; ; k++) {
+    const s = t1 + k * B
+    if (s > 35.0) break
+    const bar = Math.floor(k / 4), beat = k % 4, ac = ACORDES[bar % 4]
+    const ato2 = s >= 10.74
+    if (!pausa(s)) {
+      // Bombo: ato 1 a meio tempo (com mais força a partir dos 2,7 s); ato 2 em todas as batidas.
+      if (ato2 || beat % 2 === 0 || s > 8.0) osc('sine', 140, T(s), 0.36, ato2 ? 0.95 : 0.8, musica, { ate: 42 })
+      // Pratos em semicolcheias no ato 2, em colcheias no ato 1 a partir dos 2,7 s.
+      const passos = ato2 ? 4 : s >= 2.6 ? 2 : 0
+      for (let j = 0; j < passos; j++) { const h = s + (j * B) / passos; if (j || !ato2) ruidoF(T(h + (ato2 ? 0 : B / 4)), 0.04, j % 2 ? 0.06 : 0.1, musica, 'highpass', 8000) }
+      // Palmas no 2 e no 4 do ato 2.
+      if (ato2 && beat % 2 === 1 && s > 12) ruidoF(T(s), 0.13, 0.2, musica, 'bandpass', 1600, { q: 0.9, rev: 0.25 })
+      // Baixo: a nota do acorde em colcheias, curto e grave.
+      if (s >= 2.6 && (s < 4.95 || s > 8.0)) for (const m of [0, B / 2]) osc('sawtooth', ac[0], T(s + m), 0.26, ato2 ? 0.17 : 0.12, musica, { filtro: 420 })
+    }
+    // Um pad escuro no ato 2, um acorde por compasso.
+    if (ato2 && beat === 0 && s < 34.9) for (const f of ac[1]) for (const d of [-7, 7]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f / 2; o.detune.value = d
+      const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 900
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, T(s)); g.gain.linearRampToValueAtTime(0.018, T(s + 0.6)); g.gain.linearRampToValueAtTime(0.0001, T(s + 4 * B + 0.2))
+      o.connect(fl).connect(g).connect(musica); const e = ctx.createGain(); e.gain.value = 0.5; g.connect(e).connect(envio); o.start(T(s)); o.stop(T(s + 4 * B + 0.3))
+    }
+  }
+
+  // ---------------- efeitos
+  const whoosh = (s, d = 0.5, v = 0.24) => ruidoF(T(s), d, v, fx, 'bandpass', 300, { ate: 4200, q: 1.3, rev: 0.25, at: d * 0.6 })
+  const clique = (s) => { ruidoF(T(s), 0.025, 0.5, fx, 'highpass', 2500); osc('square', 1500, T(s), 0.03, 0.08, fx) }
+  const blip = (s, f = 880, v = 0.18) => osc('sine', f, T(s), 0.16, v, fx, { rev: 0.3 })
+  const pop = (s, f = 1200) => { osc('triangle', f, T(s), 0.09, 0.16, fx, { ate: f * 1.6 }); ruidoF(T(s), 0.03, 0.12, fx, 'highpass', 4000) }
+  const pancada = (s, v = 0.7) => { osc('sine', 110, T(s), 0.32, v, fx, { ate: 40 }); ruidoF(T(s), 0.12, 0.3, fx, 'lowpass', 2200) }
+  const tecla = (s) => { ruidoF(T(s), 0.018, 0.22, fx, 'highpass', 3500); osc('square', 2200, T(s), 0.012, 0.025, fx) }
+  // Ato 1.
+  whoosh(0.0, 0.7, 0.18)
+  clique(1.35)
+  pancada(1.7)
+  for (let i = 0; i < 24; i += 3) tecla(1.6 + i * 0.035)
+  whoosh(2.2); blip(3.0, 880); pop(3.15)
+  pancada(3.6, 0.55); whoosh(3.6, 0.55, 0.18); blip(4.2, 784); pop(4.35)
+  pancada(5.0, 0.55)
+  for (let i = 0; i < 6; i++) osc('square', 300 + (i % 2) * 40, T(5.0 + i * 0.075), 0.03, 0.05, fx) // o tracejado a falhar
+  blip(5.45, 622, 0.16); pop(5.95, 900)
+  osc('sine', 200, T(6.35), 0.6, 0.6, fx, { ate: 60 }); ruidoF(T(6.35), 0.5, 0.2, fx, 'lowpass', 800, { rev: 0.5 })
+  whoosh(6.95, 0.4, 0.1)
+  for (let i = 0; i < 12; i++) osc('square', 1400 - i * 70, T(7.05 + i * 0.058), 0.025, 0.025, fx)
+  CRUZES.forEach((cz, i) => i % 2 === 0 && osc('triangle', 1700 + (i % 5) * 120, T(cz.t), 0.05, 0.04, fx))
+  pancada(8.09, 0.85)
+  // Glitch: ruído aos soluços e tons quadrados ao acaso.
+  const rg = aleatorio(5)
+  for (let s = 9.0; s < 10.0; s += 0.045) {
+    if (rg() < 0.6) ruidoF(T(s), 0.03 + rg() * 0.04, 0.06 + rg() * 0.1, fx, rg() < 0.5 ? 'bandpass' : 'highpass', 600 + rg() * 5000, { q: 3 })
+    if (rg() < 0.3) osc('square', 80 + rg() * 900, T(s), 0.04, 0.035, fx)
+  }
+  for (const s of [9.33, 9.6, 9.85]) ruidoF(T(s), 0.09, 0.25, fx, 'lowpass', 6000)
+  whoosh(10.0, 0.3, 0.2)
+  // "De novo" e o impacto.
+  ruidoF(T(10.3), 0.25, 0.4, fx, 'bandpass', 900, { q: 0.7 }); osc('sine', 130, T(10.3), 0.3, 0.6, fx, { ate: 50 })
+  osc('sine', 62, T(10.75), 1.6, 0.75, fx, { ate: 28 }); ruidoF(T(10.75), 1.4, 0.5, fx, 'lowpass', 5000, { rev: 0.7 })
+  for (const f of [146.83, 220, 293.66]) osc('sawtooth', f, T(10.75), 1.8, 0.04, fx, { filtro: 1500, rev: 0.6, at: 0.02 })
+  clique(11.1)
+  // Ato 2: viagens e cartões a acender.
+  const viagens = [[11.3, 0.7], ...PASSOS.slice(0, -1).map((p, i) => [p.fim, PASSOS[i + 1].ini - p.fim])]
+  viagens.forEach(([s, d]) => whoosh(s, d, 0.22))
+  PASSOS.forEach((p) => { blip(p.ini - 0.05, 1174.66, 0.12); osc('sine', 1760, T(p.ini), 0.4, 0.05, fx, { rev: 0.8 }); for (let i = 0; i < 6; i++) tecla(p.ini + 0.05 + i * 0.08) })
+  // 01 · Fila.
+  for (const s of [12.7, 13.3]) { clique(s); osc('sine', 1046.5, T(s + 0.04), 0.14, 0.14, fx); osc('sine', 1568, T(s + 0.1), 0.2, 0.12, fx, { rev: 0.4 }) }
+  for (let k = 1; k <= 10; k++) osc('sine', 520 + k * 55, T(13.45 + (k - 0.5) * 0.11), 0.07, 0.11, fx)
+  ;[659.3, 880, 1318.5].forEach((f, i) => osc('triangle', f, T(14.6 + i * 0.13), 0.42, 0.3, fx, { at: 0.02, rev: 0.3 })) // o som de partida encontrada do site
+  // 02 · Draft.
+  ;[16.6, 17.2, 17.8, 18.4].forEach((s, i) => { clique(s); osc('triangle', i % 2 ? 587.33 : 783.99, T(s + 0.03), 0.2, 0.16, fx, { rev: 0.3 }); osc('sine', 140, T(s), 0.14, 0.3, fx, { ate: 70 }) })
+  // 03 · Mapas.
+  ;[20.6, 20.96, 21.32, 21.68, 22.04, 22.4].forEach((s) => { osc('sine', 120, T(s), 0.3, 0.6, fx, { ate: 45 }); ruidoF(T(s), 0.12, 0.22, fx, 'lowpass', 1800) })
+  ;[440, 554.37, 659.25, 880].forEach((f) => osc('sawtooth', f, T(22.6), 1.1, 0.04, fx, { filtro: 2200, rev: 0.6 }))
+  // 04 · Código: bolhas de mensagem.
+  ;[24.6, 25.4, 26.2, 27.0].forEach((s, i) => { osc('sine', i % 2 ? 660 : 880, T(s), 0.08, 0.2, fx, { ate: i % 2 ? 990 : 1320 }); ruidoF(T(s), 0.02, 0.1, fx, 'highpass', 5000) })
+  // 05 · Resultado.
+  osc('sine', 1318.5, T(29.6), 0.5, 0.16, fx, { rev: 0.5 }); osc('sine', 1975.5, T(29.7), 0.6, 0.1, fx, { rev: 0.6 })
+  for (let i = 0; i < 14; i++) osc('square', 700 + i * 34, T(30.2 + i * 0.043), 0.025, 0.035, fx)
+  ;[523.25, 659.25, 783.99].forEach((f) => osc('triangle', f, T(30.8), 0.7, 0.13, fx, { rev: 0.5 }))
+  ruidoF(T(31.05), 0.4, 0.16, fx, 'bandpass', 700, { ate: 4000, q: 2 }); osc('triangle', 880, T(31.25), 0.35, 0.14, fx, { rev: 0.4 }); osc('triangle', 1174.66, T(31.37), 0.45, 0.14, fx, { rev: 0.4 })
+  // Vista geral.
+  whoosh(32.2, 0.8, 0.3)
+  pancada(33.3, 0.7)
+  PASSOS.forEach((p, i) => pop(32.6 + i * 0.12, 1000 + i * 120))
+  ;[783.99, 1046.5, 1318.5].forEach((f, i) => osc('triangle', f, T(33.9 + i * 0.06), 0.5, 0.13, fx, { rev: 0.5 }))
+  // Final: impacto, linha e o texto a escrever-se.
+  osc('sine', 60, T(35.0), 1.8, 0.7, fx, { ate: 28 }); ruidoF(T(35.0), 1.5, 0.45, fx, 'lowpass', 4500, { rev: 0.8 })
+  for (const f of [146.83, 220, 293.66, 349.23]) osc('sawtooth', f, T(35.0), 4.2, 0.035, fx, { filtro: 1300, rev: 0.7, at: 0.05 })
+  ruidoF(T(36.0), 0.8, 0.12, fx, 'bandpass', 400, { ate: 3000, q: 2, at: 0.6 }); blip(36.8, 1318.5, 0.16)
+  for (let i = 0; i < 40; i += 1) if (i % 2 === 0) tecla(37.0 + i * 0.04)
+  osc('sine', 1760, T(38.7), 0.8, 0.06, fx, { rev: 0.9 })
+  vol.gain.setValueAtTime(1.55, T(38.8)); vol.gain.linearRampToValueAtTime(0.0001, T(TOTAL))
+}
+
+// ===================================================================== tocar, fotografar e codificar
+async function preparar() {
+  await document.fonts.ready
+  await Promise.all(MAPAS.map((m) => new Promise((r) => { const i = new Image(); i.onload = i.onerror = r; i.src = mini(m) })))
+}
+async function tocar() {
+  await preparar()
+  const ctx = new AudioContext({ sampleRate: 48000 }); await ctx.resume()
+  const t0 = ctx.currentTime + 0.3
+  criarSom(ctx, ctx.destination, t0)
+  const passo = () => { const s = ctx.currentTime - t0; desenhar(Math.max(0, Math.min(TOTAL, s))); if (s < TOTAL) requestAnimationFrame(passo) }
+  requestAnimationFrame(passo)
+}
+async function somCompleto() {
+  const ctx = new OfflineAudioContext(2, Math.ceil(48000 * (TOTAL + 0.2)), 48000)
+  criarSom(ctx, ctx.destination, 0)
+  return ctx.startRendering()
+}
+async function codificar(total) {
+  if (!window.Mp4Muxer) await new Promise((r, f) => { const sc = document.createElement('script'); sc.src = '../node_modules/mp4-muxer/build/mp4-muxer.js'; sc.onload = r; sc.onerror = f; document.head.appendChild(sc) })
+  const { Muxer, ArrayBufferTarget } = window.Mp4Muxer
+  const video = { codec: 'avc1.640028', width: 1920, height: 1080, bitrate: 10_000_000, framerate: FPS }
+  let audio = { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192_000 }, codecMux = 'aac'
+  if (!(await AudioEncoder.isConfigSupported(audio)).supported) { audio = { ...audio, codec: 'opus' }; codecMux = 'opus' }
+  const alvo = new ArrayBufferTarget()
+  const mux = new Muxer({ target: alvo, video: { codec: 'avc', width: 1920, height: 1080, frameRate: FPS }, audio: { codec: codecMux, sampleRate: 48000, numberOfChannels: 2 }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+  const ve = new VideoEncoder({ output: (c, m) => mux.addVideoChunk(c, m), error: (e) => { throw e } })
+  ve.configure({ ...video, latencyMode: 'quality', avc: { format: 'avc' } })
+  for (let i = 0; i < total; i++) {
+    const bmp = await createImageBitmap(await (await fetch(`/quadros/${i}.jpg`)).blob())
+    const f = new VideoFrame(bmp, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) })
+    ve.encode(f, { keyFrame: i % (FPS * 2) === 0 }); f.close(); bmp.close()
+    while (ve.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 5))
+  }
+  await ve.flush()
+  const som = await somCompleto()
+  const ae = new AudioEncoder({ output: (c, m) => mux.addAudioChunk(c, m), error: (e) => { throw e } })
+  ae.configure(audio)
+  const esq = som.getChannelData(0), dir = som.getChannelData(1), amostras = Math.min(som.length, Math.round((total / FPS) * 48000))
+  for (let i = 0; i < amostras; i += 4800) {
+    const n = Math.min(4800, amostras - i), d = new Float32Array(n * 2); d.set(esq.subarray(i, i + n), 0); d.set(dir.subarray(i, i + n), n)
+    ae.encode(new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round((i * 1e6) / 48000), data: d }))
+  }
+  await ae.flush(); mux.finalize()
+  const r = await fetch('/guardar?nome=rangify-plano-pt.mp4', { method: 'POST', body: alvo.buffer })
+  return r.ok ? `mp4 ${(alvo.buffer.byteLength / 1e6).toFixed(1)} MB (${codecMux})` : 'erro ao guardar'
+}
+
+function ajustar() { $('#palco').style.zoom = MODO ? 1 : Math.min(innerWidth / 1920, innerHeight / 1080) }
+ajustar(); addEventListener('resize', ajustar)
+desenhar(0)
+if (MODO) {
+  $('#comecar').remove()
+  document.body.style.alignItems = 'flex-start'; document.body.style.justifyContent = 'flex-start'
+  window.iniciarQuadros = async () => { await preparar(); desenhar(0); return Math.round(TOTAL * FPS) }
+  window.quadro = (i) => desenhar(i / FPS)
+  window.codificar = codificar
+} else {
+  window.irPara = (s) => desenhar(s)
+  $('#botao').onclick = () => { $('#comecar').remove(); tocar() }
+}
+</script>
+</body>
+</html>
