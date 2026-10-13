@@ -117,6 +117,32 @@ O link `discord://` abre a versão do Discord que o Windows tem associada (a úl
 
 ---
 
+## Botão "Chamar para a fila" (canal de ping)
+
+No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor) e só pode voltar a carregar **3 minutos** depois; antes disso, só essa pessoa vê "Podes voltar a chamar daqui a X". Os IDs do canal e do cargo estão em `supabase/functions/_shared/discord-ping.ts`.
+
+Uma mensagem de webhook (como as regras, feitas no Discohook) não pode ter botões que façam alguma coisa, por isso esta é publicada pelo bot. E como não há bot ligado 24 horas, o Discord manda os cliques para uma Edge Function (o "Interactions Endpoint URL" da aplicação).
+
+1. Corre `supabase/migrations/0016_discord_ping.sql` no **SQL Editor**.
+2. No [Discord Developer Portal](https://discord.com/developers/applications), abre a aplicação do Rangify › **General Information** e copia a **Public Key**. Não é um segredo, mas guarda-a nos secrets como os outros:
+
+   ```bash
+   npx supabase secrets set DISCORD_PUBLIC_KEY=a_public_key
+   ```
+
+3. Publica as duas funções:
+
+   ```bash
+   npx supabase functions deploy discord-interacoes --no-verify-jwt
+   npx supabase functions deploy discord-ping
+   ```
+
+4. Ainda em **General Information**, em **Interactions Endpoint URL**, põe `https://ftswhbbazdzvwedpqqam.supabase.co/functions/v1/discord-interacoes` e carrega em **Save Changes**. O Discord testa o endereço nessa hora: se der erro, confirma o passo 2 e o 3.
+5. Permissões do bot no canal de ping (botão direito no canal › **Editar canal** › **Permissões** › cargo do bot): **Ver canal**, **Enviar mensagens** e **Inserir links**. Para o ping chegar a toda a gente, o bot também precisa de **Mencionar @everyone, @here e todos os cargos**, ou então o cargo de ping tem de estar marcado como **Permitir que qualquer pessoa @mencione este cargo**.
+6. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a mensagem**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra.
+
+Convém que só o bot possa escrever no canal (tira **Enviar mensagens** a @everyone), para a mensagem com o botão ficar sempre visível.
+
 ## Se não aparecer nada
 
 - **Logs da função**: Supabase › **Edge Functions › discord-partida › Logs**. Os erros do Discord aparecem lá com o código (por exemplo `403 Missing Permissions`).

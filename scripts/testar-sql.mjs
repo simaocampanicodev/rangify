@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -692,6 +692,22 @@ await rpc(uids[0], 'definir_loja_publica', { p_publica: false })
 ok(JSON.stringify(await rpc(jog, 'cosmeticos', { p_ids: [pid(5)] })) === '{}', 'com a loja fechada, os jogadores não veem decorações')
 await db.exec(readFileSync(new URL('../supabase/migrations/0015_loja.sql', import.meta.url), 'utf8'))
 ok((await raiz(`select count(*)::int as n from shop_inventory where profile_id = $1`, [pid(5)]))[0].n >= 1, 'correr a 0015 outra vez não apaga inventários')
+
+// ------------------------------------------------------------ ping para a fila no Discord
+console.log('\nPing para a fila (Discord)')
+const quemPinga = '123456789012345678'
+const p1 = (await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r
+ok(p1.ok === true, 'o primeiro clique pinga')
+const p2 = (await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r
+const espera = (Date.parse(p2.livreEm) - Date.now()) / 1000
+ok(p2.ok === false && espera > 170 && espera <= 181, `o segundo clique logo a seguir não pinga e diz quando pode (${Math.round(espera)} s)`)
+ok((await servico(`select public._discord_ping($1, 180) as r`, ['223456789012345678']))[0].r.ok === true, 'outra pessoa pode chamar na mesma')
+await raiz(`update discord_ping set last_at = now() - interval '181 seconds' where user_id = $1`, [quemPinga])
+ok((await servico(`select public._discord_ping($1, 180) as r`, [quemPinga]))[0].r.ok === true, 'passados 3 minutos, volta a poder chamar')
+await falha(servico(`select public._discord_ping($1, 180) as r`, ['abc']), 'inválido', 'recusa um ID que não é do Discord')
+await falha(como(uids[3], `select public._discord_ping('323456789012345678', 180)`), 'permission denied', 'os jogadores não chamam a função diretamente')
+await db.exec(readFileSync(new URL('../supabase/migrations/0016_discord_ping.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0016 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

@@ -1686,6 +1686,10 @@ export const dadosLocais: Dados = {
     return { obrigatorio: atual.obrigatorio, convite: atual.convite, membro: atual.obrigatorio ? atual.membro : null, verificadoEm: null }
   },
 
+  async publicarPingDiscord() {
+    throw new Error('A mensagem do ping só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
   async definirDiscordFila(obrigatorio, convite) {
     const e = await carregar()
     const me = eu(e)

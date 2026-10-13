@@ -272,6 +272,30 @@ export function DiscordStaff() {
         {eu != null && <Chip tom={eu ? 'vitoria' : 'derrota'}>{eu ? l('O bot encontrou-te no servidor', 'The bot found you in the server') : l('O bot não te encontrou no servidor', 'The bot did not find you in the server')}</Chip>}
         <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver DISCORD.md).', 'Needs the verificar-discord Edge Function deployed (see DISCORD.md).')}</span>
       </div>
+      <MensagemPing />
+    </div>
+  )
+}
+
+/** A mensagem do canal de ping, com o botão "Chamar para a fila" (3 minutos entre chamadas de cada pessoa). */
+function MensagemPing() {
+  const acao = useAcao()
+  const [aPublicar, setAPublicar] = useState(false)
+  const publicar = async () => {
+    setAPublicar(true)
+    await acao(() => dados.publicarPingDiscord(), l('Mensagem do ping publicada no Discord.', 'Ping message posted on Discord.'))
+    setAPublicar(false)
+  }
+  return (
+    <div className="flex flex-col gap-3 border-t border-white/6 pt-4">
+      <span className="flex flex-col gap-1">
+        <span className="text-[14px] font-bold">{l('Botão "Chamar para a fila"', '"Call to the queue" button')}</span>
+        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping e só pode voltar a chamar 3 minutos depois. Carregar outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role and can only call again 3 minutes later. Clicking again updates the same message instead of creating a new one.')}</span>
+      </span>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className="btn btn-suave" disabled={aPublicar} onClick={publicar}><Megaphone size={15} aria-hidden />{aPublicar ? l('A publicar…', 'Posting…') : l('Publicar ou atualizar a mensagem', 'Post or update the message')}</button>
+        <span className="text-[12.5px] text-mudo">{l('Precisa das funções discord-ping e discord-interacoes (ver DISCORD.md).', 'Needs the discord-ping and discord-interacoes functions (see DISCORD.md).')}</span>
+      </div>
     </div>
   )
 }

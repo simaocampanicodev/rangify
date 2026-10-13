@@ -263,6 +263,7 @@ export const dadosSupabase: Dados = {
     return { ...base, membro: r.membro, verificadoEm: new Date().toISOString() }
   },
   definirDiscordFila: (obrigatorio, convite) => rpc<EstadoDiscord>('definir_discord_fila', { p_obrigatorio: obrigatorio, p_convite: convite }),
+  publicarPingDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', {}),
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),
 

@@ -492,6 +492,8 @@ export interface Dados {
   estadoDiscord(verificar?: boolean): Promise<EstadoDiscord>
   /** Owner e Dev: torna o servidor de Discord obrigatório para a fila e guarda o convite. */
   definirDiscordFila(obrigatorio: boolean, convite: string): Promise<EstadoDiscord>
+  /** Owner e Dev: publica no canal de ping a mensagem com o botão "Chamar para a fila" (ou atualiza a que lá está). */
+  publicarPingDiscord(): Promise<{ mensagem: string; editada: boolean }>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
   /** Muda-te para a call da tua equipa, se já estiveres numa call do servidor (o Discord não deixa de outra forma). */
