@@ -11,7 +11,8 @@
   /*
     Vídeo "plano sequência" do Rangify (40 s, 1920x1080), na sequência do vídeo de referência:
     1) o problema: um convite no Discord, a malta junta-se e o jogo perde-se;
-    2) o Rangify: uma linha laranja, câmara sempre a seguir, por fila, draft, mapas, código e resultado.
+    2) o Rangify: uma linha laranja, câmara sempre a seguir, pelos ecrãs do site (video/ecras-site.js):
+       a fila a encher, o draft, o ban dos mapas, a scoreboard e a tabela a subir.
     Tudo é desenhado em função do tempo (desenhar(t)), por isso cada fotograma é exato.
     A música e os efeitos são sintetizados aqui (Web Audio), sem ficheiros de som.
     Abrir no browser: Reproduzir. Gravar o MP4: node scripts/gravar-video.mjs --pagina=plano-sequencia pt
@@ -43,6 +44,10 @@
   .chip.ok { border: 1.5px solid rgba(255,91,31,0.45); background: rgba(255,91,31,0.12); color: #ffb592; }
   .chip.vazio { border: 1.5px solid rgba(255,255,255,0.14); color: #a8a29b; }
   .ini { display: inline-flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono Variable', monospace; font-weight: 700; flex-shrink: 0; }
+  :root { --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace; }
+  .tela { position: absolute; box-sizing: border-box; color: #f3f0eb; font-family: 'Geist Variable', Geist, sans-serif; }
+  .tela-in { position: relative; display: flex; flex-direction: column; gap: 18px; width: 950px; zoom: 1.18; }
+  .tela .mono { font-family: var(--mono); }
   #comecar { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(5,5,6,0.82); z-index: 20; }
   #comecar button { height: 54px; padding: 0 28px; border-radius: 14px; border: 0; background: #ff5b1f; color: #170802; font: 800 18px 'Geist Variable', sans-serif; cursor: pointer; }
   #comecar span { font-size: 14px; color: #a8a29b; }
@@ -61,12 +66,13 @@
   <div id="final" class="abs" style="inset: 0; opacity: 0; pointer-events: none"></div>
   <div class="mono abs" style="right: 44px; bottom: 30px; font-size: 13px; letter-spacing: 0.16em; color: rgba(255,255,255,0.32)">RANGIFY · DADOS ILUSTRATIVOS</div>
 </div>
-<div id="comecar"><button type="button" id="botao">Reproduzir</button><span>Com som. 40 segundos.</span></div>
+<div id="comecar"><button type="button" id="botao">Reproduzir</button><span>Com som. 42 segundos.</span></div>
 
+<script src="ecras-site.js"></script>
 <script>
 // ===================================================================== utilidades
 const FPS = 30
-const TOTAL = 39.6
+const TOTAL = 42.0
 const MODO = new URLSearchParams(location.search).get('modo')
 const $ = (s, r = document) => r.querySelector(s)
 const $$ = (s, r = document) => [...r.querySelectorAll(s)]
@@ -112,15 +118,25 @@ const PROB = [
 ]
 const YP = -230
 
-// Ato 2: os cinco passos, em escada.
+// Ato 2: os cinco ecrãs do site (video/ecras-site.js), em escada.
+// Os tempos de cada um: quando acende, os cliques e quando a câmara segue.
+const TA = {
+  fila: { ini: 12.0, fim: 16.0, encontrada: 14.3, aceitar: 15.0 },
+  draft: { ini: 16.9, fim: 20.6, picks: [17.6, 18.3, 19.0, 19.7] },
+  mapas: { ini: 21.4, fim: 25.6, bans: [22.0, 22.55, 23.1, 23.65, 24.2, 24.75] },
+  resultado: { ini: 26.4, fim: 30.4, mvp: 27.7, pontos: 28.1 },
+  tabela: { ini: 31.2, fim: 35.0, subir: 32.7 },
+}
+TA.draft.cursorEm = (i, t) => (i === 0 || i === 2) && t > TA.draft.picks[i] - 0.25 && t < TA.draft.picks[i] + 0.05
+const T_GERAL = 35.0, T_FINAL = 37.4
 const PASSOS = [
-  { id: 'fila', x: 1700, y: 300, h: 372, n: '01', nome: 'FILA', l1: 'ENTRA NA FILA.', l2: '10 JOGADORES.', sub: 'Da tua região e com o Riot ID ligado. Quando a sala enche, tens 20 segundos para aceitar.', ini: 12.0, fim: 15.0 },
-  { id: 'draft', x: 3250, y: 0, h: 372, n: '02', nome: 'DRAFT', l1: 'DOIS CAPITÃES.', l2: 'UM DRAFT.', sub: 'Os dois ranks oficiais mais altos são capitães e escolhem à vez, 15 segundos por escolha.', ini: 15.9, fim: 19.3 },
-  { id: 'mapas', x: 4800, y: 320, h: 392, n: '03', nome: 'MAPAS', l1: 'BANE ATÉ', l2: 'SOBRAR UM.', sub: 'Os capitães banem à vez da rotação da temporada. O último mapa é o da partida.', ini: 20.1, fim: 23.1 },
-  { id: 'codigo', x: 6350, y: 20, h: 410, n: '04', nome: 'CÓDIGO', l1: 'O CÓDIGO,', l2: 'SÓ PARA OS 10.', sub: 'O Capitão A cria o grupo e partilha o código. A partida ganha um chat e uma call por equipa.', ini: 24.0, fim: 28.0 },
-  { id: 'resultado', x: 7900, y: 300, h: 380, n: '05', nome: 'RESULTADO', l1: 'A API CONFIRMA.', l2: 'A TABELA SOBE.', sub: 'O resultado e as estatísticas vêm da Henrik Dev API. O Rangify Score dá até 6 pontos a mais.', ini: 28.9, fim: 32.2 },
-]
-const LARG = 620
+  { id: 'fila', x: 1900, y: 300, esc: 1.0, n: '01', nome: 'FILA', l1: 'ENTRA NA FILA.', l2: '10 JOGADORES.', sub: 'Da tua região e com o Riot ID ligado. Quando a sala enche, tens 20 segundos para aceitar.' },
+  { id: 'draft', x: 4000, y: 0, esc: 0.93, n: '02', nome: 'DRAFT', l1: 'DOIS CAPITÃES.', l2: 'UM DRAFT.', sub: 'Os dois ranks oficiais mais altos são capitães e escolhem à vez, 15 segundos por escolha.' },
+  { id: 'mapas', x: 6100, y: 320, esc: 0.9, n: '03', nome: 'MAPAS', l1: 'BANE ATÉ', l2: 'SOBRAR UM.', sub: 'Os capitães banem à vez da rotação da temporada. O último mapa é o da partida.' },
+  { id: 'resultado', x: 8200, y: 20, esc: 0.78, n: '04', nome: 'RESULTADO', l1: 'A API CONFIRMA.', l2: 'O RS AVALIA.', sub: 'KDA, ACS, KAST e trades de cada jogador, tirados da Henrik Dev API. O MVP é o Rangify Score mais alto.' },
+  { id: 'tabela', x: 10300, y: 300, esc: 0.8, n: '05', nome: 'TABELA', l1: 'SOBE NA', l2: 'TABELA.', sub: 'Toda a gente começa com 1000 pontos. Cada vitória sobe-te na tabela da temporada.' },
+].map((p) => ({ ...p, ...TA[p.id], h: ECRAS[p.id].h }))
+const LARG = 1120
 
 // --- convite no Discord
 no(mundo, `
@@ -163,7 +179,7 @@ const CAMINHO = [[230, 215], [570, 215], [570, PASSOS[0].y], [PASSOS[0].x - LARG
 PASSOS.forEach((p, i) => {
   CAMINHO.push([p.x + LARG / 2, p.y])
   const prox = PASSOS[i + 1]
-  if (prox) { const vx = p.x + LARG / 2 + 90; CAMINHO.push([vx, p.y], [vx, prox.y], [prox.x - LARG / 2, prox.y]) }
+  if (prox) { const vx = p.x + LARG / 2 + 100; CAMINHO.push([vx, p.y], [vx, prox.y], [prox.x - LARG / 2, prox.y]) }
   else CAMINHO.push([p.x + LARG / 2 + 230, p.y])
 })
 const COMPRIMENTOS = [0]
@@ -179,85 +195,23 @@ no(mundo, `
   <polyline id="l2" points="${pontos2}" fill="none" stroke="#ff7a3d" stroke-width="${ESPESSURA + 1}" stroke-linejoin="round"/>
 </svg>`)
 
-// --- os textos e os cartões de cada passo
-const cartoes = {}
-PASSOS.forEach((p, i) => {
-  no(mundo, `<div id="txt-${p.id}" class="abs" style="left:${p.x - LARG / 2 - 760}px;top:${p.y - 236}px;width:720px">
+// --- os textos e os ecrãs de cada passo
+PASSOS.forEach((p) => {
+  no(mundo, `<div id="txt-${p.id}" class="abs" style="left:${p.x - LARG / 2 - 650}px;top:${p.y - 200}px;width:600px">
     <div class="mono eyebrow" style="font-size:19px;font-weight:700;letter-spacing:0.16em;color:#ff8a5b;height:30px"></div>
-    <div class="grande" style="font-size:76px;margin-top:14px;white-space:nowrap"><span class="linha-texto"><span>${p.l1}</span></span><span class="linha-texto"><span style="color:#ff5b1f">${p.l2}</span></span></div>
-    <p class="sub" style="margin:92px 0 0;font-size:25px;line-height:1.45;color:#a8a29b;width:600px">${p.sub}</p>
+    <div class="grande" style="font-size:62px;margin-top:14px;white-space:nowrap"><span class="linha-texto"><span>${p.l1}</span></span><span class="linha-texto"><span style="color:#ff5b1f">${p.l2}</span></span></div>
+    <p class="sub" style="margin:80px 0 0;font-size:23px;line-height:1.45;color:#a8a29b;width:560px">${p.sub}</p>
   </div>`)
   no(mundo, `<div class="porta" style="left:${p.x - LARG / 2}px;top:${p.y}px"></div>`)
   no(mundo, `<div class="porta" style="left:${p.x + LARG / 2}px;top:${p.y}px"></div>`)
-  no(mundo, `<div id="rot-${p.id}" class="abs" style="left:${p.x - LARG / 2}px;top:${p.y + p.h / 2 + 50}px;width:${LARG}px;opacity:0">
-    <div class="mono" style="font-size:64px;font-weight:700;color:#ff5b1f">${p.n}</div>
-    <div class="grande" style="font-size:150px">${p.nome}</div>
+  no(mundo, `<div id="rot-${p.id}" class="abs" style="left:${p.x - LARG / 2}px;top:${p.y + p.h / 2 + 60}px;width:${LARG}px;opacity:0">
+    <div class="mono" style="font-size:110px;font-weight:700;color:#ff5b1f">${p.n}</div>
+    <div class="grande" style="font-size:230px">${p.nome}</div>
   </div>`)
-  cartoes[p.id] = no(mundo, `<div id="cartao-${p.id}" class="cartao" style="left:${p.x - LARG / 2}px;top:${p.y - p.h / 2}px;width:${LARG}px;height:${p.h}px"></div>`)
+  no(mundo, `<div id="tela-${p.id}" class="tela" style="left:${p.x - LARG / 2}px;top:${p.y - p.h / 2}px;width:${LARG}px"><div class="tela-in">${ECRAS[p.id].html()}</div></div>`)
 })
-no(mundo, `<div id="fim-check" class="abs" style="left:${CAMINHO[CAMINHO.length - 1][0] - 40}px;top:${CAMINHO[CAMINHO.length - 1][1] - 40}px;width:80px;height:80px;border-radius:50%;background:#ff5b1f;display:flex;align-items:center;justify-content:center;opacity:0;box-shadow:0 0 50px rgba(255,91,31,0.8)"><svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#170802" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>`)
+no(mundo, `<div id="fim-check" class="abs" style="left:${CAMINHO[CAMINHO.length - 1][0] - 60}px;top:${CAMINHO[CAMINHO.length - 1][1] - 60}px;width:120px;height:120px;border-radius:50%;background:#ff5b1f;display:flex;align-items:center;justify-content:center;opacity:0;box-shadow:0 0 60px rgba(255,91,31,0.8)"><svg viewBox="0 0 24 24" width="70" height="70" fill="none" stroke="#170802" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>`)
 no(mundo, `<div id="ponto2" class="abs" style="width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fff3ea;box-shadow:0 0 26px 9px rgba(255,91,31,0.85);opacity:0"></div>`)
-
-const cab = (titulo, direita) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px"><b style="font-size:22px;letter-spacing:-0.01em">${titulo}</b><span class="mono" style="font-size:14px;color:#8a857e;letter-spacing:0.08em">${direita}</span></div>`
-// 01 · Fila
-cartoes.fila.innerHTML = cab('Pronto para jogar', 'RANGIFY HUB · EU') + `
-  <div class="linha-ui"><span class="ini" style="width:48px;height:48px;border-radius:13px;background:rgba(255,91,31,0.14);color:#ff8a5b;font-size:16px">ID</span>
-    <span style="flex:1;display:flex;flex-direction:column;gap:3px"><b style="font-size:19px">Riot ID</b><span style="font-size:15px;color:#8a857e">Nyx#4521 · Diamante 2</span></span>
-    <span id="f-riot" class="chip botao">Ligar</span></div>
-  <div class="linha-ui"><span class="ini" style="width:48px;height:48px;border-radius:13px;background:rgba(255,91,31,0.14);color:#ff8a5b;font-size:16px">DC</span>
-    <span style="flex:1;display:flex;flex-direction:column;gap:3px"><b style="font-size:19px">Discord</b><span style="font-size:15px;color:#8a857e">Servidor do Rangify</span></span>
-    <span id="f-discord" class="chip botao">Entrar</span></div>
-  <div class="linha-ui" style="flex-direction:column;align-items:stretch;gap:12px">
-    <span style="display:flex;justify-content:space-between;font-size:16px;color:#d0cbc4"><span>À procura de jogadores · EU</span><span id="f-n" class="mono" style="font-weight:700">0/10</span></span>
-    <span style="height:10px;border-radius:5px;background:rgba(255,255,255,0.07);overflow:hidden"><span id="f-barra" style="display:block;height:100%;width:0;background:#ff5b1f;box-shadow:0 0 16px rgba(255,91,31,0.7)"></span></span>
-    <span id="f-encontrada" style="display:flex;align-items:center;justify-content:space-between;opacity:0"><span class="mono" style="font-size:15px;font-weight:700;letter-spacing:0.14em;color:#ff8a5b">PARTIDA ENCONTRADA · 20 S</span><span id="f-aceitar" class="chip botao">Aceitar</span></span>
-  </div>`
-// 02 · Draft
-const DRAFT = [['Cometa', 'Duelista · Diam 3', 'A'], ['Lumi', 'Iniciador · Diam 2', 'B'], ['Pedra', 'Sentinela · Diam 1', 'A'], ['Hugo', 'Controlador · Plat 3', 'B']]
-cartoes.draft.innerHTML = cab('Draft · RG-4821', 'CAPITÃO A · NYX') + `
-  <div style="display:flex;gap:22px;padding:6px 26px 0">
-    <div style="position:relative;width:170px;height:170px;flex-shrink:0;margin-top:18px">
-      <svg viewBox="0 0 100 100" width="170" height="170"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"/><circle id="d-anel" cx="50" cy="50" r="42" fill="none" stroke="#ff5b1f" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 264" transform="rotate(-90 50 50)"/></svg>
-      <span style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><b id="d-n" class="mono" style="font-size:38px">0/8</b><span style="font-size:13px;color:#8a857e">escolhas</span></span>
-    </div>
-    <div style="flex:1;display:flex;flex-direction:column">
-      ${DRAFT.map(([n, f], i) => `<div style="display:flex;align-items:center;justify-content:space-between;height:66px;border-top:${i ? '1.5px solid rgba(255,255,255,0.06)' : '0'}"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:18px">${n}</b><span style="font-size:14px;color:#8a857e">${f}</span></span><span id="d-${i}" class="chip vazio">Escolher</span></div>`).join('')}
-    </div>
-  </div>`
-// 03 · Mapas
-const MAPAS = ['Abyss', 'Ascent', 'Bind', 'Haven', 'Split', 'Sunset', 'Lotus']
-cartoes.mapas.innerHTML = cab('Ban de mapas', 'ROTAÇÃO · 7 MAPAS') + `
-  <div style="display:flex;gap:10px;padding:0 26px 14px"><span id="m-a" class="chip ok" style="height:34px">Vez da Equipa A</span><span id="m-b" class="chip vazio" style="height:34px">Equipa B</span></div>
-  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 26px">
-    ${MAPAS.map((m, i) => `<div id="m-${i}" style="position:relative;height:72px;border-radius:12px;overflow:hidden;border:1.5px solid rgba(255,255,255,0.1);background:#18181c url(${mini(m)}) center/cover">
-      <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(9,9,11,0) 20%,rgba(9,9,11,0.9))"></span>
-      <b style="position:absolute;left:10px;bottom:20px;font-size:15px">${m}</b><span class="mono m-est" style="position:absolute;left:10px;bottom:6px;font-size:11px;font-weight:700;letter-spacing:0.1em;color:#a8a29b">NA ROTAÇÃO</span></div>`).join('')}
-  </div>
-  <div style="margin:16px 26px 0;height:56px;border-radius:13px;background:#060607;border:1.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px">
-    <span id="m-info" class="mono" style="font-size:15px;color:#a8a29b">bans: 0 de 6 · pool: 7</span><span id="m-ok" class="chip ok" style="height:34px;opacity:0">✓ Mapa: Lotus</span>
-  </div>`
-// 04 · Código e chat
-cartoes.codigo.innerHTML = `
-  <div style="display:flex;align-items:center;gap:14px;padding:20px 26px 16px"><span class="ini" style="width:46px;height:46px;border-radius:13px;background:#ff5b1f;color:#170802;font-size:20px">#</span>
-    <span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:20px">rg-4821 · chat da partida</b><span style="font-size:14px;color:#8a857e">Só os 10 jogadores veem</span></span><span class="chip ok" style="height:32px;font-size:14px">Discord</span></div>
-  <div class="mono" style="padding:10px 26px;border-top:1.5px solid rgba(255,255,255,0.06);border-bottom:1.5px solid rgba(255,255,255,0.06);font-size:14px;color:#a8a29b">lobby: <u style="text-decoration-color:#ff5b1f">lotus</u> · capitão a: <u style="text-decoration-color:#ff5b1f">nyx</u></div>
-  <div style="display:flex;flex-direction:column;gap:12px;padding:16px 26px;background:#0c0c0e;height:252px;box-sizing:border-box">
-    <div id="c-1" style="align-self:flex-start;max-width:78%;opacity:0"><span class="mono" style="font-size:12px;color:#ff8a5b;font-weight:700;letter-spacing:0.1em">RANGIFY</span><div style="margin-top:4px;padding:11px 14px;border-radius:14px 14px 14px 4px;border:1.5px solid rgba(255,91,31,0.4);background:rgba(255,91,31,0.08);font-size:16px">Código do grupo, só para vocês: <b class="mono" style="color:#ffb592">K7Q2PX</b></div></div>
-    <div id="c-2" style="align-self:flex-end;max-width:78%;opacity:0"><div style="padding:11px 14px;border-radius:14px 14px 4px 14px;background:#ff5b1f;color:#170802;font-size:16px;font-weight:600">Grupo criado no Lotus. Entrem!</div></div>
-    <div id="c-3" style="align-self:flex-start;max-width:78%;opacity:0"><div style="padding:11px 14px;border-radius:14px 14px 14px 4px;background:#1b1b20;font-size:16px"><b>Draco</b> · Já está. gl hf</div></div>
-    <div id="c-4" class="mono" style="align-self:center;font-size:13px;color:#ffb592;letter-spacing:0.08em;opacity:0">CALL DA TEAM A · 5 DE 5</div>
-  </div>`
-// 05 · Resultado
-const linhaRes = (r, v, id) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 26px;border-top:1.5px solid rgba(255,255,255,0.06);font-size:16px"><span style="color:#8a857e">${r}</span><span id="${id}" class="mono" style="font-weight:700;color:#f3f0eb">${v}</span></div>`
-cartoes.resultado.innerHTML = `
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px"><b style="font-size:22px">Resultado · Lotus</b><span id="r-api" class="chip ok" style="height:34px;font-size:14px;opacity:0">✓ Confirmado pela API</span></div>
-  <div style="display:flex;align-items:center;gap:18px;padding:0 26px 20px">
-    <span style="width:92px;height:92px;border-radius:18px;background:#ff5b1f;color:#170802;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="mono" style="font-size:13px;font-weight:700;letter-spacing:0.1em">VITÓRIA</span><b class="mono" style="font-size:30px">13-9</b></span>
-    <span style="display:flex;flex-direction:column;gap:4px"><b style="font-size:21px">Equipa Nyx contra Equipa Draco</b><span style="font-size:15px;color:#8a857e">Lotus · 34 min · Omen</span></span>
-  </div>
-  ${linhaRes('Rangify Score', '<span id="r-rs">0</span> · MVP', 'r-rs-l')}
-  ${linhaRes('Os teus pontos', '<span style="color:#ff8a5b">+<span id="r-pts">0</span></span>', 'r-pts-l')}
-  ${linhaRes('Tabela', '<span id="r-pos">#4</span>', 'r-pos-l')}`
 
 // ===================================================================== o ecrã (por cima do mundo)
 no(ecra, `<div id="rotulo1" class="mono abs" style="left:48px;top:40px;font-size:18px;font-weight:700;letter-spacing:0.12em;color:#d0cbc4"></div>`)
@@ -271,6 +225,7 @@ const FRASES1 = [
 for (const f of FRASES1) no(ecra, `<div id="${f.id}" class="abs grande linha-texto" style="left:70px;top:860px;font-size:118px;color:${f.cor}"><span>${f.txt}</span></div>`)
 // O cursor do clique e o anel.
 no(ecra, `<svg id="cursor" class="abs" width="44" height="52" viewBox="0 0 22 26" style="left:0;top:0;opacity:0;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7))"><path d="M2 2l17 10.5-7.5 1.6L8 22z" fill="#f3f0eb" stroke="#09090b" stroke-width="1.6" stroke-linejoin="round"/></svg>`)
+no(ecra, `<div id="anel2" class="abs" style="width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;border:3px solid #ff5b1f;opacity:0"></div>`)
 no(ecra, `<div id="anel" class="abs" style="width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;border:4px solid #ff5b1f;opacity:0"></div>`)
 // O momento "0 partidas".
 no(ecra, `<div id="stat" class="abs" style="inset:0;opacity:0">
@@ -312,10 +267,10 @@ const CAM = [
 // O ato 2: chegar a cada passo e ficar até ao fim dele.
 PASSOS.forEach((p, i) => {
   const chega = i === 0 ? 12.0 : PASSOS[i].ini
-  CAM.push([chega, p.x - 380, p.y, 1.0, 1], [p.fim, p.x - 380, p.y, 1.0, 0])
+  CAM.push([chega, p.x - 325, p.y, p.esc, 1], [p.fim, p.x - 325, p.y, p.esc, 0])
 })
-const GERAL = [4100, 170, 0.205]
-CAM.push([33.0, GERAL[0], GERAL[1], GERAL[2], 0], [35.0, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0], [39.6, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0])
+const GERAL = [5430, 250, 0.158]
+CAM.push([T_GERAL + 0.8, GERAL[0], GERAL[1], GERAL[2], 0], [T_FINAL, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0], [TOTAL, GERAL[0], GERAL[1] - 20, GERAL[2] * 0.97, 0])
 
 function camara(t) {
   let i = 0
@@ -340,7 +295,6 @@ function chip(el, t, quando, antes, depois, cls) {
   const p = prog(t, quando, quando + 0.25)
   el.style.transform = feito && p < 1 ? `scale(${1 + 0.18 * Math.sin(Math.PI * p)})` : ''
 }
-$$('#d-0,#d-1,#d-2,#d-3').forEach((e) => (e.dataset.inicial = 'vazio'))
 
 function desenhar(t) {
   const c = camara(t)
@@ -438,11 +392,11 @@ function desenhar(t) {
   const fx = $('#faixa'), pf = prog(t, 10.3, 10.55)
   fx.style.opacity = t >= 10.3 && t < 10.95 ? '1' : '0'
   fx.style.transform = `rotate(-4deg) scale(${misturar(1.6, 1, sair(pf))})`
-  $('#flash').style.opacity = t >= 10.75 && t < 11.15 ? String(1 - sair(prog(t, 10.75, 11.15)) * 0.98) : t >= 35.0 && t < 35.5 ? String(1 - sair(prog(t, 35.0, 35.5))) : '0'
+  $('#flash').style.opacity = t >= 10.75 && t < 11.15 ? String(1 - sair(prog(t, 10.75, 11.15)) * 0.98) : t >= T_FINAL && t < T_FINAL + 0.5 ? String(1 - sair(prog(t, T_FINAL, T_FINAL + 0.5))) : '0'
 
   // ---------------- ato 2
-  $('#logo2').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, 34.9, 35.0)))
-  $('#pilulas').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, 32.4, 32.8)))
+  $('#logo2').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, T_FINAL - 0.1, T_FINAL)))
+  $('#pilulas').style.opacity = String(prog(t, 11.0, 11.3) * (1 - prog(t, T_GERAL + 0.2, T_GERAL + 0.6)))
   const pil = $$('.pilula')
   PASSOS.forEach((p, i) => pil[i].classList.toggle('ativa', t >= p.ini))
   // A linha laranja: cresce em cada viagem e o ponto segue-lhe a ponta.
@@ -450,7 +404,7 @@ function desenhar(t) {
   PASSOS.forEach((p, i) => {
     KL.push([p.fim - 0.01, entrada(i)], [p.fim, saida(i)])
     if (PASSOS[i + 1]) KL.push([PASSOS[i + 1].ini - 0.05, entrada(i + 1)])
-    else KL.push([32.8, COMP_TOTAL])
+    else KL.push([T_GERAL + 0.6, COMP_TOTAL])
   })
   let comp = 0
   for (let k = 0; k < KL.length - 1; k++) { if (t >= KL[k][0]) comp = t >= KL[k + 1][0] ? KL[k + 1][1] : misturar(KL[k][1], KL[k + 1][1], suave(prog(t, KL[k][0], KL[k + 1][0]))) }
@@ -461,76 +415,60 @@ function desenhar(t) {
   for (let k = 1; k < CAMINHO.length; k++) { if (comp <= COMPRIMENTOS[k]) { const pp = (comp - COMPRIMENTOS[k - 1]) / Math.max(1, COMPRIMENTOS[k] - COMPRIMENTOS[k - 1]); qx = misturar(CAMINHO[k - 1][0], CAMINHO[k][0], pp); qy = misturar(CAMINHO[k - 1][1], CAMINHO[k][1], pp); break } qx = CAMINHO[k][0]; qy = CAMINHO[k][1] }
   const p2 = $('#ponto2'); p2.style.left = qx + 'px'; p2.style.top = qy + 'px'
   const emViagem = KL.some((k, j) => j < KL.length - 1 && t > k[0] && t < KL[j + 1][0] && KL[j + 1][1] > k[1])
-  p2.style.opacity = ato2 && t > 11.3 && t < 33.2 && emViagem ? '1' : '0'
+  p2.style.opacity = ato2 && t > 11.3 && t < T_GERAL + 0.8 && emViagem ? '1' : '0'
 
   PASSOS.forEach((p, i) => {
-    const el = $('#cartao-' + p.id)
-    const luz = prog(t, p.ini - 0.25, p.ini + 0.05)
+    const el = $('#tela-' + p.id)
     el.style.visibility = ato2 && t > 11.0 ? 'visible' : 'hidden'
-    vivo(el, luz)
+    vivo(el, prog(t, p.ini - 0.3, p.ini + 0.05))
+    // Cada ecrã anima-se sozinho, do mesmo jeito que no site.
+    if (ato2 && t > 11.0) ECRAS[p.id].desenhar(t, TA[p.id])
     const txt = $('#txt-' + p.id)
     txt.style.visibility = ato2 ? 'visible' : 'hidden'
     $('.eyebrow', txt).textContent = tipo(`${p.n} · ${p.nome}`, t, p.ini + 0.05, 0.04)
     const linhas = $$('.linha-texto', txt)
     entraLinha(linhas[0], t, p.ini + 0.1); entraLinha(linhas[1], t, p.ini + 0.22)
     const sub = $('.sub', txt); sub.style.opacity = String(prog(t, p.ini + 0.35, p.ini + 0.7)); sub.style.transform = `translateY(${(1 - sair(prog(t, p.ini + 0.35, p.ini + 0.7))) * 18}px)`
-    const rot = $('#rot-' + p.id); rot.style.opacity = String(prog(t, 32.6 + i * 0.12, 33.0 + i * 0.12)); rot.style.visibility = ato2 ? 'visible' : 'hidden'
+    const rot = $('#rot-' + p.id); rot.style.opacity = String(prog(t, T_GERAL + 0.4 + i * 0.12, T_GERAL + 0.8 + i * 0.12)); rot.style.visibility = ato2 ? 'visible' : 'hidden'
   })
   $$('.porta').forEach((e) => (e.style.visibility = ato2 && t > 11.0 ? 'visible' : 'hidden'))
-  const fc = $('#fim-check'); fc.style.opacity = String(prog(t, 33.9, 34.1)); fc.style.transform = `scale(${0.3 + 0.7 * salto(prog(t, 33.9, 34.2))})`
+  const fc = $('#fim-check'); fc.style.opacity = String(prog(t, T_GERAL + 1.3, T_GERAL + 1.5)); fc.style.transform = `scale(${0.3 + 0.7 * salto(prog(t, T_GERAL + 1.3, T_GERAL + 1.6))})`
 
-  // 01 · Fila
-  chip($('#f-riot'), t, 12.7, 'Ligar', '✓ Ligado')
-  chip($('#f-discord'), t, 13.3, 'Entrar', '✓ No servidor')
-  const nf = Math.round(10 * prog(t, 13.45, 14.55))
-  $('#f-n').textContent = `${nf}/10`; $('#f-barra').style.width = nf * 10 + '%'
-  $('#f-encontrada').style.opacity = String(prog(t, 14.6, 14.8))
-  $('#f-aceitar').style.boxShadow = t > 14.6 ? `0 0 0 ${((t - 14.6) * 40) % 18}px rgba(255,91,31,${0.5 - (((t - 14.6) * 40) % 18) / 40})` : ''
-  // 02 · Draft
-  const ESC = [16.6, 17.2, 17.8, 18.4]
-  ESC.forEach((q, i) => chip($('#d-' + i), t, q, 'Escolher', `✓ Equipa ${DRAFT[i][2]}`, DRAFT[i][2] === 'A' ? 'ok' : 'vazio'))
-  const nd = ESC.filter((q) => t >= q).length * 2
-  $('#d-n').textContent = `${nd}/8`
-  $('#d-anel').setAttribute('stroke-dasharray', `${264 * misturar((nd - 2) / 8, nd / 8, sair(prog(t, ESC[Math.max(0, nd / 2 - 1)] || 0, (ESC[Math.max(0, nd / 2 - 1)] || 0) + 0.3)))} 264`)
-  if (nd === 0) $('#d-anel').setAttribute('stroke-dasharray', '0 264')
-  // 03 · Mapas
-  const BANS = [20.6, 20.96, 21.32, 21.68, 22.04, 22.4]
-  const nb = BANS.filter((q) => t >= q).length
-  MAPAS.forEach((m, i) => {
-    const el = $('#m-' + i), est = $('.m-est', el)
-    const banido = i < 6 && t >= BANS[i], escolhido = i === 6 && nb === 6
-    el.style.filter = banido ? 'grayscale(1) brightness(0.45)' : ''
-    el.style.borderColor = escolhido ? '#ff5b1f' : 'rgba(255,255,255,0.1)'
-    el.style.boxShadow = escolhido ? '0 0 30px rgba(255,91,31,0.55)' : ''
-    est.textContent = banido ? `BAN · EQUIPA ${i % 2 ? 'B' : 'A'}` : escolhido ? 'MAPA DA PARTIDA' : 'NA ROTAÇÃO'
-    est.style.color = banido ? '#ff8a5b' : escolhido ? '#ffb592' : '#a8a29b'
-    el.style.transform = banido && t < BANS[i] + 0.15 ? 'scale(0.94)' : ''
-  })
-  $('#m-a').className = 'chip ' + (nb % 2 === 0 && nb < 6 ? 'ok' : 'vazio'); $('#m-a').textContent = nb % 2 === 0 && nb < 6 ? 'Vez da Equipa A' : 'Equipa A'
-  $('#m-b').className = 'chip ' + (nb % 2 === 1 ? 'ok' : 'vazio'); $('#m-b').textContent = nb % 2 === 1 ? 'Vez da Equipa B' : 'Equipa B'
-  $('#m-info').textContent = `bans: ${nb} de 6 · pool: 7`
-  $('#m-ok').style.opacity = String(prog(t, 22.6, 22.8))
-  // 04 · Código
-  ;[24.6, 25.4, 26.2, 27.0].forEach((q, i) => { const el = $('#c-' + (i + 1)); const p = salto(prog(t, q, q + 0.3)); el.style.opacity = t >= q ? '1' : '0'; el.style.transform = `translateY(${(1 - p) * 16}px) scale(${0.85 + 0.15 * p})` })
-  // 05 · Resultado
-  $('#r-api').style.opacity = String(prog(t, 29.6, 29.8)); $('#r-api').style.transform = `scale(${0.6 + 0.4 * salto(prog(t, 29.6, 29.9))})`
-  $('#r-rs').textContent = String(Math.round(124 * sair(prog(t, 29.9, 30.6))))
-  $('#r-pts').textContent = String(Math.round(26 * sair(prog(t, 30.2, 30.8))))
-  $('#r-pos').innerHTML = t >= 31.2 ? '#4 → <span style="color:#ff8a5b">#3</span>' : '#4'
+  // O cursor dentro dos ecrãs: vai a cada botão e clica, como quem joga.
+  const ALVOS = [
+    [TA.fila.ini + 0.55, '#fila-botao'], [TA.fila.aceitar, '#conf-aceitar'],
+    [TA.draft.picks[0], '#livre-0 .dr-btn'], [TA.draft.picks[2], '#livre-2 .dr-btn'],
+    [TA.mapas.bans[0], '.ban-c[data-m="Abyss"] .ban-btn'], [TA.mapas.bans[2], '.ban-c[data-m="Bind"] .ban-btn'], [TA.mapas.bans[4], '.ban-c[data-m="Haven"] .ban-btn'],
+  ]
+  const alvo = ALVOS.find(([q]) => t > q - 0.8 && t < q + 0.5)
+  const an2 = $('#anel2')
+  an2.style.opacity = '0'
+  if (alvo && ato2) {
+    const [q, sel] = alvo
+    const r = $(sel).getBoundingClientRect(), pr = $('#palco').getBoundingClientRect(), z = pr.width / 1920
+    const ax = (r.left + r.width / 2 - pr.left) / z, ay = (r.top + r.height / 2 - pr.top) / z
+    const pc2 = suave(prog(t, q - 0.65, q - 0.1))
+    cur.style.opacity = String(prog(t, q - 0.8, q - 0.6) * (1 - prog(t, q + 0.3, q + 0.5)))
+    cur.style.transform = `translate(${misturar(ax + 220, ax, pc2)}px,${misturar(ay + 170, ay, pc2) + (t > q && t < q + 0.1 ? 4 : 0)}px)`
+    const pa2 = prog(t, q, q + 0.45)
+    an2.style.opacity = pa2 > 0 && pa2 < 1 ? String(1 - pa2) : '0'
+    an2.style.transform = `translate(${ax}px,${ay}px) scale(${0.3 + pa2})`
+  }
 
   // A vista geral e o final.
-  const pg = $('#geral'); pg.style.opacity = t >= 33.3 && t < 35.0 ? '1' : '0'; pg.style.transform = `translateY(${(1 - sair(prog(t, 33.3, 33.65))) * 60}px)`
-  const fim = $('#final'); fim.style.opacity = t >= 35.0 ? '1' : '0'
-  $('#camara').style.opacity = t >= 35.0 ? '0' : '1'
-  if (t >= 35.0) {
-    $('#fim-logo').style.transform = `scale(${0.6 + 0.4 * salto(prog(t, 35.05, 35.5))})`
-    const pl = suave(prog(t, 36.0, 36.8))
+  const pg = $('#geral'); pg.style.opacity = t >= T_GERAL + 0.6 && t < T_FINAL ? '1' : '0'; pg.style.transform = `translateY(${(1 - sair(prog(t, T_GERAL + 0.6, T_GERAL + 0.95))) * 60}px)`
+  const fim = $('#final'); fim.style.opacity = t >= T_FINAL ? '1' : '0'
+  $('#camara').style.opacity = t >= T_FINAL ? '0' : '1'
+  if (t >= T_FINAL) {
+    const f0 = T_FINAL
+    $('#fim-logo').style.transform = `scale(${0.6 + 0.4 * salto(prog(t, f0 + 0.05, f0 + 0.5))})`
+    const pl = suave(prog(t, f0 + 1.0, f0 + 1.8))
     $('#fim-linha').style.width = pl * 590 + 'px'
     $('#fim-ponto').style.left = 650 + pl * 590 + 'px'
-    $('#fim-ponto').style.opacity = String(prog(t, 35.5, 35.7))
-    $('#fim-txt').textContent = tipo('ENTRA NO DISCORD, LIGA O RIOT ID E JOGA.', t, 37.0, 0.04) + (t > 37.0 && Math.floor(t * 2.5) % 2 === 0 ? '▍' : '')
+    $('#fim-ponto').style.opacity = String(prog(t, f0 + 0.5, f0 + 0.7))
+    $('#fim-txt').textContent = tipo('ENTRA NO DISCORD, LIGA O RIOT ID E JOGA.', t, f0 + 2.0, 0.04) + (t > f0 + 2.0 && Math.floor(t * 2.5) % 2 === 0 ? '▍' : '')
   }
-  $('#luzes').style.opacity = t >= 35.0 ? '0.6' : '1'
+  $('#luzes').style.opacity = t >= T_FINAL ? '0.6' : '1'
 }
 
 // ===================================================================== o som
@@ -566,10 +504,10 @@ function criarSom(ctx, saida, t0) {
   const B = 60 / 89
   const ACORDES = [[73.42, [293.66, 349.23, 440]], [58.27, [233.08, 293.66, 349.23]], [87.31, [349.23, 440, 523.25]], [65.41, [261.63, 329.63, 392]]]
   const t1 = 1.35 // a primeira batida é o clique
-  const pausa = (s) => (s > 6.95 && s < 8.0) || (s > 8.95 && s < 10.74) || s > 34.98
+  const pausa = (s) => (s > 6.95 && s < 8.0) || (s > 8.95 && s < 10.74) || s > T_FINAL - 0.02
   for (let k = 0; ; k++) {
     const s = t1 + k * B
-    if (s > 35.0) break
+    if (s > T_FINAL) break
     const bar = Math.floor(k / 4), beat = k % 4, ac = ACORDES[bar % 4]
     const ato2 = s >= 10.74
     if (!pausa(s)) {
@@ -584,7 +522,7 @@ function criarSom(ctx, saida, t0) {
       if (s >= 2.6 && (s < 4.95 || s > 8.0)) for (const m of [0, B / 2]) osc('sawtooth', ac[0], T(s + m), 0.26, ato2 ? 0.17 : 0.12, musica, { filtro: 420 })
     }
     // Um pad escuro no ato 2, um acorde por compasso.
-    if (ato2 && beat === 0 && s < 34.9) for (const f of ac[1]) for (const d of [-7, 7]) {
+    if (ato2 && beat === 0 && s < T_FINAL - 0.1) for (const f of ac[1]) for (const d of [-7, 7]) {
       const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f / 2; o.detune.value = d
       const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 900
       const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, T(s)); g.gain.linearRampToValueAtTime(0.018, T(s + 0.6)); g.gain.linearRampToValueAtTime(0.0001, T(s + 4 * B + 0.2))
@@ -627,44 +565,66 @@ function criarSom(ctx, saida, t0) {
   osc('sine', 62, T(10.75), 1.6, 0.75, fx, { ate: 28 }); ruidoF(T(10.75), 1.4, 0.5, fx, 'lowpass', 5000, { rev: 0.7 })
   for (const f of [146.83, 220, 293.66]) osc('sawtooth', f, T(10.75), 1.8, 0.04, fx, { filtro: 1500, rev: 0.6, at: 0.02 })
   clique(11.1)
-  // Ato 2: viagens e cartões a acender.
+  // Ato 2: viagens e ecrãs a acender.
   const viagens = [[11.3, 0.7], ...PASSOS.slice(0, -1).map((p, i) => [p.fim, PASSOS[i + 1].ini - p.fim])]
   viagens.forEach(([s, d]) => whoosh(s, d, 0.22))
   PASSOS.forEach((p) => { blip(p.ini - 0.05, 1174.66, 0.12); osc('sine', 1760, T(p.ini), 0.4, 0.05, fx, { rev: 0.8 }); for (let i = 0; i < 6; i++) tecla(p.ini + 0.05 + i * 0.08) })
-  // 01 · Fila.
-  for (const s of [12.7, 13.3]) { clique(s); osc('sine', 1046.5, T(s + 0.04), 0.14, 0.14, fx); osc('sine', 1568, T(s + 0.1), 0.2, 0.12, fx, { rev: 0.4 }) }
-  for (let k = 1; k <= 10; k++) osc('sine', 520 + k * 55, T(13.45 + (k - 0.5) * 0.11), 0.07, 0.11, fx)
-  ;[659.3, 880, 1318.5].forEach((f, i) => osc('triangle', f, T(14.6 + i * 0.13), 0.42, 0.3, fx, { at: 0.02, rev: 0.3 })) // o som de partida encontrada do site
-  // 02 · Draft.
-  ;[16.6, 17.2, 17.8, 18.4].forEach((s, i) => { clique(s); osc('triangle', i % 2 ? 587.33 : 783.99, T(s + 0.03), 0.2, 0.16, fx, { rev: 0.3 }); osc('sine', 140, T(s), 0.14, 0.3, fx, { ate: 70 }) })
-  // 03 · Mapas.
-  ;[20.6, 20.96, 21.32, 21.68, 22.04, 22.4].forEach((s) => { osc('sine', 120, T(s), 0.3, 0.6, fx, { ate: 45 }); ruidoF(T(s), 0.12, 0.22, fx, 'lowpass', 1800) })
-  ;[440, 554.37, 659.25, 880].forEach((f) => osc('sawtooth', f, T(22.6), 1.1, 0.04, fx, { filtro: 2200, rev: 0.6 }))
-  // 04 · Código: bolhas de mensagem.
-  ;[24.6, 25.4, 26.2, 27.0].forEach((s, i) => { osc('sine', i % 2 ? 660 : 880, T(s), 0.08, 0.2, fx, { ate: i % 2 ? 990 : 1320 }); ruidoF(T(s), 0.02, 0.1, fx, 'highpass', 5000) })
-  // 05 · Resultado.
-  osc('sine', 1318.5, T(29.6), 0.5, 0.16, fx, { rev: 0.5 }); osc('sine', 1975.5, T(29.7), 0.6, 0.1, fx, { rev: 0.6 })
-  for (let i = 0; i < 14; i++) osc('square', 700 + i * 34, T(30.2 + i * 0.043), 0.025, 0.035, fx)
-  ;[523.25, 659.25, 783.99].forEach((f) => osc('triangle', f, T(30.8), 0.7, 0.13, fx, { rev: 0.5 }))
-  ruidoF(T(31.05), 0.4, 0.16, fx, 'bandpass', 700, { ate: 4000, q: 2 }); osc('triangle', 880, T(31.25), 0.35, 0.14, fx, { rev: 0.4 }); osc('triangle', 1174.66, T(31.37), 0.45, 0.14, fx, { rev: 0.4 })
+  // 01 · Fila: entrar, os lugares a encher, a partida encontrada (o som do site) e aceitar.
+  const F = TA.fila, cf = F.ini + 0.55
+  clique(cf); osc('sine', 1046.5, T(cf + 0.04), 0.14, 0.14, fx); osc('sine', 1568, T(cf + 0.1), 0.2, 0.12, fx, { rev: 0.4 })
+  for (let k = 4; k <= 10; k++) osc('sine', 520 + k * 55, T(cf + 0.15 + (k - 3) / 4.6), 0.07, 0.11, fx)
+  ;[659.3, 880, 1318.5].forEach((f, i) => osc('triangle', f, T(F.encontrada + i * 0.13), 0.42, 0.3, fx, { at: 0.02, rev: 0.3 }))
+  clique(F.aceitar); osc('triangle', 987.77, T(F.aceitar + 0.03), 0.3, 0.16, fx, { rev: 0.4 })
+  for (const d of [0.35, 0.6, 0.8, 1.0]) osc('sine', 1400, T(F.encontrada + d), 0.05, 0.05, fx)
+  for (const d of [0.25, 0.45, 0.6, 0.8, 1.0]) osc('sine', 1500, T(F.aceitar + d), 0.05, 0.06, fx)
+  ;[523.25, 659.25, 783.99].forEach((f) => osc('triangle', f, T(F.aceitar + 1.05), 0.6, 0.12, fx, { rev: 0.5 }))
+  // 02 · Draft: cada escolha (as da Equipa A com clique) e as equipas fechadas.
+  TA.draft.picks.forEach((s, i) => { if (i % 2 === 0) clique(s); osc('triangle', i % 2 ? 587.33 : 783.99, T(s + 0.03), 0.2, 0.16, fx, { rev: 0.3 }); osc('sine', 140, T(s), 0.14, 0.3, fx, { ate: 70 }) })
+  ;[440, 554.37, 659.25].forEach((f) => osc('triangle', f, T(TA.draft.picks[3] + 0.35), 0.6, 0.1, fx, { rev: 0.5 }))
+  // 03 · Mapas: o mapa abre ao passar o rato, a pancada do ban e o mapa da partida.
+  TA.mapas.bans.forEach((s, i) => {
+    if (i % 2 === 0) { ruidoF(T(s - 0.42), 0.25, 0.08, fx, 'bandpass', 900, { ate: 2600, q: 1.5 }); clique(s) }
+    osc('sine', 120, T(s), 0.3, 0.6, fx, { ate: 45 }); ruidoF(T(s), 0.12, 0.22, fx, 'lowpass', 1800)
+  })
+  ;[440, 554.37, 659.25, 880].forEach((f) => osc('sawtooth', f, T(TA.mapas.bans[5] + 0.15), 1.1, 0.04, fx, { filtro: 2200, rev: 0.6 }))
+  // 04 · Resultado: as linhas a entrar, o MVP, os pontos a contar e o acorde da vitória.
+  const R = TA.resultado
+  for (let i = 0; i < 10; i++) osc('sine', 900 + i * 40, T(R.ini + 0.25 + i * 0.07), 0.04, 0.05, fx)
+  ;[1567.98, 2093, 2637].forEach((f, i) => osc('sine', f, T(R.mvp + i * 0.05), 0.35, 0.06, fx, { rev: 0.8 }))
+  for (let i = 0; i < 14; i++) osc('square', 700 + i * 34, T(R.pontos + i * 0.05), 0.025, 0.035, fx)
+  ;[523.25, 659.25, 783.99].forEach((f) => osc('triangle', f, T(R.pontos + 0.72), 0.7, 0.13, fx, { rev: 0.5 }))
+  // 05 · Tabela: os pontos a subir e a troca de lugar.
+  const S = TA.tabela.subir
+  for (let i = 0; i < 10; i++) osc('square', 800 + i * 40, T(S - 0.6 + i * 0.06), 0.02, 0.03, fx)
+  ruidoF(T(S - 0.05), 0.5, 0.16, fx, 'bandpass', 700, { ate: 4000, q: 2 }); osc('triangle', 880, T(S + 0.4), 0.35, 0.14, fx, { rev: 0.4 }); osc('triangle', 1174.66, T(S + 0.52), 0.45, 0.14, fx, { rev: 0.4 })
   // Vista geral.
-  whoosh(32.2, 0.8, 0.3)
-  pancada(33.3, 0.7)
-  PASSOS.forEach((p, i) => pop(32.6 + i * 0.12, 1000 + i * 120))
-  ;[783.99, 1046.5, 1318.5].forEach((f, i) => osc('triangle', f, T(33.9 + i * 0.06), 0.5, 0.13, fx, { rev: 0.5 }))
+  whoosh(T_GERAL, 0.8, 0.3)
+  pancada(T_GERAL + 0.6, 0.7)
+  PASSOS.forEach((p, i) => pop(T_GERAL + 0.4 + i * 0.12, 1000 + i * 120))
+  ;[783.99, 1046.5, 1318.5].forEach((f, i) => osc('triangle', f, T(T_GERAL + 1.3 + i * 0.06), 0.5, 0.13, fx, { rev: 0.5 }))
   // Final: impacto, linha e o texto a escrever-se.
-  osc('sine', 60, T(35.0), 1.8, 0.7, fx, { ate: 28 }); ruidoF(T(35.0), 1.5, 0.45, fx, 'lowpass', 4500, { rev: 0.8 })
-  for (const f of [146.83, 220, 293.66, 349.23]) osc('sawtooth', f, T(35.0), 4.2, 0.035, fx, { filtro: 1300, rev: 0.7, at: 0.05 })
-  ruidoF(T(36.0), 0.8, 0.12, fx, 'bandpass', 400, { ate: 3000, q: 2, at: 0.6 }); blip(36.8, 1318.5, 0.16)
-  for (let i = 0; i < 40; i += 1) if (i % 2 === 0) tecla(37.0 + i * 0.04)
-  osc('sine', 1760, T(38.7), 0.8, 0.06, fx, { rev: 0.9 })
-  vol.gain.setValueAtTime(1.55, T(38.8)); vol.gain.linearRampToValueAtTime(0.0001, T(TOTAL))
+  const f0 = T_FINAL
+  osc('sine', 60, T(f0), 1.8, 0.7, fx, { ate: 28 }); ruidoF(T(f0), 1.5, 0.45, fx, 'lowpass', 4500, { rev: 0.8 })
+  for (const f of [146.83, 220, 293.66, 349.23]) osc('sawtooth', f, T(f0), 4.2, 0.035, fx, { filtro: 1300, rev: 0.7, at: 0.05 })
+  ruidoF(T(f0 + 1.0), 0.8, 0.12, fx, 'bandpass', 400, { ate: 3000, q: 2, at: 0.6 }); blip(f0 + 1.8, 1318.5, 0.16)
+  for (let i = 0; i < 40; i += 1) if (i % 2 === 0) tecla(f0 + 2.0 + i * 0.04)
+  osc('sine', 1760, T(f0 + 3.7), 0.8, 0.06, fx, { rev: 0.9 })
+  vol.gain.setValueAtTime(1.55, T(TOTAL - 0.8)); vol.gain.linearRampToValueAtTime(0.0001, T(TOTAL))
 }
 
 // ===================================================================== tocar, fotografar e codificar
+function ajustarTelas() {
+  PASSOS.forEach((p) => {
+    const el = $('#tela-' + p.id)
+    p.h = el.offsetHeight
+    el.style.top = p.y - p.h / 2 + 'px'
+    $('#rot-' + p.id).style.top = p.y + p.h / 2 + 60 + 'px'
+  })
+}
 async function preparar() {
   await document.fonts.ready
-  await Promise.all(MAPAS.map((m) => new Promise((r) => { const i = new Image(); i.onload = i.onerror = r; i.src = mini(m) })))
+  ajustarTelas()
+  await Promise.all(IMAGENS_ECRAS.map((src) => new Promise((r) => { const i = new Image(); i.onload = i.onerror = r; i.src = src })))
 }
 async function tocar() {
   await preparar()

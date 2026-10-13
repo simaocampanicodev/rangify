@@ -158,28 +158,39 @@
 @keyframes rg-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 @keyframes rg-pagina { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
 @keyframes rg-brilho { from { background-position: 150% 0 } to { background-position: -50% 0 } }
+/*
+ * Os fios só mexem com transform e opacity: cada um é pintado (e desfocado) uma
+ * vez numa camada própria e a placa gráfica só o desloca, roda e acende.
+ */
 @keyframes rg-fio-a {
-  0%, 100% { d: path("M 940 -40 C 965 40 1020 92 1130 112 C 1250 134 1335 128 1352 70 C 1364 28 1346 -12 1330 -40") }
-  33% { d: path("M 925 -40 C 960 55 1035 104 1150 122 C 1265 140 1342 120 1356 62 C 1366 22 1350 -14 1336 -40") }
-  66% { d: path("M 955 -40 C 975 32 1010 80 1115 100 C 1235 124 1328 136 1348 78 C 1362 36 1342 -8 1324 -40") }
+  0%, 100% { transform: none; opacity: .88 }
+  33% { transform: translate(-12px, 9px) rotate(-1.4deg) scale(1.03); opacity: 1 }
+  66% { transform: translate(10px, -7px) rotate(1deg) scale(.985); opacity: .8 }
 }
 @keyframes rg-fio-b {
-  0%, 100% { d: path("M -40 60 C 110 70 225 150 248 268 C 266 360 232 432 160 480 C 92 526 30 566 -40 640") }
-  33% { d: path("M -40 80 C 120 92 240 170 258 285 C 272 372 236 446 168 492 C 100 538 36 580 -40 660") }
-  66% { d: path("M -40 45 C 100 52 214 132 240 252 C 260 348 228 420 150 468 C 84 514 24 552 -40 620") }
+  0%, 100% { transform: none; opacity: .9 }
+  33% { transform: translate(9px, 16px) rotate(1.2deg) scale(1.025); opacity: 1 }
+  66% { transform: translate(-7px, -12px) rotate(-.9deg) scale(.98); opacity: .78 }
 }
 @keyframes rg-fio-c {
-  0%, 100% { d: path("M -40 1000 C 90 880 250 830 390 868 C 510 900 580 946 660 1010") }
-  33% { d: path("M -40 990 C 100 868 262 816 402 856 C 522 890 588 936 668 1000") }
-  66% { d: path("M -40 1010 C 80 892 240 846 380 882 C 500 912 572 956 652 1020") }
+  0%, 100% { transform: none; opacity: .9 }
+  33% { transform: translate(10px, -10px) rotate(-1deg) scale(1.02); opacity: 1 }
+  66% { transform: translate(-9px, 9px) rotate(.8deg) scale(.99); opacity: .8 }
 }
-.fio-a { animation: rg-fio-a 16s ease-in-out infinite }
-.fio-b { animation: rg-fio-b 22s ease-in-out infinite }
-.fio-c { animation: rg-fio-c 19s ease-in-out infinite }
-.fio-a-brilho { animation: rg-fio-a 16s ease-in-out infinite, rg-respira 6s ease-in-out infinite }
-.fio-b-brilho { animation: rg-fio-b 22s ease-in-out infinite, rg-respira 8s ease-in-out infinite }
-.fio-c-brilho { animation: rg-fio-c 19s ease-in-out infinite, rg-respira 7s ease-in-out infinite }
+.fio { will-change: transform, opacity; }
+.fio-a { transform-origin: 85% 0; animation: rg-fio-a 16s ease-in-out infinite }
+.fio-b { transform-origin: 0 50%; animation: rg-fio-b 22s ease-in-out infinite }
+.fio-c { transform-origin: 0 100%; animation: rg-fio-c 19s ease-in-out infinite }
+.fio-d { animation: rg-respira 9s ease-in-out infinite }
 .respira { animation: rg-respira 9s ease-in-out infinite }
+
+/*
+ * Fundo leve (computadores fracos, ou escolhido nas Definições): os painéis
+ * deixam de desfocar o que está por trás e ficam mais opacos. Desfocar por cima
+ * de um fundo que mexe obriga a refazer o desfoque a cada fotograma.
+ */
+html[data-fundo='leve'] .painel { background: rgb(16 16 19 / 0.93); backdrop-filter: none; }
+html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; background-color: rgb(10 10 12 / 0.94) !important; }
 .ao-vivo { animation: rg-pisca 1.6s ease-in-out infinite }
 .ping { animation: rg-ping 1.8s ease-out infinite }
 .entra { animation: rg-entra .35s ease-out both }

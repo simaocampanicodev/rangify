@@ -1,13 +1,14 @@
-import { BookOpen, FlaskConical, Globe, KeyRound, RefreshCw, RotateCcw, Save, Settings, Volume2 } from 'lucide-react'
+import { BookOpen, FlaskConical, Globe, KeyRound, RefreshCw, RotateCcw, Save, Settings, Sparkles, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EditarPerfil } from '@/components/EditarPerfil'
 import { SeletorIdioma } from '@/components/Idioma'
 import { reverTour } from '@/components/Tour'
-import { Cabecalho, Carregando, Painel, RankBadge, TituloPainel } from '@/components/ui'
+import { Cabecalho, Carregando, Painel, RankBadge, Segmentado, TituloPainel } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/dados'
+import { definirPreferenciaFundo, preferenciaFundo, type PreferenciaFundo } from '@/lib/fundo'
 import { REGIOES } from '@/lib/regioes'
 import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/som'
 import { l, nomeFuncaoJogo } from '@/lib/idioma'
@@ -24,6 +25,7 @@ export function Definicoes() {
   const [password, setPassword] = useState('')
   const [som, setSom] = useState(somLigado)
   const [volume, setVolume] = useState(volumeSom)
+  const [fundo, setFundo] = useState(preferenciaFundo)
 
   useEffect(() => {
     if (!perfil) return
@@ -152,6 +154,22 @@ export function Definicoes() {
           />
           <span className="w-11 shrink-0 text-right font-mono text-[13px] font-semibold text-pessego">{volume}%</span>
         </div>
+      </Painel>
+
+      <Painel aria-labelledby="rg-def-fundo" className="flex flex-wrap items-center justify-between gap-4 p-[22px]">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Sparkles size={18} aria-hidden /></span>
+          <div className="flex flex-col gap-0.5">
+            <h2 id="rg-def-fundo" className="m-0 text-[16px] font-bold">{l('Efeitos do fundo', 'Background effects')}</h2>
+            <span className="text-[13px] text-mudo">{l('Se o site estiver lento, o modo leve tira o vidro dos painéis. As linhas do fundo continuam a mexer.', 'If the site feels slow, light mode removes the glass from the panels. The background lines keep moving.')}</span>
+          </div>
+        </div>
+        <Segmentado<PreferenciaFundo>
+          rotulo={l('Efeitos do fundo', 'Background effects')}
+          valor={fundo}
+          onChange={(v) => { setFundo(v); definirPreferenciaFundo(v) }}
+          opcoes={[{ valor: 'auto', texto: l('Automático', 'Automatic') }, { valor: 'completo', texto: l('Completo', 'Full') }, { valor: 'leve', texto: l('Leve', 'Light') }]}
+        />
       </Painel>
 
       {dados.modo === 'demo' && (
