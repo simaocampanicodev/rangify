@@ -1,7 +1,7 @@
 import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { DiscordStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { DiscordStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -163,7 +163,7 @@ function Jogadores() {
       <ul className="m-0 flex list-none flex-col p-0">
         {lista.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center gap-3 border-t border-white/6 py-2.5">
-            <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} />
+            <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
               <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
@@ -192,7 +192,7 @@ export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'loja' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
@@ -225,7 +225,7 @@ export function Admin() {
           rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
+          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
@@ -295,6 +295,12 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="DISCORD" titulo={tx('Servidor obrigatório para a fila', 'Server required for the queue')} />
             <DiscordStaff />
+          </div>
+        )}
+        {aba === 'loja' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('LOJA', 'SHOP')} titulo={tx('Abrir a loja a toda a gente', 'Open the shop to everyone')} />
+            <LojaStaff />
           </div>
         )}
         {aba === 'mapas' && (

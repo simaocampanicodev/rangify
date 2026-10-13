@@ -2,6 +2,7 @@ import { Check, Search, Trash, UserPlus, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { List, type RowComponentProps } from 'react-window'
+import { useClassesCosmeticos } from '@/components/Cosmeticos'
 import { Avatar, BotaoSegurar, Cabecalho, Chip, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -21,14 +22,15 @@ function Estado({ a }: { a: Amizade }) {
 function LinhaAmigo({ index, style, lista, remover, dica }: RowComponentProps<{ lista: Amizade[]; remover: (id: string) => void; dica: () => void }>) {
   const a = lista[index]
   const p = a.perfil
+  const cz = useClassesCosmeticos(p.id)
   return (
     <div style={style} className="border-t border-white/6">
       {/* As primeiras linhas entram em cascata; as que aparecem ao fazer scroll entram logo. */}
-      <div className={`flex h-full items-center gap-3 px-1 ${index < 10 ? 'entra-linha' : ''}`} style={{ '--i': index } as React.CSSProperties}>
+      <div className={`flex h-full items-center gap-3 px-1 ${index < 10 ? 'entra-linha' : ''} ${cz.placa ? `${cz.placa} rounded-xl px-3` : ''}`} style={{ '--i': index } as React.CSSProperties}>
       <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 flex-1 items-center gap-3 text-texto no-underline hover:text-pessego">
-        <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={38} />
+        <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={38} perfilId={p.id} />
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[14px] font-semibold">{nomeJogador(p)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(p)}</span></span>
+          <span className="cz-nome truncate text-[14px] font-semibold">{nomeJogador(p)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(p)}</span></span>
           <span className="font-mono text-[11.5px] text-mudo">{p.pontos} pts · {p.vitorias}-{p.derrotas}</span>
         </span>
       </Link>
@@ -124,7 +126,7 @@ export function Amigos() {
             <TituloPainel eyebrow={tx('PEDIDOS', 'REQUESTS')} titulo={recebidos.length ? tx(`${recebidos.length} por responder`, `${recebidos.length} to answer`) : tx('Sem pedidos novos', 'No new requests')} id="rg-pedidos" />
             {recebidos.map((a) => (
               <div key={a.perfil.id} className="flex items-center gap-3 rounded-xl border border-laranja/25 bg-laranja/6 p-2.5">
-                <Avatar nome={nomeJogador(a.perfil)} url={a.perfil.avatarUrl} tamanho={34} />
+                <Avatar nome={nomeJogador(a.perfil)} url={a.perfil.avatarUrl} tamanho={34} perfilId={a.perfil.id} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[13.5px] font-semibold">{a.perfil.riotId}</span>
                   <span className="text-[11.5px] text-mudo">{haQuanto(a.desde)}</span>

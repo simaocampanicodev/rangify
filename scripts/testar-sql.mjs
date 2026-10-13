@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -611,6 +611,87 @@ const publicadas = (await raiz(`select tablename from pg_publication_tables wher
 ok(['friends', 'match_players', 'matches', 'queue_entries'].every((t) => publicadas.includes(t)), `amizades, fila e partidas no Realtime (${publicadas.join(', ')})`)
 await db.exec(readFileSync(new URL('../supabase/migrations/0014_tempo_real.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0014 outra vez não dá erro')
+
+// ------------------------------------------------------------ loja
+console.log('\nLoja de Rangify Coins')
+const jog = uids[5]
+const fechada = await rpc(jog, 'loja')
+ok(fechada.visivel === false, 'com a loja fechada, um jogador não a vê')
+await falha(rpc(jog, 'comprar_item', { p_item: 'b-aro' }), 'ainda não está aberta', 'nem compra nada')
+const lj = await rpc(uids[0], 'loja')
+const itensLoja = new Map((await raiz(`select id, rarity, category, achievement, price from shop_items`)).map((i) => [i.id, i]))
+const catHoje = lj.hoje.diarios.map((id) => itensLoja.get(id).category)
+ok(lj.visivel && lj.staff && !lj.publica, 'o Owner vê a loja fechada ao público')
+ok(lj.hoje.diarios.length === 8 && new Set(catHoje).size === 8, `8 diários, um de cada categoria (${lj.hoje.diarios.join(', ')})`)
+ok(lj.hoje.diarios.every((id) => itensLoja.get(id).rarity !== 'lendario'), 'os diários nunca são lendários')
+ok(lj.hoje.semanais.length === 2 && lj.hoje.semanais.every((id) => itensLoja.get(id).rarity === 'epico') && itensLoja.get(lj.hoje.semanais[0]).category !== itensLoja.get(lj.hoje.semanais[1]).category, 'dois semanais épicos de categorias diferentes')
+ok(itensLoja.get(lj.hoje.destaque)?.rarity === 'lendario', 'o destaque é lendário')
+ok(new Set([...lj.hoje.diarios, ...lj.hoje.semanais, lj.hoje.destaque]).size === 11, 'nenhum item aparece duas vezes')
+ok(itensLoja.size === 109, 'o catálogo tem os 109 itens de src/lib/loja.ts')
+const ganhas = lj.ganhas.porNivel + lj.ganhas.porMarcos + lj.ganhas.porSemanais + lj.ganhas.porMvp
+ok(lj.moedas === ganhas && ganhas >= 0, `as coins são as do Experience (${lj.moedas})`)
+
+await falha(rpc(jog, 'loja_moedas_teste', { p_quantidade: 5000 }), 'Owner e Dev', 'um jogador não dá coins a si próprio')
+const lj2 = await rpc(uids[0], 'loja_moedas_teste', { p_quantidade: 10000 })
+ok(lj2.moedas === lj.moedas + 10000 && lj2.ganhas.testes === 10000, 'o Owner dá 10 000 coins de teste a si próprio')
+const hojeTodos = [...lj.hoje.diarios, ...lj.hoje.semanais, lj.hoje.destaque]
+const fora = [...itensLoja.values()].find((i) => i.category === 'borda' && !hojeTodos.includes(i.id)).id
+const lj3 = await rpc(uids[0], 'comprar_item', { p_item: fora })
+ok(lj3.inventario.includes(fora) && lj3.equipados.borda === fora && lj3.moedas === lj2.moedas - itensLoja.get(fora).price, `o Owner compra um item que não está hoje na loja (${fora}) e fica equipado`)
+await falha(rpc(uids[0], 'comprar_item', { p_item: fora }), 'Já tens', 'não compra o mesmo duas vezes')
+const lj4 = await rpc(uids[0], 'comprar_item', { p_item: 't-topo' })
+ok(lj4.equipados.titulo === 't-topo', 'para testar, o Owner também obtém títulos de conquista')
+
+await rpc(uids[0], 'definir_loja_publica', { p_publica: true })
+const ljJ = await rpc(jog, 'loja')
+ok(ljJ.visivel && ljJ.publica && !ljJ.staff, 'aberta ao público, o jogador já a vê')
+await falha(rpc(jog, 'comprar_item', { p_item: fora }), 'já não está na loja hoje', 'o jogador só compra o que está hoje na loja')
+await falha(rpc(jog, 'comprar_item', { p_item: 't-mvp' }), 'ganha-se a jogar', 'nem títulos de conquista')
+await raiz(`insert into coin_ledger (profile_id, delta, reason) values ($1, $2, 'teste')`, [pid(5), -ljJ.moedas])
+await falha(rpc(jog, 'comprar_item', { p_item: ljJ.hoje.destaque }), 'coins suficientes', 'sem coins não compra')
+await raiz(`insert into coin_ledger (profile_id, delta, reason) values ($1, 5000, 'teste')`, [pid(5)])
+const diario = lj.hoje.diarios[0]
+const ljJ2 = await rpc(jog, 'comprar_item', { p_item: diario })
+ok(ljJ2.inventario.includes(diario), 'com coins, compra um diário')
+const cos = await rpc(jog, 'cosmeticos', { p_ids: [pid(0), pid(5)] })
+ok(cos[pid(0)]?.borda === fora && cos[pid(0)]?.titulo === 't-topo' && cos[pid(5)], 'os outros veem o que cada um tem equipado')
+const ljJ3 = await rpc(jog, 'desequipar_item', { p_categoria: itensLoja.get(diario).category })
+ok(!Object.values(ljJ3.equipados).includes(diario) && ljJ3.inventario.includes(diario), 'desequipar tira o item, mas fica no inventário')
+const ljJ4 = await rpc(jog, 'equipar_item', { p_item: diario })
+ok(Object.values(ljJ4.equipados).includes(diario), 'e volta a equipar')
+await falha(rpc(jog, 'equipar_item', { p_item: fora }), 'Ainda não tens', 'não equipa o que não tem')
+
+await falha(rpc(uids[0], 'definir_avatar_gif', { p_url: 'https://exemplo.pt/x.gif' }), 'Compra primeiro', 'a GIF de perfil precisa da Foto em GIF')
+await rpc(uids[0], 'comprar_item', { p_item: 'gif' })
+await falha(rpc(uids[0], 'definir_avatar_gif', { p_url: 'http://exemplo.pt/x.gif' }), 'https', 'só aceita links https de imagens')
+const ljG = await rpc(uids[0], 'definir_avatar_gif', { p_url: 'https://media.tenor.com/abc/gato.gif' })
+const cosG = await rpc(jog, 'cosmeticos', { p_ids: [pid(0)] })
+ok(ljG.avatarGif && cosG[pid(0)]?.gif === 'https://media.tenor.com/abc/gato.gif', 'com o link, a GIF aparece aos outros')
+
+const criadaEm = async () => (await raiz(`select created_at from shop_rotation order by day desc limit 1`))[0].created_at
+const antesRes = await criadaEm()
+await falha(rpc(jog, 'loja_resetar'), 'Owner e Dev', 'um jogador não sorteia a loja')
+const ljR = await rpc(uids[0], 'loja_resetar')
+ok(ljR.hoje.diarios.length === 8 && (await criadaEm()) > antesRes, 'o Owner sorteia a loja de hoje outra vez')
+const ontem = ljR.hoje.diarios.slice()
+await raiz(`update shop_rotation set day = day - 1 where day = (select max(day) from shop_rotation)`)
+const ljN = await rpc(uids[0], 'loja')
+ok(ljN.hoje.diarios.every((id) => !ontem.includes(id)), 'no dia seguinte, os diários de ontem não se repetem')
+ok(JSON.stringify(ljN.hoje.semanais) === JSON.stringify(ljR.hoje.semanais) || new Date(ljN.hoje.dia).getUTCDay() === 1, 'os semanais ficam a semana toda')
+
+const antesDev = await rpc(uids[0], 'loja')
+const ljD = await rpc(uids[0], 'loja_devolver', { p_item: fora })
+ok(!ljD.inventario.includes(fora) && ljD.moedas === antesDev.moedas + itensLoja.get(fora).price, 'devolver tira o item e devolve as coins')
+const ljD2 = await rpc(uids[0], 'comprar_item', { p_item: fora })
+ok(ljD2.inventario.includes(fora), 'e o item pode ser comprado outra vez')
+const ljTudo = await rpc(uids[0], 'loja_devolver', { p_item: null })
+ok(ljTudo.inventario.every((id) => itensLoja.get(id).achievement) && ljTudo.avatarGif === null && ljTudo.moedas === lj2.moedas, `devolver tudo deixa só o que se ganhou a jogar e repõe as coins (${ljTudo.inventario.join(', ')})`)
+await falha(rpc(jog, 'loja_devolver', { p_item: null }), 'Owner e Dev', 'só Owner e Dev devolvem itens')
+
+await rpc(uids[0], 'definir_loja_publica', { p_publica: false })
+ok(JSON.stringify(await rpc(jog, 'cosmeticos', { p_ids: [pid(5)] })) === '{}', 'com a loja fechada, os jogadores não veem decorações')
+await db.exec(readFileSync(new URL('../supabase/migrations/0015_loja.sql', import.meta.url), 'utf8'))
+ok((await raiz(`select count(*)::int as n from shop_inventory where profile_id = $1`, [pid(5)]))[0].n >= 1, 'correr a 0015 outra vez não apaga inventários')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

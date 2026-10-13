@@ -1,4 +1,5 @@
-import { ChevronUp, CircleAlert, Lightbulb, Megaphone, PlugZap, RefreshCw, Trash } from 'lucide-react'
+import { ChevronUp, CircleAlert, Lightbulb, Lock, Megaphone, PlugZap, RefreshCw, ShoppingBag, Trash } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -338,6 +339,34 @@ export function RecarregarStaff() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Owner e Dev: abrir a loja de Rangify Coins a toda a gente (ou voltar a fechá-la). */
+export function LojaStaff() {
+  const acao = useAcao()
+  const estado = useCarregar(() => dados.loja(), [], ['loja', 'staff'])
+  if (!estado.valor) return <Carregando />
+  const publica = estado.valor.visivel && estado.valor.publica
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 max-w-[640px] text-[13px] leading-normal text-mudo">
+        {l('Enquanto está fechada, só Owner e Dev veem a loja no menu, e as decorações compradas só aparecem a Owner e Dev. Ao abrir, toda a gente passa a ver a loja e as decorações de todos.', 'While closed, only Owner and Dev see the shop in the menu, and bought decorations only show to Owner and Dev. Once open, everyone sees the shop and everyone\'s decorations.')}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Chip tom={publica ? 'vitoria' : 'laranja'}>{publica ? l('Aberta a toda a gente', 'Open to everyone') : l('Fechada: só Owner e Dev', 'Closed: Owner and Dev only')}</Chip>
+        {publica ? (
+          <BotaoSegurar rotulo={l('Segura para fechar a loja ao público', 'Hold to close the shop to the public')} className="btn btn-fantasma" onConfirmar={() => acao(() => dados.definirLojaPublica(false), l('A loja voltou a estar fechada.', 'The shop is closed again.'))}>
+            <Lock size={16} aria-hidden />{l('Fechar a loja ao público', 'Close the shop to the public')}
+          </BotaoSegurar>
+        ) : (
+          <BotaoSegurar rotulo={l('Segura para abrir a loja a toda a gente', 'Hold to open the shop to everyone')} className="btn btn-primario" onConfirmar={() => acao(() => dados.definirLojaPublica(true), l('A loja está aberta a toda a gente.', 'The shop is open to everyone.'))}>
+            <ShoppingBag size={16} aria-hidden />{l('Abrir a loja a toda a gente', 'Open the shop to everyone')}
+          </BotaoSegurar>
+        )}
+        <Link to="/loja" className="btn btn-fantasma no-underline">{l('Ir para a loja', 'Go to the shop')}</Link>
+      </div>
     </div>
   )
 }
