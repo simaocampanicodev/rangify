@@ -366,6 +366,8 @@ export interface Dados {
   // Sessão e conta
   sessao(): Promise<Sessao | null>
   aoMudarSessao(cb: () => void): () => void
+  /** Chama cb logo que um pedido de amizade chega, é aceite ou removido (no site real, pelo Realtime). */
+  aoMudarAmizades(perfilId: string, cb: () => void): () => void
   entrarComDiscord(): Promise<void>
   entrarComPassword(utilizador: string, password: string): Promise<void>
   /** Só no modo demo: entra na conta de exemplo com histórico. */

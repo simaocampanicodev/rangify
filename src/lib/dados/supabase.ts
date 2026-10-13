@@ -210,6 +210,19 @@ export const dadosSupabase: Dados = {
   rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }),
   resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),
   amigos: () => rpc<Amizade[]>('amigos'),
+  aoMudarAmizades(perfilId, cb) {
+    // Pedidos que te chegam e pedidos teus que foram aceites. As remoções não se
+    // filtram no servidor: confirma-se aqui se a amizade era tua.
+    const canal = cliente().channel(`amizades-${perfilId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'friends', filter: `addressee=eq.${perfilId}` }, cb)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'friends', filter: `requester=eq.${perfilId}` }, cb)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'friends' }, (m) => {
+        const antigo = m.old as { requester?: string; addressee?: string }
+        if (antigo.requester === perfilId || antigo.addressee === perfilId) cb()
+      })
+      .subscribe()
+    return () => { cliente().removeChannel(canal) }
+  },
   async pedirAmizade(alvo) { await rpc('pedir_amizade', { p_alvo: alvo }) },
   async responderAmizade(perfilId, aceitar) { await rpc('responder_amizade', { p_perfil: perfilId, p_aceitar: aceitar }) },
   async removerAmigo(perfilId) { await rpc('remover_amigo', { p_perfil: perfilId }) },

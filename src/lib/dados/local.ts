@@ -1220,6 +1220,11 @@ export const dadosLocais: Dados = {
     return progressoMissoes(e, me).map(({ chave: _, ...m }) => m)
   },
 
+  // No demo, as mudanças de amizade já avisam a página (avisarMudanca).
+  aoMudarAmizades() {
+    return () => {}
+  },
+
   async amigos() {
     const e = await pronto()
     const me = eu(e)

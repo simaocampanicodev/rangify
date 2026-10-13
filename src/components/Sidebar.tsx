@@ -43,7 +43,10 @@ function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean;
         }`
       }
     >
-      <span className="inline-flex shrink-0 text-laranja">{item.icone}</span>
+      <span className="relative inline-flex shrink-0 text-laranja">
+        {item.icone}
+        {recolhido && item.extra && <span aria-hidden className="absolute -top-1 -right-1.5 size-2 rounded-full bg-laranja ring-2 ring-[#0b0b0d]" />}
+      </span>
       <Rotulo recolhido={recolhido}>
         <span className="truncate">{item.texto}</span>
         {item.extra}
@@ -72,8 +75,9 @@ export function Sidebar() {
 
   useEffect(() => { setAberto(false) }, [local.pathname])
 
-  // No site real nada avisa quando alguém te manda um pedido ou aceita o teu:
-  // a barra lateral pergunta a cada 15 s e, se a lista mudou, avisa as outras páginas.
+  // Quando alguém te manda um pedido, o aceita ou te remove, o Realtime avisa logo:
+  // a barra lateral relê a lista e, se mudou, avisa as outras páginas (como a de Amigos).
+  // A cada 60 s volta a perguntar, para o caso de a ligação em tempo real cair.
   useEffect(() => {
     if (!perfil?.id) return
     let assinatura = ''
@@ -84,9 +88,10 @@ export function Sidebar() {
       assinatura = nova
     }).catch(() => {})
     ler(false)
-    const t = window.setInterval(() => ler(true), 15_000)
+    const t = window.setInterval(() => ler(true), 60_000)
     const off = aoMudarDados((o) => { if (o === 'amigos') ler(false) })
-    return () => { window.clearInterval(t); off() }
+    const offRealtime = dados.aoMudarAmizades(perfil.id, () => ler(true))
+    return () => { window.clearInterval(t); off(); offRealtime() }
   }, [perfil?.id])
 
   const alternar = () => {
