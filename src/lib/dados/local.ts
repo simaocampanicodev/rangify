@@ -8,7 +8,8 @@
  * hash SHA-256, mas isto continua a ser um modo de demonstração.
  */
 import { NOMES_MAPAS, ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
-import { PONTOS_INICIAIS } from '../pontos'
+import { PONTOS_INICIAIS, bonusDesempenho, calcularPontos } from '../pontos'
+import { AGENTES_SIMULADOS } from '../agentes'
 import { divisao, mediaDivisoes } from '../ranks'
 import {
   ESTADOS_ATIVOS, HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, PADRAO_CODIGO, PADRAO_RIOT_ID,
@@ -19,7 +20,7 @@ import { nivelDe } from '../experiencia'
 import { periodoSemana } from '../tempo'
 import { avisarMudanca } from './eventos'
 import {
-  aplicarResultado, baralhar, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
+  aplicarResultado, baralhar, calcularRangifyScore, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
   melhorDisponivel, novoJogador, type JogadorGuardado, type PartidaGuardada,
 } from './motor'
 import {
@@ -1471,6 +1472,50 @@ export const dadosLocais: Dados = {
     guardar()
     avisarMudanca('partida')
     avisarMudanca('perfil')
+  },
+
+  // No demo não há API: recalcula com as estatísticas que a partida já tem.
+  async recarregarPartida(id) {
+    const e = await carregar()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    const p = obterPartida(e, id)
+    if (p.estado !== 'COMPLETED') throw new Error('Só se recarregam partidas terminadas.')
+    const antes = new Map(p.jogadores.map((j) => [j.perfilId, j.deltaPontos]))
+    const usados = new Map<string, number>()
+    for (const j of p.jogadores) {
+      if (!j.equipa || j.agente) continue
+      const funcao = e.perfis[j.perfilId]?.funcaoJogo ?? 'outro'
+      const lista = AGENTES_SIMULADOS[funcao]
+      const k = `${j.equipa}:${funcao}`
+      const n = (usados.get(k) ?? 0) + 1
+      usados.set(k, n)
+      j.agente = lista[n % lista.length]
+    }
+    calcularRangifyScore(p)
+    const tiers = (eq: Equipa) => p.jogadores.filter((x) => x.equipa === eq).map((x) => x.tier)
+    for (const j of p.jogadores) {
+      if (!j.equipa) continue
+      const perf = bonusDesempenho(j.rangifyScore)
+      const novo = calcularPontos(j.tier, tiers(j.equipa === 'A' ? 'B' : 'A'), j.equipa === p.vencedor).total + perf
+      const dif = novo - (j.deltaPontos ?? 0)
+      const perfil = e.perfis[j.perfilId]
+      if (perfil && (p.pontosAplicados ?? !p.simulada)) perfil.pontos += dif
+      if (j.pontosDepois != null) j.pontosDepois += dif
+      j.deltaPontos = novo
+      j.deltaDesempenho = j.rangifyScore != null ? perf : null
+      atualizarMissoes(e, j.perfilId, true)
+    }
+    guardar()
+    avisarMudanca('partida')
+    avisarMudanca('perfil')
+    return {
+      codigo: p.codigo, fonte: 'teste',
+      jogadores: p.jogadores.filter((j) => j.equipa).map((j) => ({
+        nome: nomeCurto(e.perfis[j.perfilId]), antes: antes.get(j.perfilId) ?? null, depois: j.deltaPontos ?? 0,
+        rangifyScore: j.rangifyScore ?? null, agente: j.agente ?? null,
+      })),
+    }
   },
 
   async definirPontos(perfilId, pontos) {

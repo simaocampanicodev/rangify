@@ -51,7 +51,7 @@ Se algum dia fizeres commit de um segredo: apagar o ficheiro não chega, porque 
 
 1. Em https://supabase.com, **New project**. Escolhe a região mais perto dos jogadores (por exemplo, Frankfurt ou Paris para a Europa) e guarda a palavra-passe da base de dados num gestor de palavras-passe.
 2. Quando o projeto estiver pronto, abre **SQL Editor > New query**, cola o conteúdo de `supabase/migrations/0001_schema.sql` e carrega em **Run**.
-3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP) depois com `0003_estatisticas.sql` (Trades, HS% e KAST, remover partidas e acertar pontos) depois com `0004_fila_amigos.sql` (testar a fila com amigos e bots), com `0005_perfil_estatisticas.sql` (estatísticas completas no perfil), com `0006_rotacao_testes.sql` (rotação de mapas editável na Staff e partidas de teste que contam), com `0007_experiencia.sql` (Rangify Experience: XP, níveis, missões diárias e rotação de missões), com `0008_novidades_api.sql` (novidades publicadas na Staff e afinações da Henrik Dev API), com `0009_situacao.sql` (fila e partida numa só chamada, para o site responder mais depressa), com `0010_sugestoes_staff.sql` (a staff muda o estado das sugestões e apaga-as) com `0011_discord.sql` (canais de Discord por partida; ver DISCORD.md) e por fim com `0012_rangify_score.sql` (Rangify Score nos pontos, agentes no perfil e Discord obrigatório para a fila).
+3. Repete com `supabase/migrations/0002_perfil.sql` (cria o bucket das fotos de perfil, que só aceita PNG, JPG e WebP) depois com `0003_estatisticas.sql` (Trades, HS% e KAST, remover partidas e acertar pontos) depois com `0004_fila_amigos.sql` (testar a fila com amigos e bots), com `0005_perfil_estatisticas.sql` (estatísticas completas no perfil), com `0006_rotacao_testes.sql` (rotação de mapas editável na Staff e partidas de teste que contam), com `0007_experiencia.sql` (Rangify Experience: XP, níveis, missões diárias e rotação de missões), com `0008_novidades_api.sql` (novidades publicadas na Staff e afinações da Henrik Dev API), com `0009_situacao.sql` (fila e partida numa só chamada, para o site responder mais depressa), com `0010_sugestoes_staff.sql` (a staff muda o estado das sugestões e apaga-as) com `0011_discord.sql` (canais de Discord por partida; ver DISCORD.md) com `0012_rangify_score.sql` (Rangify Score nos pontos, agentes no perfil e Discord obrigatório para a fila) e por fim com `0013_recarregar_partida.sql` (recarregar na Staff os dados de uma partida já jogada).
 4. Em **Project Settings > API Keys** (ou **Settings > API**), copia:
    - o **Project URL**;
    - a chave **publishable** (`sb_publishable_...`) ou, se o projeto mostrar as chaves antigas, a **anon public**.
@@ -101,6 +101,7 @@ npx supabase functions deploy entrar
 npx supabase functions deploy testar-api
 npx supabase functions deploy discord-partida --no-verify-jwt
 npx supabase functions deploy verificar-discord
+npx supabase functions deploy recarregar-partida
 ```
 
 - `xxxx` é o mesmo do Project URL.

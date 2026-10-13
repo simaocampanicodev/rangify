@@ -5,7 +5,7 @@
 // Se ainda não aparecer, devolve { pendente: true } e o site volta a pedir; ao
 // fim de 30 minutos a base de dados fecha sem estatísticas.
 import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
-import { caminhoHistorico, lerPartida, mesmoJogador, type PartidaHenrik } from '../_shared/henrik-partida.ts'
+import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 
 /** Cada consulta à API gasta pedidos da chave: no máximo uma por minuto por partida, venha de quem vier. */
 const SEGUNDOS_ENTRE_CONSULTAS = 60
@@ -39,33 +39,16 @@ Deno.serve(async (req) => {
     const { nome, tag } = partirRiotId(capA.riot_id)
     const lista = await henrik<PartidaHenrik[]>(caminhoHistorico(capA.region, nome, tag))
 
-    const inicio = new Date(m.started_at ?? m.created_at).getTime() - 10 * 60_000
-    const nossos = jogadores
+    const nossos: JogadorNosso[] = jogadores
       .filter((j) => j.team)
-      .map((j) => ({ perfilId: j.profile_id as string, ...(j.profiles as { riot_id: string | null; riot_puuid: string | null }) }))
+      .map((j) => ({ perfilId: j.profile_id as string, equipa: j.team as 'A' | 'B', ...(j.profiles as { riot_id: string | null; riot_puuid: string | null }) }))
 
-    for (const p of lista ?? []) {
-      if (p.metadata.map?.toLowerCase() !== String(m.map).toLowerCase()) continue
-      if (p.metadata.game_start * 1000 < inicio) continue
-      const lido = lerPartida(p)
-      const eu = lido.jogadores.find((j) => mesmoJogador(j, capA.riot_id, capA.riot_puuid))
-      if (!eu) continue
-      const emComum = nossos.filter((n) => lido.jogadores.some((j) => mesmoJogador(j, n.riot_id, n.riot_puuid)))
-      if (emComum.length < Math.min(MINIMO_EM_COMUM, nossos.length)) continue
-      const corB = eu.equipa === 'red' ? 'blue' : 'red'
-      const a = lido.rondasPorCor[eu.equipa as 'red' | 'blue']
-      const b = lido.rondasPorCor[corB]
-      if (a == null || b == null || a === b) continue
-
+    const achada = encontrarPartida(lista ?? [], {
+      mapa: String(m.map), desde: new Date(m.started_at ?? m.created_at).getTime() - 10 * 60_000, nossos, minimo: MINIMO_EM_COMUM,
+    })
+    if (achada) {
       // É esta. O resultado vem da API, que corrige o que os capitães escreveram.
-      const stats = emComum.map((n) => {
-        const h = lido.jogadores.find((j) => mesmoJogador(j, n.riot_id, n.riot_puuid))!
-        return {
-          perfilId: n.perfilId, kills: h.kills, deaths: h.deaths, assists: h.assists, acs: h.acs,
-          firstBloods: h.firstBloods, trades: h.trades, hsPct: h.hsPct, kastPct: h.kastPct, agente: h.agente,
-        }
-      })
-      const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: a, p_b: b, p_stats: stats })
+      const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: achada.a, p_b: achada.b, p_stats: achada.stats })
       if (error) return erro(error.message)
       return resposta({ estado: 'COMPLETED' })
     }

@@ -22,8 +22,8 @@ export interface PartidaHenrik {
 /** Só as últimas partidas personalizadas: cada partida pedida conta para o limite da chave. */
 export const PARTIDAS_A_PEDIR = 3
 
-export const caminhoHistorico = (regiao: string, nome: string, tag: string) =>
-  `/valorant/v3/matches/${encodeURIComponent(regiao)}/${encodeURIComponent(nome)}/${encodeURIComponent(tag)}?mode=custom&size=${PARTIDAS_A_PEDIR}`
+export const caminhoHistorico = (regiao: string, nome: string, tag: string, quantas = PARTIDAS_A_PEDIR) =>
+  `/valorant/v3/matches/${encodeURIComponent(regiao)}/${encodeURIComponent(nome)}/${encodeURIComponent(tag)}?mode=custom&size=${quantas}`
 
 /** Uma troca vale se o assassino do colega morrer até 5 segundos depois. */
 const JANELA_TROCA_MS = 5000
@@ -106,3 +106,40 @@ export function lerPartida(p: PartidaHenrik) {
 
 export const mesmoJogador = (j: { puuid: string; riotId: string }, riotId: string | null, puuid: string | null) =>
   (!!puuid && j.puuid === puuid) || (!!riotId && j.riotId.toLowerCase() === riotId.toLowerCase())
+
+/** Um jogador da partida do Rangify, como está na base de dados. */
+export interface JogadorNosso { perfilId: string; equipa: 'A' | 'B' | null; riot_id: string | null; riot_puuid: string | null }
+
+/**
+ * Procura numa lista de jogos da API o que corresponde à partida do Rangify:
+ * o mesmo mapa, a começar dentro da janela de tempo e com pelo menos `minimo`
+ * jogadores em comum. Devolve o resultado do lado da Equipa A e as estatísticas.
+ */
+export function encontrarPartida(
+  lista: PartidaHenrik[],
+  alvo: { mapa: string; desde: number; ate?: number | null; nossos: JogadorNosso[]; minimo: number },
+) {
+  for (const p of lista) {
+    if (p.metadata.map?.toLowerCase() !== alvo.mapa.toLowerCase()) continue
+    const inicio = p.metadata.game_start * 1000
+    if (inicio < alvo.desde || (alvo.ate != null && inicio > alvo.ate)) continue
+    const lido = lerPartida(p)
+    const presentes = alvo.nossos
+      .map((n) => ({ n, h: lido.jogadores.find((j) => mesmoJogador(j, n.riot_id, n.riot_puuid)) }))
+      .filter((x): x is { n: JogadorNosso; h: EstatisticasJogador } => !!x.h)
+    if (presentes.length < Math.min(alvo.minimo, alvo.nossos.length)) continue
+    // A cor da Equipa A no jogo é a da maioria dos nossos jogadores de cada equipa.
+    const votos = { red: 0, blue: 0 }
+    for (const { n, h } of presentes) if (n.equipa) votos[(h.equipa === 'red') === (n.equipa === 'A') ? 'red' : 'blue']++
+    const corA = votos.red >= votos.blue ? 'red' : 'blue'
+    const a = lido.rondasPorCor[corA]
+    const b = lido.rondasPorCor[corA === 'red' ? 'blue' : 'red']
+    if (a == null || b == null || a === b) continue
+    const stats = presentes.map(({ n, h }) => ({
+      perfilId: n.perfilId, kills: h.kills, deaths: h.deaths, assists: h.assists, acs: h.acs,
+      firstBloods: h.firstBloods, trades: h.trades, hsPct: h.hsPct, kastPct: h.kastPct, agente: h.agente,
+    }))
+    return { a, b, stats, riotMatchId: p.metadata.matchid ?? null }
+  }
+  return null
+}

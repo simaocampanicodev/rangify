@@ -9,7 +9,7 @@ import { supabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type {
-  Amizade, Dados, Denuncia, EstadoDiscord, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoDiscord, RecargaPartida, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -240,6 +240,10 @@ export const dadosSupabase: Dados = {
   partidasEncravadas: () => rpc<Partida[]>('partidas_encravadas'),
   async cancelarPartida(id) { await rpc('cancelar_partida', { p_match: id }) },
   async removerPartida(id) { await rpc('remover_partida', { p_match: id }) },
+  async recarregarPartida(id, simulada) {
+    if (simulada) return { ...(await rpc<Omit<RecargaPartida, 'fonte'>>('recalcular_partida', { p_match: id })), fonte: 'teste' }
+    return funcao<RecargaPartida>('recarregar-partida', { matchId: id })
+  },
   async definirPontos(perfilId, pontos) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos }) },
   denuncias: () => rpc<Denuncia[]>('denuncias'),
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
@@ -262,7 +266,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],
   criarSugestao: ['sugestoes'], votar: ['sugestoes'], definirEstadoSugestao: ['sugestoes', 'staff'], apagarSugestao: ['sugestoes', 'staff'], denunciar: ['staff'],
   criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], definirDiscordFila: ['staff'], resetarMissoes: ['staff'],
-  resolverDisputa: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'],
+  resolverDisputa: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'], recarregarPartida: ['partida', 'perfil', 'staff'],
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
 }
 for (const [nome, tipos] of Object.entries(AVISOS)) {

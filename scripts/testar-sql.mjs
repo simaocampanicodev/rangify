@@ -78,7 +78,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -559,6 +559,40 @@ ok(new Set(simAg.map((x) => x.a)).size === 8, 'a mesma função dá agentes dife
 const bon = (await raiz(`select public._bonus_desempenho(null) as a, public._bonus_desempenho(160) as b, public._bonus_desempenho(40) as c, public._bonus_desempenho(97) as d`))[0]
 ok(bon.a === 0 && bon.b === 6 && bon.c === -6 && bon.d === bonusRs(97), 'sem RS vale 0, fica entre -6 e +6 e arredonda como o site')
 await falha(como(uids[1], `select public._rangify_scores($1, 24)`, ['00000000-0000-0000-0000-000000000000']), 'permission denied', 'o RS não se calcula a partir do browser')
+
+// ------------------------------------------------------------ recarregar uma partida jogada
+console.log('\nRecarregar uma partida jogada')
+const rec = (await raiz(`select id, simulated, points_applied from matches where state = 'COMPLETED' and points_applied order by finished_at desc limit 1`))[0]
+// Como uma partida fechada antes da 0012: sem agentes, sem RS e com os pontos da fórmula antiga.
+const jogRec = await raiz(`select profile_id, points_delta, coalesce(points_perf, 0) as perf from match_players where match_id = $1 and team is not null`, [rec.id])
+for (const j of jogRec) {
+  await raiz(`update match_players set agent = null, rangify_score = null, points_perf = null, points_delta = $3 where match_id = $1 and profile_id = $2`, [rec.id, j.profile_id, j.points_delta - j.perf])
+  await raiz(`update profiles set points = points - $2 where id = $1`, [j.profile_id, j.perf])
+}
+const pontosAntesRec = new Map((await raiz(`select id, points from profiles`)).map((p) => [p.id, p.points]))
+const agentesRec = jogRec.map((j, i) => ({ perfilId: j.profile_id, agente: AGENTES_TESTE[i % AGENTES_TESTE.length] }))
+await falha(como(uids[0], `select public._recalcular($1, null)`, [rec.id]), 'permission denied', 'o recálculo interno não se chama do browser')
+const r1 = await servico(`select public._recalcular($1, $2) as r`, [rec.id, JSON.stringify(agentesRec)])
+const resRec = r1[0].r
+const depoisRec = await raiz(`select mp.profile_id, mp.agent, mp.rangify_score, mp.points_delta, mp.points_perf, mp.mvp from match_players mp where mp.match_id = $1 and mp.team is not null`, [rec.id])
+ok(resRec.jogadores.length === jogRec.length && depoisRec.every((j) => j.agent && j.rangify_score != null), 'recarregar dá agentes e RS a todos os jogadores')
+ok(depoisRec.filter((j) => j.mvp).length === 1, 'e escolhe um MVP')
+const perfisDepois = new Map((await raiz(`select id, points from profiles`)).map((p) => [p.id, p.points]))
+ok(jogRec.every((j) => {
+  const novo = depoisRec.find((d) => d.profile_id === j.profile_id)
+  return perfisDepois.get(j.profile_id) - pontosAntesRec.get(j.profile_id) === novo.points_delta - (j.points_delta - j.perf)
+}), 'cada jogador recebe só a diferença entre os pontos novos e os antigos')
+ok(depoisRec.every((j) => j.points_perf === bonusRs(j.rangify_score)), 'a parte do desempenho fica guardada')
+const r2 = (await servico(`select public._recalcular($1, null) as r`, [rec.id]))[0].r
+const perfisOutraVez = new Map((await raiz(`select id, points from profiles`)).map((p) => [p.id, p.points]))
+ok(r2.jogadores.every((j) => j.antes === j.depois) && jogRec.every((j) => perfisOutraVez.get(j.profile_id) === perfisDepois.get(j.profile_id)), 'recarregar outra vez não mexe em nada')
+await raiz(`update matches set simulated = false where id = $1`, [rec.id])
+await falha(rpc(uids[0], 'recalcular_partida', { p_match: rec.id }), 'Henrik Dev API', 'numa partida real, o recálculo sem API é recusado')
+await raiz(`update matches set simulated = true where id = $1`, [rec.id])
+await falha(rpc(uids[3], 'recalcular_partida', { p_match: rec.id }), 'Owner e Dev', 'só Owner e Dev recalculam')
+const r3 = await rpc(uids[0], 'recalcular_partida', { p_match: rec.id })
+ok(r3.jogadores.length === jogRec.length, 'numa partida de teste, Owner e Dev recalculam com o que ela já tem')
+await raiz(`update matches set simulated = $2 where id = $1`, [rec.id, rec.simulated])
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

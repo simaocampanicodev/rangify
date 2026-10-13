@@ -1,11 +1,11 @@
-import { ChevronUp, CircleAlert, Lightbulb, Megaphone, PlugZap, Trash } from 'lucide-react'
+import { ChevronUp, CircleAlert, Lightbulb, Megaphone, PlugZap, RefreshCw, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type EstadoSugestao, type TesteApi } from '@/lib/dados'
+import { dados, type EstadoSugestao, type RecargaPartida, type TesteApi } from '@/lib/dados'
 import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
-import { rangifyScores } from '@/lib/pontos'
+import { comSinal, rangifyScores } from '@/lib/pontos'
 import { BotaoSegurar, Carregando, Chip, IconeAgente, Segmentado, Vazio } from './ui'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -271,6 +271,73 @@ export function DiscordStaff() {
         {eu != null && <Chip tom={eu ? 'vitoria' : 'derrota'}>{eu ? l('O bot encontrou-te no servidor', 'The bot found you in the server') : l('O bot não te encontrou no servidor', 'The bot did not find you in the server')}</Chip>}
         <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver DISCORD.md).', 'Needs the verificar-discord Edge Function deployed (see DISCORD.md).')}</span>
       </div>
+    </div>
+  )
+}
+
+/** Owner e Dev: volta a ler os dados de uma partida terminada e refaz o RS, o MVP e os pontos. */
+export function BotaoRecarregar({ id, simulada, aoAcabar, pequeno = false }: { id: string; simulada: boolean; aoAcabar?: (r: RecargaPartida) => void; pequeno?: boolean }) {
+  const acao = useAcao()
+  const avisar = useAvisos()
+  const [aCorrer, setACorrer] = useState(false)
+  const correr = async () => {
+    setACorrer(true)
+    const r = await acao(() => dados.recarregarPartida(id, simulada))
+    setACorrer(false)
+    if (!r) return
+    const mudou = r.jogadores.filter((j) => j.antes !== j.depois).length
+    avisar(l(`${r.codigo} recarregada: ${mudou} ${mudou === 1 ? 'jogador mudou' : 'jogadores mudaram'} de pontos.`, `${r.codigo} reloaded: ${mudou} ${mudou === 1 ? 'player' : 'players'} changed points.`))
+    for (const a of r.avisos ?? []) avisar(a, 'erro')
+    aoAcabar?.(r)
+  }
+  return (
+    <button type="button" disabled={aCorrer} onClick={correr} className={`btn btn-fantasma ${pequeno ? '!min-h-8 !px-3 !text-[12.5px]' : ''}`}>
+      <RefreshCw size={14} className={`text-laranja ${aCorrer ? 'animate-spin' : ''}`} aria-hidden />
+      {aCorrer ? l('A recarregar…', 'Reloading…') : l('Recarregar dados', 'Reload data')}
+    </button>
+  )
+}
+
+/** As últimas partidas terminadas, cada uma com o botão para recarregar. */
+export function RecarregarStaff() {
+  const lista = useCarregar(() => dados.partidas({ minhas: false }), [], ['partida'])
+  const [ultima, setUltima] = useState<RecargaPartida | null>(null)
+  if (!lista.valor) return <Carregando />
+  const linhas = lista.valor.linhas.slice(0, 8)
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 max-w-[640px] text-[13px] leading-normal text-mudo">
+        {l('Para partidas fechadas antes do Rangify Score e dos agentes, ou com dados incompletos. Numa partida real, o jogo é lido outra vez na Henrik Dev API. Numa de teste, usa as estatísticas que já tem. O RS, o MVP e os pontos são refeitos e cada jogador recebe só a diferença. O resultado não muda.', 'For matches closed before the Rangify Score and agents, or with incomplete data. In a real match, the game is read again from the Henrik Dev API. In a test match, it uses the stats it already has. RS, MVP and points are redone and each player only gets the difference. The result does not change.')}
+      </p>
+      {!linhas.length ? <Vazio icone={<RefreshCw size={22} />} titulo={l('Sem partidas terminadas', 'No finished matches')} /> : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {linhas.map((m) => (
+            <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-[13px] border border-white/7 bg-white/[0.025] px-4 py-3">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="font-mono text-[13px] font-semibold text-pessego">{m.codigo} · {m.mapa ?? '-'} · {m.resultadoA}-{m.resultadoB}</span>
+                <span className="text-[12.5px] text-mudo">{l('Equipa', 'Team')} {m.capitaoA} vs {l('Equipa', 'Team')} {m.capitaoB} · {haQuanto(m.terminouEm)}</span>
+              </span>
+              {m.simulada && <Chip tom="laranja">{l('Teste', 'Test')}</Chip>}
+              <BotaoRecarregar id={m.id} simulada={m.simulada} pequeno aoAcabar={setUltima} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {ultima && (
+        <div className="flex flex-col gap-2 rounded-[14px] border border-laranja/25 bg-laranja/[0.04] p-4">
+          <span className="font-mono text-[11px] font-bold tracking-[0.16em] text-pessego">{ultima.codigo} · {ultima.fonte === 'api' ? l('LIDA NA API', 'READ FROM THE API') : l('RECALCULADA', 'RECALCULATED')}</span>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
+            {ultima.jogadores.map((j) => (
+              <span key={j.nome} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2 text-[13px]">
+                <IconeAgente nome={j.agente} tamanho={22} />
+                <span className="min-w-0 flex-1 truncate font-semibold">{j.nome}</span>
+                <span className="font-mono text-[12px] text-mudo">RS {j.rangifyScore ?? '-'}</span>
+                <span className="font-mono text-[12px]">{j.antes != null ? comSinal(j.antes) : '-'} → <b className={j.depois > 0 ? 'text-vitoria' : 'text-derrota'}>{comSinal(j.depois)}</b></span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

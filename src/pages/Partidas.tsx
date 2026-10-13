@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { TabelaPartida } from '@/components/partida/Resultado'
+import { BotaoRecarregar } from '@/components/StaffExtras'
 import { Cabecalho, Carregando, Chip, LinhasEsqueleto, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -43,8 +44,11 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
             {partida.terminouEm && <Chip><Clock size={12} aria-hidden />{dataHora(partida.terminouEm)}</Chip>}
             {partida.simulada && <Chip tom="laranja">{tx('Partida de teste', 'Test match')}</Chip>}
             {!partida.estatisticas && <Chip>{tx('Sem estatísticas da API', 'No API stats')}</Chip>}
+            {podeTestar && partida.estado === 'COMPLETED' && (
+              <span className="ml-auto"><BotaoRecarregar id={partida.id} simulada={partida.simulada} pequeno aoAcabar={() => p.recarregar()} /></span>
+            )}
             {podeTestar && (
-              <button type="button" disabled={aRemover} onClick={remover} className="btn btn-fantasma ml-auto !min-h-8 !px-3 !text-[12.5px]">
+              <button type="button" disabled={aRemover} onClick={remover} className={`btn btn-fantasma !min-h-8 !px-3 !text-[12.5px] ${partida.estado === 'COMPLETED' ? '' : 'ml-auto'}`}>
                 <Trash size={14} className="text-laranja" aria-hidden />{tx('Remover partida', 'Remove match')}
               </button>
             )}

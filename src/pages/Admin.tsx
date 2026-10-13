@@ -1,7 +1,7 @@
 import { Ban, Check, Flag, Gavel, Hourglass, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { DiscordStaff, NovidadesStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { DiscordStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Avatar, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -285,6 +285,10 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
             <TesteApiStaff />
+            <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
+              <TituloPainel eyebrow={tx('PARTIDAS JOGADAS', 'PLAYED MATCHES')} titulo={tx('Recarregar os dados de uma partida', 'Reload match data')} />
+              <RecarregarStaff />
+            </div>
           </div>
         )}
         {aba === 'discord' && ownerDev && (

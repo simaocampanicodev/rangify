@@ -326,6 +326,15 @@ export interface Sessao {
   incompleta: boolean
 }
 
+/** O que mudou ao recarregar os dados de uma partida terminada. */
+export interface RecargaPartida {
+  codigo: string
+  /** api: lida outra vez na Henrik Dev API; teste: recalculada com o que já tinha. */
+  fonte: 'api' | 'teste'
+  jogadores: { nome: string; antes: number | null; depois: number; rangifyScore: number | null; agente: string | null }[]
+  avisos?: string[]
+}
+
 export interface EstadoDiscord {
   obrigatorio: boolean
   convite: string | null
@@ -450,6 +459,11 @@ export interface Dados {
   cancelarPartida(id: string): Promise<void>
   /** Owner e Dev: apaga uma partida terminada ou cancelada (os pontos dela são devolvidos). */
   removerPartida(id: string): Promise<void>
+  /**
+   * Owner e Dev: volta a ler os dados de uma partida terminada (agentes e estatísticas
+   * da API, nas reais) e refaz o RS, o MVP e os pontos com a fórmula de agora.
+   */
+  recarregarPartida(id: string, simulada: boolean): Promise<RecargaPartida>
   /** Owner e Dev: acerta os pontos de um jogador à mão. */
   definirPontos(perfilId: string, pontos: number): Promise<void>
   denuncias(): Promise<Denuncia[]>
