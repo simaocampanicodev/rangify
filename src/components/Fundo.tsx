@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { fundoLeve } from '@/lib/fundo'
 
 /**
  * O fundo: três fios de luz nas bordas (um U em cima à direita, uma curva à
@@ -7,6 +8,7 @@ import { useEffect, useRef } from 'react'
  * Para não pesar, cada fio é desenhado (e desfocado) uma vez só e depois só se
  * mexe com transform e opacity, que a placa gráfica faz sem voltar a pintar.
  * O rato mexe direto no transform das duas camadas, sem passar pelo React.
+ * No modo leve (ver lib/fundo.ts) fica tudo parado.
  */
 export function Fundo() {
   const longe = useRef<HTMLDivElement>(null)
@@ -17,6 +19,7 @@ export function Fundo() {
     let quadro = 0
     const mover = (e: PointerEvent) => {
       cancelAnimationFrame(quadro)
+      if (fundoLeve()) return
       quadro = requestAnimationFrame(() => {
         const px = (e.clientX / window.innerWidth) * 2 - 1
         const py = (e.clientY / window.innerHeight) * 2 - 1
@@ -30,7 +33,7 @@ export function Fundo() {
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-90">
-      <div ref={longe} className="absolute inset-0 will-change-transform" style={{ transition: 'transform 2s cubic-bezier(.16,1,.3,1)' }}>
+      <div ref={longe} className="fundo-camada absolute inset-0 will-change-transform" style={{ transition: 'transform 2s cubic-bezier(.16,1,.3,1)' }}>
         <div className="absolute top-[-14%] left-[-12%] h-[900px] w-[62%]" style={{ background: 'radial-gradient(closest-side, rgba(255,91,31,0.07), rgba(255,91,31,0))' }} />
         <div className="absolute top-[380px] right-[-14%] h-[860px] w-[56%]" style={{ background: 'radial-gradient(closest-side, rgba(255,91,31,0.045), rgba(255,91,31,0))' }} />
         <div className="fio fio-b absolute top-0 left-[-60px] h-[720px] w-[360px]">
@@ -71,7 +74,7 @@ export function Fundo() {
         </div>
       </div>
 
-      <div ref={perto} className="absolute inset-0 will-change-transform" style={{ transition: 'transform 1.3s cubic-bezier(.16,1,.3,1)' }}>
+      <div ref={perto} className="fundo-camada absolute inset-0 will-change-transform" style={{ transition: 'transform 1.3s cubic-bezier(.16,1,.3,1)' }}>
         <div className="fio fio-a absolute top-[-60px] right-[-40px] h-[340px] w-[660px]">
           <svg viewBox="820 -60 660 340" width="660" height="340" className="block overflow-visible">
             <defs>

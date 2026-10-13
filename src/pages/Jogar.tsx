@@ -1,5 +1,5 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
@@ -9,6 +9,7 @@ import { dados, type EstadoPartida, type Partida } from '@/lib/dados'
 import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
+import { abrirNaApp, urlCanalWeb } from '@/lib/discord'
 import { relogio } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
@@ -37,19 +38,32 @@ const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
   { estados: ['RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API', 'COMPLETED'], nome: l('Resultado', 'Result') },
 ]
 
-/** O chat e a call da tua equipa no Discord, quando o bot já os criou. */
+/**
+ * O chat e a call da tua equipa no Discord, quando o bot já os criou.
+ * No computador abrem a aplicação do Discord já no canal; se ela não abrir, aparece o link para o browser.
+ */
 function LinksDiscord({ p }: { p: Partida }) {
   const links = useCarregar(() => dados.discordPartida(p.id), [p.id, p.estado])
+  const [semApp, setSemApp] = useState<string | null>(null)
   // A criação demora uns segundos depois de as equipas fecharem: volta a perguntar até aparecer.
   const { recarregar, valor } = links
   useIntervalo(recarregar, valor ? null : 8000)
   if (!valor) return null
-  const url = (canal: string) => `https://discord.com/channels/${valor.servidor}/${canal}`
+  const abrir = (canal: string) => (e: React.MouseEvent) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return
+    if (abrirNaApp(valor.servidor, canal, () => setSemApp(canal))) { e.preventDefault(); setSemApp(null) }
+  }
   const botao = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-laranja/35 bg-laranja/10 px-2.5 text-[12.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/20'
   return (
-    <span className="flex flex-wrap gap-1.5">
-      <a href={url(valor.chat)} target="_blank" rel="noreferrer" className={botao}><Hash size={13} aria-hidden />{l('Chat da partida', 'Match chat')}</a>
-      <a href={url(valor.call)} target="_blank" rel="noreferrer" className={botao}><Volume2 size={13} aria-hidden />{l('Call da equipa', 'Team call')}</a>
+    <span className="flex flex-wrap items-center gap-1.5">
+      <a href={urlCanalWeb(valor.servidor, valor.chat)} onClick={abrir(valor.chat)} target="_blank" rel="noreferrer" className={botao}><Hash size={13} aria-hidden />{l('Chat da partida', 'Match chat')}</a>
+      <a href={urlCanalWeb(valor.servidor, valor.call)} onClick={abrir(valor.call)} target="_blank" rel="noreferrer" className={botao}><Volume2 size={13} aria-hidden />{l('Call da equipa', 'Team call')}</a>
+      {semApp && (
+        <span className="text-[12px] text-mudo">
+          {l('A aplicação não abriu?', 'The app did not open?')}{' '}
+          <a href={urlCanalWeb(valor.servidor, semApp)} target="_blank" rel="noreferrer" className="font-semibold text-pessego underline-offset-2 hover:underline" onClick={() => setSemApp(null)}>{l('Abrir no browser', 'Open in the browser')}</a>
+        </span>
+      )}
     </span>
   )
 }

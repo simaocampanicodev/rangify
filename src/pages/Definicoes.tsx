@@ -161,7 +161,7 @@ export function Definicoes() {
           <span className="grid size-10 place-items-center rounded-[11px] border border-laranja/32 bg-laranja/12 text-laranja"><Sparkles size={18} aria-hidden /></span>
           <div className="flex flex-col gap-0.5">
             <h2 id="rg-def-fundo" className="m-0 text-[16px] font-bold">{l('Efeitos do fundo', 'Background effects')}</h2>
-            <span className="text-[13px] text-mudo">{l('Se o site estiver lento, o modo leve tira o vidro dos painéis. As linhas do fundo continuam a mexer.', 'If the site feels slow, light mode removes the glass from the panels. The background lines keep moving.')}</span>
+            <span className="text-[13px] text-mudo">{l('O modo leve deixa o fundo parado e tira o vidro dos painéis. O automático usa-o quando o portátil está na bateria ou o computador é mais lento.', 'Light mode keeps the background still and removes the glass from the panels. Automatic uses it when the laptop is on battery or the computer is slower.')}</span>
           </div>
         </div>
         <Segmentado<PreferenciaFundo>

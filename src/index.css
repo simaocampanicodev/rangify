@@ -185,10 +185,11 @@
 .respira { animation: rg-respira 9s ease-in-out infinite }
 
 /*
- * Fundo leve (computadores fracos, ou escolhido nas Definições): os painéis
- * deixam de desfocar o que está por trás e ficam mais opacos. Desfocar por cima
- * de um fundo que mexe obriga a refazer o desfoque a cada fotograma.
+ * Fundo leve (na bateria, em computadores fracos ou escolhido nas Definições):
+ * as linhas ficam paradas e os painéis deixam de desfocar o que está por trás.
  */
+html[data-fundo='leve'] .fio { animation: none; will-change: auto; }
+html[data-fundo='leve'] .fundo-camada { transform: none !important; transition: none !important; will-change: auto; }
 html[data-fundo='leve'] .painel { background: rgb(16 16 19 / 0.93); backdrop-filter: none; }
 html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; background-color: rgb(10 10 12 / 0.94) !important; }
 .ao-vivo { animation: rg-pisca 1.6s ease-in-out infinite }
