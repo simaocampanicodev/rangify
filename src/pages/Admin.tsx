@@ -285,7 +285,9 @@ export function Admin() {
             <TituloPainel eyebrow={tx('RESULTADOS', 'RESULTS')} titulo={tx('Partidas à espera do resultado', 'Matches awaiting the result')} />
             {pendentes.valor?.length
               ? [...pendentes.valor].sort((x, y) => (x.estado === 'RESULT_SUBMISSION' ? 0 : 1) - (y.estado === 'RESULT_SUBMISSION' ? 0 : 1)).map((p) => <ResultadoPendente key={p.id} p={p} />)
-              : <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
+              : pendentes.erro
+                ? <Vazio icone={<Gavel size={22} />} titulo={tx('Não foi possível carregar os resultados', 'Could not load the results')} texto={pendentes.erro} />
+                : <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
           </div>
         )}
         {aba === 'partidas' && (
