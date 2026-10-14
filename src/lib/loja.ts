@@ -171,9 +171,10 @@ export function formatarCoins(n: number) {
   return Math.round(n).toLocaleString('pt-PT').replace(/\./g, ' ')
 }
 
-/** Como as coins se ganham (a mesma conta do Supabase, em _moedas_ganhas). */
-export const COINS_POR_NIVEL = 150
-export const COINS_POR_MARCO = 500
+/** Como as coins se ganham (a mesma conta do Supabase, em _moedas_ganhas, migração 0018). */
+export const COINS_POR_NIVEL = 120
+export const COINS_POR_MARCO = 400
+export const COINS_POR_DIARIA = 15
 export const COINS_POR_SEMANAL = 40
 export const COINS_POR_MVP = 25
 

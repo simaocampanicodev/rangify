@@ -233,6 +233,18 @@ html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; backgrou
   :is(.ban-livre:hover, .ban-livre:focus-within, .ban-decisivo) :is(.ban-aberto, .ban-locais) { opacity: 1; transform: none; pointer-events: auto; transition-delay: .2s; }
 }
 
+/*
+ * Cartas da loja (como o Night Market do Valorant): viradas para baixo até ao clique.
+ * A frente está rodada 180°; ao virar, roda o conjunto e a frente fica à vista.
+ */
+.rg-carta { perspective: 1400px; height: 100%; }
+.rg-carta-in { position: relative; height: 100%; transform-style: preserve-3d; transition: transform .75s cubic-bezier(.2,.8,.2,1); }
+.rg-carta-in.virada { transform: rotateY(180deg); }
+.rg-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.rg-frente { height: 100%; transform: rotateY(180deg); }
+.rg-verso { position: absolute; inset: 0; }
+@media (prefers-reduced-motion: reduce) { .rg-carta-in { transition: none; } }
+
 /* Fila: o anel do Dashboard e da página Jogar. */
 @keyframes rg-gira { to { transform: rotate(360deg) } }
 .fila-gira { animation: rg-gira 6s linear infinite; transform-origin: 50% 50%; }

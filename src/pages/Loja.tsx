@@ -2,7 +2,7 @@ import { Check, Eye, FlaskConical, ImagePlay, Lock, RotateCcw, ShoppingBag, Spar
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BannerPerfil, DecoracaoAvatar, FundoBanner, DecoracaoMvp, ExtraLinha, TituloJogador, useClassesCosmeticos } from '@/components/Cosmeticos'
-import { NomeRangify } from '@/components/Marca'
+import { NomeRangify, Simbolo } from '@/components/Marca'
 import { Avatar, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, SeloMvp, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -11,12 +11,63 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type LojaAberta, type Perfil } from '@/lib/dados'
 import { l } from '@/lib/idioma'
 import {
-  CATEGORIAS_LOJA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, COR_RARIDADE, ITEM_POR_ID, ITENS_LOJA, NOME_RARIDADE,
+  CATEGORIAS_LOJA, COINS_POR_DIARIA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, COR_RARIDADE, ITEM_POR_ID, ITENS_LOJA, NOME_RARIDADE,
   formatarCoins, gifValida, type CategoriaLoja, type Cosmeticos, type ItemLoja,
 } from '@/lib/loja'
 import { nomeJogador, tagJogador } from '@/lib/partida'
 
 const lg = (par: [string, string]) => l(par[0], par[1])
+
+/**
+ * As cartas da loja de hoje começam viradas para baixo, como no Night Market: cada
+ * uma vira com um clique. As que já viraste ficam abertas neste browser até a loja
+ * mudar (no dia seguinte voltam todas a estar viradas para baixo).
+ */
+function useRevelados(perfilId: string, dia: string) {
+  const prefixo = `rangify:loja-revelados:${perfilId}:`
+  const chave = prefixo + dia
+  const ler = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) ?? '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+  const [ids, setIds] = useState<string[]>(() => ler(chave))
+  useEffect(() => { setIds(ler(chave)) }, [chave])
+  const revelar = (novos: string[]) => setIds((atual) => {
+    const r = [...new Set([...atual, ...novos])]
+    try {
+      localStorage.setItem(chave, JSON.stringify(r))
+      // Os dias anteriores já não interessam.
+      for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith(prefixo) && k !== chave) localStorage.removeItem(k) }
+    } catch { /* sem localStorage: fica só nesta visita */ }
+    return r
+  })
+  return { revelados: new Set(ids), revelar }
+}
+
+const BRILHO_RARIDADE: Record<ItemLoja['raridade'], string> = {
+  comum: 'border-white/12', raro: 'border-pessego/40 shadow-[0_0_30px_-12px_rgba(255,181,146,0.6)]',
+  epico: 'border-laranja/55 shadow-[0_0_34px_-10px_rgba(255,91,31,0.75)]', lendario: 'border-ouro/60 shadow-[0_0_40px_-8px_rgba(242,193,78,0.7)]',
+}
+
+/** Uma carta da loja de hoje: virada para baixo até clicares nela. */
+function Carta({ item, revelada, onRevelar, rotulo, children }: { item: ItemLoja; revelada: boolean; onRevelar: () => void; rotulo: string; children: ReactNode }) {
+  return (
+    <div className="rg-carta">
+      <div className={`rg-carta-in ${revelada ? 'virada' : ''}`}>
+        <div className="rg-face rg-frente" inert={!revelada}>{children}</div>
+        <button
+          type="button"
+          onClick={onRevelar}
+          tabIndex={revelada ? -1 : 0}
+          aria-hidden={revelada}
+          aria-label={l(`Revelar a carta: ${rotulo}`, `Reveal the card: ${rotulo}`)}
+          className={`rg-face rg-verso group flex cursor-pointer flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border-2 bg-[radial-gradient(90%_70%_at_50%_30%,rgba(255,91,31,0.16),transparent_70%),repeating-linear-gradient(135deg,rgba(255,91,31,0.06)_0_2px,transparent_2px_12px),#101013] p-4 text-texto transition-[border-color,box-shadow] hover:border-laranja ${BRILHO_RARIDADE[item.raridade]}`}
+        >
+          <span className="font-mono text-[10px] tracking-[0.16em] text-mudo uppercase">{rotulo}</span>
+          <Simbolo tamanho={64} className="text-laranja transition-transform duration-300 group-hover:scale-110" />
+          <span className="font-mono text-[11px] font-bold tracking-[0.14em] text-pessego">{l('CLICA PARA REVELAR', 'CLICK TO REVEAL')}</span>
+        </button>
+      </div>
+    </div>
+  )
+}
 const nomeCategoria = (c: CategoriaLoja) => lg(CATEGORIAS_LOJA.find((x) => x.id === c)!.uma)
 
 /** A moeda do Rangify: o símbolo do "R" dentro de um círculo laranja. */
@@ -149,7 +200,7 @@ function CartaoItem({ item, loja, perfil, vendo, onVer, etiqueta, grande = false
   }
 
   return (
-    <article className={`painel cartao-hover cz-item flex flex-col overflow-hidden !rounded-2xl [contain-intrinsic-size:auto_330px] [content-visibility:auto] ${vendo ? 'cz-sempre !border-laranja/70 shadow-[0_0_0_3px_rgba(255,91,31,0.15)]' : ''}`}>
+    <article className={`painel cartao-hover cz-item flex h-full flex-col overflow-hidden !rounded-2xl [contain-intrinsic-size:auto_330px] [content-visibility:auto] ${vendo ? 'cz-sempre !border-laranja/70 shadow-[0_0_0_3px_rgba(255,91,31,0.15)]' : ''}`}>
       <div className={`relative grid place-items-center border-b border-white/6 bg-[radial-gradient(80%_90%_at_50%_40%,rgba(255,91,31,0.08),transparent_70%)] px-4 ${grande ? 'h-[190px]' : 'h-[150px]'}`}>
         {etiqueta && <span className="absolute top-2.5 left-3 font-mono text-[10px] tracking-[0.14em] text-mudo uppercase">{etiqueta}</span>}
         {tem && (
@@ -189,7 +240,7 @@ export function Loja() {
   const { perfil } = useSessao()
   const r = useCarregar(() => dados.loja(), [perfil?.id], ['loja'])
   const [verId, setVerId] = useState<string | null>(null)
-  const [vista, setVista] = useState<'hoje' | 'catalogo'>('hoje')
+  const [vista, setVista] = useState<'hoje' | 'inventario' | 'catalogo'>('hoje')
   const [filtro, setFiltro] = useState<CategoriaLoja | 'tudo'>('tudo')
   const agora = useAgora(1000)
   const loja = r.valor && r.valor.visivel ? r.valor : null
@@ -199,6 +250,7 @@ export function Loja() {
   const { recarregar } = r
   useEffect(() => { if (mudou) recarregar() }, [mudou, recarregar])
 
+  const { revelados, revelar } = useRevelados(perfil?.id ?? '', loja?.hoje.dia ?? '')
   const ver = verId ? ITEM_POR_ID[verId] ?? null : null
   const vistos = useMemo(() => (loja ? cosmeticosVistos(loja, ver) : {}), [loja, ver])
 
@@ -213,6 +265,23 @@ export function Loja() {
     return <CartaoItem key={id} item={item} loja={loja} perfil={perfil} vendo={verId === id} onVer={() => alternar(item.id)} etiqueta={etiqueta} grande={grande} />
   }
   const catalogo = ITENS_LOJA.filter((i) => filtro === 'tudo' || i.categoria === filtro)
+  // As cartas de hoje (o destaque, os semanais e os diários) viram-se uma a uma.
+  const deHoje = [loja.hoje.destaque, ...loja.hoje.semanais, ...loja.hoje.diarios].filter((x): x is string => !!x && !!ITEM_POR_ID[x])
+  const porRevelar = deHoje.filter((id) => !revelados.has(id))
+  const carta = (id: string | null, etiqueta: ReactNode, rotulo: string, grande = false) => {
+    const item = id ? ITEM_POR_ID[id] : null
+    if (!item) return null
+    return (
+      <Carta key={id} item={item} revelada={revelados.has(item.id)} onRevelar={() => revelar([item.id])} rotulo={rotulo}>
+        <CartaoItem item={item} loja={loja} perfil={perfil} vendo={verId === item.id} onVer={() => alternar(item.id)} etiqueta={etiqueta} grande={grande} />
+      </Carta>
+    )
+  }
+  const vistas = [
+    { valor: 'hoje' as const, texto: l('Loja de hoje', "Today's shop") },
+    { valor: 'inventario' as const, texto: l(`Inventário (${loja.inventario.length})`, `Inventory (${loja.inventario.length})`) },
+    ...(loja.staff ? [{ valor: 'catalogo' as const, texto: l('Catálogo completo', 'Full catalogue') }] : []),
+  ]
 
   return (
     <>
@@ -242,6 +311,7 @@ export function Loja() {
           </span>
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 font-mono text-[12px] text-mudo">
             <li className="flex justify-between gap-3"><span>{l(`Níveis do Experience (nível ${loja.ganhas.nivel})`, `Experience levels (level ${loja.ganhas.nivel})`)}</span><span className="text-pessego">+{formatarCoins(loja.ganhas.porNivel + loja.ganhas.porMarcos)}</span></li>
+            <li className="flex justify-between gap-3"><span>{l('Missões diárias', 'Daily missions')}</span><span className="text-pessego">+{formatarCoins(loja.ganhas.porDiarias ?? 0)}</span></li>
             <li className="flex justify-between gap-3"><span>{l('Missões semanais', 'Weekly missions')}</span><span className="text-pessego">+{formatarCoins(loja.ganhas.porSemanais)}</span></li>
             <li className="flex justify-between gap-3"><span>MVP</span><span className="text-pessego">+{formatarCoins(loja.ganhas.porMvp)}</span></li>
             {loja.ganhas.testes !== 0 && <li className="flex justify-between gap-3"><span>{l('Coins de teste', 'Test coins')}</span><span className="text-pessego">{loja.ganhas.testes > 0 ? '+' : ''}{formatarCoins(loja.ganhas.testes)}</span></li>}
@@ -253,6 +323,7 @@ export function Loja() {
             {[
               [l('Cada nível do Experience', 'Each Experience level'), COINS_POR_NIVEL],
               [l('Cada 5.º nível (5, 10, 15…)', 'Every 5th level (5, 10, 15…)'), COINS_POR_MARCO],
+              [l('Missão diária completa (4 por dia)', 'Daily mission completed (4 a day)'), COINS_POR_DIARIA],
               [l('Missão semanal completa', 'Weekly mission completed'), COINS_POR_SEMANAL],
               [l('MVP de uma partida', 'Match MVP'), COINS_POR_MVP],
             ].map(([t, v]) => (
@@ -266,24 +337,29 @@ export function Loja() {
       <section className="flex flex-wrap items-start gap-5">
         <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
           <TituloPainel
-            eyebrow={vista === 'hoje' ? l(`LOJA DE HOJE · MUDA EM ${relogioAte(loja.hoje.mudaEm, agora)}`, `TODAY'S SHOP · CHANGES IN ${relogioAte(loja.hoje.mudaEm, agora)}`) : l('CATÁLOGO COMPLETO · SÓ OWNER E DEV', 'FULL CATALOGUE · OWNER AND DEV ONLY')}
-            titulo={vista === 'hoje' ? l('Muda todos os dias à meia-noite', 'Changes every day at midnight') : l(`${catalogo.length} itens para testar`, `${catalogo.length} items to test`)}
-            direita={loja.staff ? (
-              <Segmentado pequeno rotulo={l('Vista da loja', 'Shop view')} valor={vista} onChange={setVista}
-                opcoes={[{ valor: 'hoje', texto: l('Loja de hoje', "Today's shop") }, { valor: 'catalogo', texto: l('Catálogo completo', 'Full catalogue') }]} />
-            ) : undefined}
+            eyebrow={vista === 'hoje' ? l(`LOJA DE HOJE · MUDA EM ${relogioAte(loja.hoje.mudaEm, agora)}`, `TODAY'S SHOP · CHANGES IN ${relogioAte(loja.hoje.mudaEm, agora)}`) : vista === 'inventario' ? l('INVENTÁRIO', 'INVENTORY') : l('CATÁLOGO COMPLETO · SÓ OWNER E DEV', 'FULL CATALOGUE · OWNER AND DEV ONLY')}
+            titulo={vista === 'hoje' ? l('Muda todos os dias à meia-noite', 'Changes every day at midnight') : vista === 'inventario' ? (loja.inventario.length ? l(`Os teus ${loja.inventario.length} itens`, `Your ${loja.inventario.length} items`) : l('Ainda não tens itens', 'No items yet')) : l(`${catalogo.length} itens para testar`, `${catalogo.length} items to test`)}
+            direita={<Segmentado pequeno rotulo={l('Vista da loja', 'Shop view')} valor={vista} onChange={setVista} opcoes={vistas} />}
           />
 
-          {vista === 'hoje' ? (
+          {vista === 'inventario' ? (
+            <Inventario loja={loja} perfil={perfil} />
+          ) : vista === 'hoje' ? (
             <>
+              {porRevelar.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-laranja/25 bg-laranja/6 px-4 py-3">
+                  <span className="text-[13.5px] text-suave">{l(`Tens ${porRevelar.length} ${porRevelar.length === 1 ? 'carta' : 'cartas'} por revelar. Clica em cada uma para a virar.`, `You have ${porRevelar.length} ${porRevelar.length === 1 ? 'card' : 'cards'} to reveal. Click each one to flip it.`)}</span>
+                  <button type="button" className="btn btn-suave !min-h-9 !text-[13px]" onClick={() => revelar(porRevelar)}><Sparkles size={15} aria-hidden />{l('Revelar todas', 'Reveal all')}</button>
+                </div>
+              )}
               <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,230px),1fr))] gap-3.5">
-                {cartao(loja.hoje.destaque, <span className="text-ouro">{l(`Destaque · sai em ${relogioAte(loja.hoje.destaqueAte, agora)}`, `Featured · leaves in ${relogioAte(loja.hoje.destaqueAte, agora)}`)}</span>, true)}
-                {loja.hoje.semanais.map((id) => cartao(id, l(`Semanal · sai em ${relogioAte(loja.hoje.semanaisAte, agora)}`, `Weekly · leaves in ${relogioAte(loja.hoje.semanaisAte, agora)}`), true))}
+                {carta(loja.hoje.destaque, <span className="text-ouro">{l(`Destaque · sai em ${relogioAte(loja.hoje.destaqueAte, agora)}`, `Featured · leaves in ${relogioAte(loja.hoje.destaqueAte, agora)}`)}</span>, l('Destaque', 'Featured'), true)}
+                {loja.hoje.semanais.map((id) => carta(id, l(`Semanal · sai em ${relogioAte(loja.hoje.semanaisAte, agora)}`, `Weekly · leaves in ${relogioAte(loja.hoje.semanaisAte, agora)}`), l('Semanal', 'Weekly'), true))}
               </div>
               <div className="flex flex-col gap-3">
                 <span className="rotulo">{l('Diários · um de cada categoria', 'Daily · one per category')}</span>
                 <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">
-                  {loja.hoje.diarios.map((id) => cartao(id, nomeCategoria(ITEM_POR_ID[id]?.categoria ?? 'borda')))}
+                  {loja.hoje.diarios.map((id) => { const nome = nomeCategoria(ITEM_POR_ID[id]?.categoria ?? 'borda'); return carta(id, nome, nome) })}
                 </div>
               </div>
               <div className="flex flex-col gap-3">
@@ -306,8 +382,6 @@ export function Loja() {
 
         <PreVisualizacao perfil={perfil} cos={vistos} ver={ver} repor={() => setVerId(null)} />
       </section>
-
-      <Inventario loja={loja} perfil={perfil} />
     </>
   )
 }
@@ -396,8 +470,7 @@ function Inventario({ loja, perfil }: { loja: LojaAberta; perfil: Perfil }) {
   const temGif = loja.inventario.includes('gif')
 
   return (
-    <Painel aria-labelledby="rg-inventario" className="flex flex-col gap-5 p-[22px]">
-      <TituloPainel eyebrow={l('INVENTÁRIO', 'INVENTORY')} id="rg-inventario" titulo={meus.length ? l(`Os teus ${meus.length} itens`, `Your ${meus.length} items`) : l('Ainda não tens itens', 'No items yet')} />
+    <Painel aria-label={l('Inventário', 'Inventory')} className="flex flex-col gap-5 p-[22px]">
       {!meus.length && <p className="m-0 text-[14px] text-mudo">{l('O que comprares aparece aqui e fica logo equipado. Podes trocar quando quiseres.', 'What you buy shows up here, already equipped. Switch whenever you like.')}</p>}
 
       {CATEGORIAS_LOJA.map((c) => {
@@ -405,7 +478,7 @@ function Inventario({ loja, perfil }: { loja: LojaAberta; perfil: Perfil }) {
         if (!daqui.length) return null
         const equipado = loja.equipados[c.id]
         return (
-          <div key={c.id} className="flex flex-col gap-2 border-t border-white/6 pt-4">
+          <div key={c.id} className="flex flex-col gap-2 border-t border-white/6 pt-4 first:border-t-0 first:pt-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="rotulo">{lg(c.nome)}</span>
               {equipado && <button type="button" className="border-0 bg-transparent p-0 text-[12px] font-semibold text-mudo hover:text-pessego" onClick={() => acao(() => dados.desequiparItem(c.id))}>{l('Não usar nenhum', 'Use none')}</button>}

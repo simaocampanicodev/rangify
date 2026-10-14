@@ -18,7 +18,7 @@ import {
 import { blobParaDataUrl } from '../imagem'
 import { nivelDe } from '../experiencia'
 import {
-  COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, ITEM_POR_ID, ITENS_LOJA, gifValida,
+  COINS_POR_DIARIA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, ITEM_POR_ID, ITENS_LOJA, gifValida,
   type CategoriaLoja, type Cosmeticos, type Raridade,
 } from '../loja'
 import { periodoSemana } from '../tempo'
@@ -798,11 +798,14 @@ const mvpsDe = (e: Estado, perfilId: string) => e.partidas.filter((p) => p.estad
 
 function moedasGanhas(e: Estado, perfilId: string) {
   const { nivel } = nivelDe(xpDe(e, perfilId))
-  const semanais = e.conclusoes.filter((c) => c.perfilId === perfilId && MISSOES.find((m) => m.id === c.missaoId)?.ambito === 'semanal').length
+  const ambito = (id: string) => MISSOES.find((m) => m.id === id)?.ambito
+  const diarias = e.conclusoes.filter((c) => c.perfilId === perfilId && ambito(c.missaoId) === 'diaria').length
+  const semanais = e.conclusoes.filter((c) => c.perfilId === perfilId && ambito(c.missaoId) === 'semanal').length
   return {
     nivel,
     porNivel: COINS_POR_NIVEL * Math.max(0, nivel - 1),
     porMarcos: COINS_POR_MARCO * Math.floor(nivel / 5),
+    porDiarias: COINS_POR_DIARIA * diarias,
     porSemanais: COINS_POR_SEMANAL * semanais,
     porMvp: COINS_POR_MVP * mvpsDe(e, perfilId),
   }
@@ -810,7 +813,7 @@ function moedasGanhas(e: Estado, perfilId: string) {
 
 function moedas(e: Estado, perfilId: string) {
   const g = moedasGanhas(e, perfilId)
-  return g.porNivel + g.porMarcos + g.porSemanais + g.porMvp + lojaDemo(e).movimentos.reduce((t, m) => t + (m.perfilId === perfilId ? m.delta : 0), 0)
+  return g.porNivel + g.porMarcos + g.porDiarias + g.porSemanais + g.porMvp + lojaDemo(e).movimentos.reduce((t, m) => t + (m.perfilId === perfilId ? m.delta : 0), 0)
 }
 
 const staffLoja = (p: Perfil) => p.funcao === 'owner' || p.funcao === 'dev'

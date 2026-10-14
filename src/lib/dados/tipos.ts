@@ -377,7 +377,7 @@ export interface LojaAberta {
   /** Owner e Dev: compram tudo (para testar), dão coins a si próprios, sorteiam a loja e devolvem itens. */
   staff: boolean
   moedas: number
-  ganhas: { nivel: number; porNivel: number; porMarcos: number; porSemanais: number; porMvp: number; testes: number }
+  ganhas: { nivel: number; porNivel: number; porMarcos: number; porDiarias: number; porSemanais: number; porMvp: number; testes: number }
   hoje: { dia: string; diarios: string[]; semanais: string[]; destaque: string | null; mudaEm: string; semanaisAte: string; destaqueAte: string }
   inventario: string[]
   equipados: Partial<Record<CategoriaLoja, string>>

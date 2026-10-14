@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -670,7 +670,7 @@ ok(lj.hoje.semanais.length === 2 && lj.hoje.semanais.every((id) => itensLoja.get
 ok(itensLoja.get(lj.hoje.destaque)?.rarity === 'lendario', 'o destaque é lendário')
 ok(new Set([...lj.hoje.diarios, ...lj.hoje.semanais, lj.hoje.destaque]).size === 11, 'nenhum item aparece duas vezes')
 ok(itensLoja.size === 109, 'o catálogo tem os 109 itens de src/lib/loja.ts')
-const ganhas = lj.ganhas.porNivel + lj.ganhas.porMarcos + lj.ganhas.porSemanais + lj.ganhas.porMvp
+const ganhas = lj.ganhas.porNivel + lj.ganhas.porMarcos + lj.ganhas.porDiarias + lj.ganhas.porSemanais + lj.ganhas.porMvp
 ok(lj.moedas === ganhas && ganhas >= 0, `as coins são as do Experience (${lj.moedas})`)
 
 await falha(rpc(jog, 'loja_moedas_teste', { p_quantidade: 5000 }), 'Owner e Dev', 'um jogador não dá coins a si próprio')
