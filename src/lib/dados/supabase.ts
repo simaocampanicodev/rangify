@@ -189,6 +189,7 @@ export const dadosSupabase: Dados = {
   async banirMapa(id, mapa) { await rpc('banir_mapa', { p_match: id, p_mapa: mapa }) },
   async escolherLado(id, lado) { await rpc('escolher_lado', { p_match: id, p_lado: lado }) },
   async sugerirMapa(id, valor) { await rpc('sugerir_mapa', { p_match: id, p_valor: valor }) },
+  async votarCancelar(id, voto) { await rpc('votar_cancelar', { p_match: id, p_voto: voto }) },
   async definirCodigo(id, codigo) { await rpc('definir_codigo', { p_match: id, p_codigo: codigo.trim().toUpperCase() }) },
   async submeterResultado(id, a, b) { await rpc('submeter_resultado', { p_match: id, p_a: a, p_b: b }) },
 
@@ -311,7 +312,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   definirPassword: ['perfil'], ligarRiotId: ['perfil'], definirAvatar: ['perfil'], atualizarPerfil: ['perfil'],
   marcarTourVisto: ['perfil'], sincronizarRank: ['perfil'],
   entrarFila: ['fila'], sairFila: ['fila'],
-  responderConfirmacao: ['partida'], escolherJogador: ['partida'], banirMapa: ['partida'], escolherLado: ['partida'], sugerirMapa: ['partida'], definirCodigo: ['partida'],
+  responderConfirmacao: ['partida'], escolherJogador: ['partida'], banirMapa: ['partida'], escolherLado: ['partida'], sugerirMapa: ['partida'], votarCancelar: ['partida'], definirCodigo: ['partida'],
   submeterResultado: ['partida'], devEncherFila: ['partida'], devCompletarFila: ['partida'], devSimularPartida: ['partida'],
   devSaltarBloqueio: ['partida'], devAcelerar: ['partida'],
   pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],

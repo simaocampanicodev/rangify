@@ -3,8 +3,12 @@
 //                      categoria com o chat da partida e uma call por equipa. Quem já
 //                      está numa call do servidor é logo mudado para a da sua equipa.
 // { tipo: 'limpar' } : apaga os canais e os cargos (o Discord tira-os a toda a gente).
+// { tipo: 'fila' }   : sem partida. Alguém entrou ou saiu da fila: atualiza o texto da fila
+//                      na mensagem do canal de ping (com uma espera, para várias entradas
+//                      seguidas darem uma só edição).
 // O que foi criado fica em match_discord, para a limpeza saber o que apagar.
-import { admin, erro, resposta } from '../_shared/comum.ts'
+import { SITE, admin, erro, resposta } from '../_shared/comum.ts'
+import { atualizarMensagemFila } from '../_shared/discord-ping.ts'
 
 const API = 'https://discord.com/api/v10'
 
@@ -155,13 +159,12 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
     await discord('PATCH', `/guilds/${guild}/members/${j.id}`, { channel_id: j.equipa === 'A' ? vozA : vozB }).catch(() => null)
   }
 
-  const site = Deno.env.get('SITE_URL')
   await discord('POST', `/channels/${texto}/messages`, {
     content: [
       `**Partida ${codigo}**${m.map ? ` · ${m.map}` : ''}`,
       `<@&${cargoA}> entra na <#${vozA}> · <@&${cargoB}> entra na <#${vozB}>.`,
       'Este chat e as calls desaparecem quando a partida acabar.',
-      site ? `Acompanha a partida em ${site}/jogar` : '',
+      SITE ? `Acompanha a partida em ${SITE}/jogar` : '',
       semDiscord.length ? `Sem conta no servidor (não receberam o cargo): ${semDiscord.join(', ')}.` : '',
     ].filter(Boolean).join('\n'),
     allowed_mentions: { roles: [cargoA, cargoB] },
@@ -173,13 +176,30 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
   return { criado: true, semDiscord }
 }
 
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Só um pedido espera de cada vez (reservar); os que chegam entretanto deixam a contagem para ele,
+ * que a lê depois da espera. O Discord só deixa editar uma mensagem umas vezes por segundo.
+ */
+async function atualizarFila(db: ReturnType<typeof admin>) {
+  const { data: reservou } = await db.rpc('_discord_fila_reservar')
+  if (!reservou) return { adiado: true }
+  await dormir(6000)
+  await db.rpc('_discord_fila_libertar')
+  return atualizarMensagemFila(db)
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return erro('Só POST.', 405)
   const segredo = Deno.env.get('DISCORD_SEGREDO')
   if (!segredo || req.headers.get('x-rangify-segredo') !== segredo) return erro('Sem autorização.', 401)
   const { tipo, matchId } = await req.json().catch(() => ({})) as { tipo?: string; matchId?: string }
-  if (!matchId || (tipo !== 'criar' && tipo !== 'limpar')) return erro('Pedido inválido.')
   const db = admin()
+  if (tipo === 'fila') {
+    try { return resposta(await atualizarFila(db)) } catch (e) { console.error(e); return erro('Não foi possível atualizar a fila.', 500) }
+  }
+  if (!matchId || (tipo !== 'criar' && tipo !== 'limpar')) return erro('Pedido inválido.')
   try {
     return resposta(tipo === 'criar' ? await criar(db, matchId) : await limpar(db, matchId))
   } catch (e) {

@@ -10,7 +10,7 @@ import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type LinhaRanking, type Perfil } from '@/lib/dados'
 import { formatarXp } from '@/lib/experiencia'
 import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
-import { DESEMPENHO_MAX, PONTOS_BASE, RS_POR_PONTO, bonusDesempenho, comSinal } from '@/lib/pontos'
+import { DESEMPENHO_MAX, PONTOS_BASE, RESULTADO_MAX, RESULTADO_MIN, RS_POR_PONTO, bonusDesempenho, comSinal, margemRondas } from '@/lib/pontos'
 import { HORAS_CACHE_RANK } from '@/lib/regras'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
@@ -355,16 +355,30 @@ function RankingNivel({ perfil }: { perfil: Perfil | null }) {
   )
 }
 
-/** Quanto se ganha ou perde: o resultado e o desempenho (Rangify Score). O rank não conta. */
+const BOTAO_PASSO = 'grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8'
+
+/** Quanto se ganha ou perde: o resultado (com a margem de rondas) e o desempenho (Rangify Score). O rank não conta. */
 function Simulador() {
   const [venceu, setVenceu] = useState<'v' | 'd'>('v')
   const [rs, setRs] = useState(112)
+  // As rondas da equipa que perdeu (a que ganha fez 13).
+  const [rondas, setRondas] = useState(9)
   const bonus = bonusDesempenho(rs)
-  const total = (venceu === 'v' ? PONTOS_BASE : -PONTOS_BASE) + bonus
+  const margem = margemRondas(13, rondas)
+  const base = (venceu === 'v' ? 1 : -1) * (PONTOS_BASE + margem)
+  const total = base + bonus
   return (
     <Painel aria-labelledby="rg-sim" className="flex flex-col gap-3.5 p-[22px]">
       <TituloPainel eyebrow={tx('SIMULADOR', 'SIMULATOR')} titulo={tx('Quanto ganhas ou perdes', 'How much you win or lose')} id="rg-sim" />
       <Segmentado rotulo={tx('Resultado da partida', 'Match result')} valor={venceu} onChange={setVenceu} opcoes={[{ valor: 'v', texto: tx('Vitória', 'Win') }, { valor: 'd', texto: tx('Derrota', 'Loss') }]} />
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/7 bg-white/[0.03] p-3">
+        <button type="button" aria-label={tx('Menos rondas para a equipa que perde', 'Fewer rounds for the losing team')} onClick={() => setRondas((d) => Math.max(0, d - 1))} className={BOTAO_PASSO}><Minus size={16} aria-hidden /></button>
+        <span className="flex flex-col items-center gap-0.5 text-center">
+          <span className="font-mono text-[18px] font-semibold">{venceu === 'v' ? `13-${rondas}` : `${rondas}-13`}</span>
+          <span className="text-[12px] text-mudo">{tx('o resultado em rondas', 'the round score')}</span>
+        </span>
+        <button type="button" aria-label={tx('Mais rondas para a equipa que perde', 'More rounds for the losing team')} onClick={() => setRondas((d) => Math.min(11, d + 1))} className={BOTAO_PASSO}><Plus size={16} aria-hidden /></button>
+      </div>
       <div className="flex items-center justify-between gap-3 rounded-xl border border-white/7 bg-white/[0.03] p-3">
         <button type="button" aria-label={tx('Diminuir o Rangify Score', 'Decrease the Rangify Score')} onClick={() => setRs((d) => Math.max(100 - RS_POR_PONTO * DESEMPENHO_MAX, d - RS_POR_PONTO))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Minus size={16} aria-hidden /></button>
         <span className="flex flex-col items-center gap-0.5 text-center">
@@ -374,10 +388,10 @@ function Simulador() {
         <button type="button" aria-label={tx('Aumentar o Rangify Score', 'Increase the Rangify Score')} onClick={() => setRs((d) => Math.min(100 + RS_POR_PONTO * DESEMPENHO_MAX, d + RS_POR_PONTO))} className="grid size-10 cursor-pointer place-items-center rounded-[10px] border border-white/12 bg-white/[0.04] text-texto hover:bg-white/8"><Plus size={16} aria-hidden /></button>
       </div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[13px] text-suave">{venceu === 'v' ? `+${PONTOS_BASE}` : `-${PONTOS_BASE}`} {tx('de base', 'base')}, {comSinal(bonus)} {tx('pelo desempenho', 'from performance')}</span>
+        <span className="text-[13px] text-suave">{comSinal(base)} {tx('pelo resultado', 'from the result')}, {comSinal(bonus)} {tx('pelo desempenho', 'from performance')}</span>
         <span className={`font-mono text-[34px] font-semibold ${total > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(total)}</span>
       </div>
-      <p className="m-0 text-[12.5px] leading-normal text-mudo">{tx(`Cada ${RS_POR_PONTO} de RS acima ou abaixo de 100 vale 1 ponto, entre -${DESEMPENHO_MAX} e +${DESEMPENHO_MAX}. O rank oficial não conta.`, `Every ${RS_POR_PONTO} RS above or below 100 is worth 1 point, between -${DESEMPENHO_MAX} and +${DESEMPENHO_MAX}. Official rank does not count.`)}</p>
+      <p className="m-0 text-[12.5px] leading-normal text-mudo">{tx(`O resultado vale ${PONTOS_BASE}, de ${RESULTADO_MIN} (13-11) a ${RESULTADO_MAX} (13-0): quanto maior a diferença de rondas, mais se ganha ou se perde. Cada ${RS_POR_PONTO} de RS acima ou abaixo de 100 vale 1 ponto, entre -${DESEMPENHO_MAX} e +${DESEMPENHO_MAX}. O rank oficial não conta.`, `The result is worth ${PONTOS_BASE}, from ${RESULTADO_MIN} (13-11) to ${RESULTADO_MAX} (13-0): the bigger the round difference, the more you win or lose. Every ${RS_POR_PONTO} RS above or below 100 is worth 1 point, between -${DESEMPENHO_MAX} and +${DESEMPENHO_MAX}. Official rank does not count.`)}</p>
     </Painel>
   )
 }

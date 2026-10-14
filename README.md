@@ -5,8 +5,9 @@ Hub competitivo de Valorant 5v5: fila por região, confirmação, draft de capit
 **O ranking:** toda a gente começa a temporada com 1000 pontos e a tabela é ordenada por esses pontos. O rank oficial da Riot nunca ordena nada nem entra nas contas dos pontos: é só informativo (perfil e média das equipas). Os pontos de cada partida são:
 
 - vitória +20, derrota -20;
+- a margem de rondas: um 13-1 vale mais do que um 13-11 (de 18 a 24 pontos, ver `src/lib/pontos.ts`);
 - mais o desempenho (Rangify Score): de -6 a +6, um ponto por cada 6 de RS acima ou abaixo de 100;
-- exemplo: ganhas com um RS de 124. A vitória dá +20 e o desempenho soma mais 4, ficas com +24.
+- exemplo: ganhas por 13-5 com um RS de 124. O resultado dá +21 e o desempenho soma mais 4, ficas com +25.
 
 Rangify é um projeto independente e não é desenvolvido nem apoiado pela Riot Games.
 
@@ -34,7 +35,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql` e `0019_pontos_sem_rank.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql` e `0020_margem_cancelar_fila.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;

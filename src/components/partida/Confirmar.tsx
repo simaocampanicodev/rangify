@@ -8,7 +8,7 @@ import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
 import { dados } from '@/lib/dados'
 import { nomeJogador } from '@/lib/partida'
-import { DESEMPENHO_MAX, PONTOS_BASE } from '@/lib/pontos'
+import { DESEMPENHO_MAX, RESULTADO_MAX } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { SEGUNDOS_CONFIRMAR } from '@/lib/regras'
 import { tocarPartidaEncontrada } from '@/lib/som'
@@ -148,7 +148,7 @@ export function Confirmar() {
         <div className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 border-t border-white/7 pt-[18px]">
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Média da sala', 'Lobby average')}</span><span className="text-[14px] font-semibold">{nomeRank(tierMedio(partida.jogadores.map((j) => j.tier)))}</span></div>
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Aceitaram', 'Accepted')}</span><span className="font-mono text-[14px] font-semibold">{aceites}/10</span></div>
-          <div className="flex flex-col gap-1"><span className="rotulo">{l('Pontos em jogo', 'Points at stake')}</span><span className="font-mono text-[14px] font-semibold text-pessego">{l('até', 'up to')} +{PONTOS_BASE + DESEMPENHO_MAX}</span></div>
+          <div className="flex flex-col gap-1"><span className="rotulo">{l('Pontos em jogo', 'Points at stake')}</span><span className="font-mono text-[14px] font-semibold text-pessego">{l('até', 'up to')} +{RESULTADO_MAX + DESEMPENHO_MAX}</span></div>
         </div>
       </section>
     </div>,

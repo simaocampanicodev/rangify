@@ -1,22 +1,39 @@
 /**
  * O sistema de pontos do Rangify:
  * - toda a gente começa a temporada com 1000;
- * - vitória vale +20, derrota tira 20;
+ * - vitória vale +20, derrota tira 20, ajustado pela margem de rondas: um 13-1 vale mais
+ *   do que um 13-11 (ver margemRondas);
  * - o desempenho: o Rangify Score (RS) da partida dá de -6 a +6 (ver rangifyScores).
  * O rank oficial da Riot não entra nas contas: só se avalia o que se joga.
+ * É a mesma conta que a base de dados faz em _pontos_partida.
  */
 export const PONTOS_INICIAIS = 1000
 export const PONTOS_BASE = 20
+export const MARGEM_MIN = -3
+export const MARGEM_MAX = 4
 
-/** Os pontos do resultado (sem o desempenho, que só se sabe com as estatísticas). */
-export function calcularPontos(venceu: boolean) {
-  const base = venceu ? PONTOS_BASE : -PONTOS_BASE
-  return { base, total: base }
+/** Pontos pela margem: um por cada 2 rondas de diferença acima de 6 (entre -3 e +4). 13-11 = -2, 13-7 = 0, 13-0 = +4. */
+export function margemRondas(a: number, b: number): number {
+  const x = (Math.abs(a - b) - 6) / 2
+  // Arredonda como o Postgres (metades para longe do zero).
+  const r = Math.sign(x) * Math.round(Math.abs(x))
+  return Math.max(MARGEM_MIN, Math.min(MARGEM_MAX, r)) || 0
 }
 
-/** O que está em jogo antes de a partida começar, sem o desempenho. */
+/** O mínimo e o máximo que o resultado vale: um 13-11 (ou 14-12) e um 13-0. */
+export const RESULTADO_MIN = PONTOS_BASE + margemRondas(13, 11)
+export const RESULTADO_MAX = PONTOS_BASE + margemRondas(13, 0)
+
+/** Os pontos do resultado (sem o desempenho, que só se sabe com as estatísticas). */
+export function calcularPontos(venceu: boolean, rondasA: number, rondasB: number) {
+  const margem = margemRondas(rondasA, rondasB)
+  const base = PONTOS_BASE + margem
+  return { base: venceu ? PONTOS_BASE : -PONTOS_BASE, margem, total: venceu ? base : -base }
+}
+
+/** O que está em jogo antes de a partida começar: o resultado ainda não existe, por isso vai de uma ponta à outra. */
 export function emJogo() {
-  return { vitoria: PONTOS_BASE, derrota: -PONTOS_BASE }
+  return { minimo: RESULTADO_MIN, maximo: RESULTADO_MAX }
 }
 
 export function comSinal(v: number): string {

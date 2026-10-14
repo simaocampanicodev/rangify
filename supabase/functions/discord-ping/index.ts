@@ -2,7 +2,7 @@
 // botão "Chamar para a fila", ou atualiza a que já lá está (o id fica em config).
 // O token do bot fica nos secrets do Supabase; nunca passa pelo site.
 import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
-import { CANAL_PING, mensagemPing } from '../_shared/discord-ping.ts'
+import { CANAL_PING, filaAtual, mensagemPing } from '../_shared/discord-ping.ts'
 
 const API = 'https://discord.com/api/v10'
 
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     if (!Deno.env.get('DISCORD_BOT_TOKEN')) return erro('O bot do Discord ainda não está configurado (falta o DISCORD_BOT_TOKEN).', 503)
 
     const { data: config } = await db.from('config').select('discord_ping_message').eq('id', true).maybeSingle()
-    const mensagem = mensagemPing()
+    const mensagem = mensagemPing(await filaAtual(db))
     const antiga: string | null = config?.discord_ping_message ?? null
 
     // Se a mensagem já existe, só a atualiza (o botão continua o mesmo).

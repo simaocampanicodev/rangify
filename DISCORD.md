@@ -144,7 +144,16 @@ Uma mensagem de webhook (como as regras, feitas no Discohook) não pode ter bot�
 
 4. Ainda em **General Information**, em **Interactions Endpoint URL**, põe `https://ftswhbbazdzvwedpqqam.supabase.co/functions/v1/discord-interacoes` e carrega em **Save Changes**. O Discord testa o endereço nessa hora: se der erro, confirma o passo 2 e o 3.
 5. Permissões do bot no canal de ping (botão direito no canal › **Editar canal** › **Permissões** › cargo do bot): **Ver canal**, **Enviar mensagens** e **Inserir links**. Para o ping chegar a toda a gente, o bot também precisa de **Mencionar @everyone, @here e todos os cargos**, ou então o cargo de ping tem de estar marcado como **Permitir que qualquer pessoa @mencione este cargo**.
-6. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a mensagem**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra.
+6. O `SITE_URL` (secret) pode ter ou não a barra no fim: as funções tiram-na, e o link do botão fica sempre `https://o-teu-site/jogar`.
+7. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a mensagem**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra.
+
+**A fila no embed.** Por baixo do embed e acima dos botões há uma linha pequena com quantas pessoas estão na fila ("4/10 na fila: faltam 6", e "falta só 1" quando está quase). Atualiza-se sozinha quando alguém entra ou sai da fila, com uns segundos de espera para várias entradas seguidas darem uma só edição. Precisa da `0020` e da função `discord-partida` publicada outra vez:
+
+```bash
+npx supabase functions deploy discord-partida --no-verify-jwt
+npx supabase functions deploy discord-ping
+npx supabase functions deploy discord-interacoes --no-verify-jwt
+```
 
 Convém que só o bot possa escrever no canal (tira **Enviar mensagens** a @everyone), para a mensagem com o botão ficar sempre visível.
 

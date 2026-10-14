@@ -63,7 +63,7 @@ export interface JogadorGuardado {
   agente?: string | null
 }
 
-export type PartidaGuardada = Omit<Partida, 'jogadores'> & { jogadores: JogadorGuardado[]; pontosAplicados?: boolean }
+export type PartidaGuardada = Omit<Partida, 'jogadores' | 'cancelamento'> & { jogadores: JogadorGuardado[]; pontosAplicados?: boolean; votosCancelar?: string[] }
 
 export function novoJogador(p: Perfil): JogadorGuardado {
   return {
@@ -173,7 +173,7 @@ export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perf
   for (const j of p.jogadores) {
     if (!j.equipa) continue
     const venceu = j.equipa === p.vencedor
-    const r = calcularPontos(venceu)
+    const r = calcularPontos(venceu, a, b)
     const perf = bonusDesempenho(j.rangifyScore)
     j.deltaDesempenho = j.rangifyScore != null ? perf : null
     j.deltaPontos = r.total + perf

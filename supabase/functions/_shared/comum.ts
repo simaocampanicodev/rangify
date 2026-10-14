@@ -73,3 +73,10 @@ export async function rankOficial(regiao: string, nome: string, tag: string) {
   )
   return { tier: d?.current_data?.currenttier ?? 0, rr: d?.current_data?.ranking_in_tier ?? null }
 }
+
+/**
+ * O endereço do site, sem barras no fim: com SITE_URL=https://rangify.onrender.com/
+ * os links ficavam "https://rangify.onrender.com//jogar" e não abriam.
+ * Usa assim: `${SITE}/jogar`. Vazio se o secret não existir.
+ */
+export const SITE = (Deno.env.get('SITE_URL') ?? '').trim().replace(/\/+$/, '')

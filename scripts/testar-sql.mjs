@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -255,11 +255,13 @@ ok(mediaRs > 95 && mediaRs < 105, `o RS médio da partida anda à volta de 100 (
 ok(partida.jogadores.every((j) => j.agente === stats.find((s) => s.perfilId === j.perfilId).agente), 'guarda o agente de cada jogador')
 
 // Os pontos batem certo com a fórmula do site: resultado e desempenho. O rank não conta.
-const esperado = (j) => (j.equipa === partida.vencedor ? 20 : -20) + bonusRs(rsEsperado.get(j.perfilId))
+const margemRondas = (a, b) => { const x = (Math.abs(a - b) - 6) / 2; return Math.max(-3, Math.min(4, Math.sign(x) * Math.round(Math.abs(x)))) }
+const baseEsperada = (j) => (j.equipa === partida.vencedor ? 1 : -1) * (20 + margemRondas(partida.resultadoA, partida.resultadoB))
+const esperado = (j) => baseEsperada(j) + bonusRs(rsEsperado.get(j.perfilId))
 ok(partida.jogadores.every((j) => j.deltaPontos === esperado(j)), 'deltas de pontos iguais aos do site para os 10 jogadores')
 ok(new Set(partida.jogadores.map((j) => j.tier)).size > 3, 'a partida tem ranks muito diferentes (para o teste de baixo valer a pena)')
-ok(partida.jogadores.every((j) => j.deltaPontos - (j.deltaDesempenho ?? 0) === (j.equipa === partida.vencedor ? 20 : -20)), 'sem o desempenho, todos os vencedores ganham 20 e todos os vencidos perdem 20, sejam de que rank forem')
-ok((await raiz(`select public._pontos(3, array[27, 27, 27], true) as a, public._pontos(27, array[3, 3, 3], true) as b, public._pontos(15, array[15], false) as c`))[0].a === 20
+ok(partida.jogadores.every((j) => j.deltaPontos - (j.deltaDesempenho ?? 0) === baseEsperada(j)), 'sem o desempenho, todos os vencedores ganham o mesmo e todos os vencidos perdem o mesmo (pela margem de rondas), sejam de que rank forem')
+ok((await raiz(`select public._pontos(3, array[27, 27, 27], true) as a`))[0].a === 20
   && (await raiz(`select public._pontos(27, array[3, 3, 3], true) as b`))[0].b === 20
   && (await raiz(`select public._pontos(15, array[15], false) as c`))[0].c === -20, '_pontos ignora os ranks: vitória +20 e derrota -20')
 ok((await raiz(`select active from quests where id = 'm-acima'`))[0].active === false, 'a missão que comparava ranks ficou desativada')
@@ -781,6 +783,76 @@ console.log('\nResultados submetidos pela staff')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0017_lados_sugestoes.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0017 outra vez não dá erro')
+// A 0017 repõe a versão antiga de _partida_json: a 0020 (que a estende) volta a correr por cima.
+await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+
+// ------------------------------------------------------------ margem de rondas
+console.log('\nMargem de rondas nos pontos')
+{
+  const casos = [[13, 11, 18], [14, 12, 18], [13, 9, 19], [13, 7, 20], [13, 5, 21], [13, 3, 22], [13, 1, 23], [13, 0, 24]]
+  for (const [a, b, esperada] of casos) {
+    const r = await raiz(`select public._pontos_partida(true, $1, $2) as v, public._pontos_partida(false, $1, $2) as d`, [a, b])
+    ok(r[0].v === esperada && r[0].d === -esperada, `${a}-${b}: a vitória dá +${esperada} e a derrota tira ${esperada}`)
+  }
+  ok(casos.every(([a, b]) => true) && (await raiz(`select public._margem(2, 0) as x`))[0].x === -2, 'mesmo um resultado curtíssimo nunca baixa de -3 na margem')
+}
+
+// ------------------------------------------------------------ votação para cancelar
+console.log('\nVotação para cancelar a partida')
+{
+  const ids = uids.slice(0, 10).map((_, i) => pid(i))
+  const novo = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end, is_captain = (profile_id in ($3, $4)) where match_id = $1`, [novo, ids.slice(0, 5), ids[0], ids[5]])
+  await raiz(`update matches set state = 'LOBBY_CREATION', captain_a = $2, captain_b = $3, map = 'Lotus', phase_deadline = now() + interval '10 minutes' where id = $1`, [novo, ids[0], ids[5]])
+  const j0 = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
+  ok(j0.cancelamento && j0.cancelamento.votos === 0 && j0.cancelamento.necessarios === 6 && j0.cancelamento.aberto && !j0.cancelamento.euVotei, 'com 10 pessoas são precisos 6 votos, e ainda ninguém votou')
+  await falha(rpc(uids[10], 'votar_cancelar', { p_match: novo, p_voto: true }), 'Só quem está na partida', 'quem não está na partida não vota')
+  for (const i of [0, 1, 5, 6, 7]) await rpc(uids[i], 'votar_cancelar', { p_match: novo, p_voto: true })
+  const j5 = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
+  ok(j5.estado === 'LOBBY_CREATION' && j5.cancelamento.votos === 5 && j5.cancelamento.euVotei, '5 votos de 10 não chegam: a partida continua')
+  await rpc(uids[7], 'votar_cancelar', { p_match: novo, p_voto: false })
+  ok((await rpc(uids[0], 'partida_detalhe', { p_match: novo })).cancelamento.votos === 4, 'retirar o voto tira-o da contagem')
+  await rpc(uids[1], 'votar_cancelar', { p_match: novo, p_voto: true })
+  ok((await rpc(uids[0], 'partida_detalhe', { p_match: novo })).cancelamento.votos === 4, 'votar duas vezes conta uma só')
+  await rpc(uids[7], 'votar_cancelar', { p_match: novo, p_voto: true })
+  await rpc(uids[8], 'votar_cancelar', { p_match: novo, p_voto: true })
+  const fim = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
+  ok(fim.estado === 'CANCELLED' && fim.cancelamento === null, 'à sexta pessoa a partida é cancelada')
+  await falha(rpc(uids[9], 'votar_cancelar', { p_match: novo, p_voto: true }), 'Já não dá para votar', 'depois de cancelada já não se vota')
+  ok((await raiz(`select count(*)::int as n from profiles where id = any ($1::uuid[]) and points_delta_dummy is null`.replace(' and points_delta_dummy is null', ''), [ids]))[0].n === 10, 'ninguém perde nada: só a partida é cancelada')
+
+  // Em jogo, só nos primeiros 10 minutos.
+  const outro = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end where match_id = $1`, [outro, ids.slice(0, 5)])
+  await raiz(`update matches set state = 'IN_PROGRESS', started_at = now() - interval '11 minutes', captain_a = $2, captain_b = $3 where id = $1`, [outro, ids[0], ids[5]])
+  await falha(rpc(uids[0], 'votar_cancelar', { p_match: outro, p_voto: true }), 'Já não dá para votar', 'passados 10 minutos de jogo já não se cancela por votação')
+  await raiz(`update matches set started_at = now() - interval '2 minutes' where id = $1`, [outro])
+  await rpc(uids[0], 'votar_cancelar', { p_match: outro, p_voto: true })
+  ok((await rpc(uids[0], 'partida_detalhe', { p_match: outro })).cancelamento.aberto === true, 'nos primeiros 10 minutos de jogo ainda se vota')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [outro])
+}
+
+// ------------------------------------------------------------ a fila no Discord
+console.log('\nFila no Discord (atualização do texto)')
+{
+  await raiz(`update discord_ping_estado set fila_pendente = false`)
+  const r1 = (await servico(`select public._discord_fila_reservar() as v`))[0].v
+  const r2 = (await servico(`select public._discord_fila_reservar() as v`))[0].v
+  ok(r1 === true && r2 === false, 'só um pedido espera de cada vez; o seguinte deixa a contagem para o primeiro')
+  await servico(`select public._discord_fila_libertar()`)
+  ok((await servico(`select public._discord_fila_reservar() as v`))[0].v === true, 'depois de libertar, volta a poder esperar')
+  await raiz(`update discord_ping_estado set fila_pendente = true, fila_pendente_desde = now() - interval '40 seconds'`)
+  ok((await servico(`select public._discord_fila_reservar() as v`))[0].v === true, 'um pedido preso há mais de 30 segundos não bloqueia os seguintes')
+  await servico(`select public._discord_fila_libertar()`)
+  // Mexer na fila com a mensagem publicada não pode dar erro (sem discord_config, não chama nada).
+  await raiz(`update config set discord_ping_message = '123' where id`)
+  await rpc(uids[4], 'entrar_fila')
+  await rpc(uids[4], 'sair_fila')
+  ok(true, 'entrar e sair da fila com a mensagem do ping publicada corre sem erros')
+  await raiz(`update config set discord_ping_message = null where id`)
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0020 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

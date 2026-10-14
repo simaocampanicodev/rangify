@@ -84,6 +84,11 @@ export interface Submissao { capitaoId: string; a: number; b: number; em: string
 export type Lado = 'ataque' | 'defesa'
 /** Depois do último ban, a equipa que não o fez escolhe o lado em que começa. */
 export interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
+/**
+ * A votação para cancelar a partida (alguém caiu ou não pode jogar). Aberta enquanto o grupo
+ * é criado e nos primeiros 10 minutos de jogo; com a maioria dos jogadores, a partida cai.
+ */
+export interface Cancelamento { votos: number; necessarios: number; euVotei: boolean; aberto: boolean }
 /** O que os colegas do capitão sugerem na vez atual (um mapa a banir, ou o lado). */
 export interface SugestaoMapa { perfilId: string; valor: string }
 
@@ -118,6 +123,8 @@ export interface Partida {
   lado: EscolhaLado | null
   /** Só a equipa que está a decidir as vê. */
   sugestoes: SugestaoMapa[]
+  /** Só na fase do código e nos primeiros minutos de jogo. */
+  cancelamento: Cancelamento | null
 }
 
 export interface EstadoFila {
@@ -442,6 +449,8 @@ export interface Dados {
   escolherLado(id: string, lado: Lado): Promise<void>
   /** Um colega do capitão sugere o mapa a banir (ou o lado). Sugerir outra vez o mesmo tira a sugestão. */
   sugerirMapa(id: string, valor: string): Promise<void>
+  /** Vota (ou retira o voto) para cancelar a partida, se alguém caiu ou não pode jogar. A maioria cancela-a, sem pontos nem castigos. */
+  votarCancelar(id: string, voto: boolean): Promise<void>
   definirCodigo(id: string, codigo: string): Promise<void>
   submeterResultado(id: string, a: number, b: number): Promise<void>
 

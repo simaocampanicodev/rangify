@@ -249,7 +249,29 @@ function publica(e: Estado, p: PartidaGuardada): Partida {
   const sugestoes = p.estado === 'MAP_BAN' && meu && meu === vezMapas(p).equipa ? [...(p.sugestoes ?? [])] : []
   return {
     ...p, bans: [...p.bans], submissoes: [...p.submissoes], lado: p.lado ? { ...p.lado } : null, sugestoes,
+    cancelamento: estadoCancelamento(e, p),
     jogadores: p.jogadores.map((j) => jogadorPublico(e, j)),
+  }
+}
+
+const MINUTOS_CANCELAR = 10
+
+/** Só as pessoas votam: a maioria delas cancela a partida. No demo, os outros jogadores são simulados, por isso a única pessoa és tu. */
+function pessoasDa(e: Estado, p: PartidaGuardada) {
+  const eu = e.sessao?.perfilId
+  return p.jogadores.filter((j) => j.equipa && j.perfilId === eu).map((j) => j.perfilId)
+}
+
+function estadoCancelamento(e: Estado, p: PartidaGuardada) {
+  if (p.estado !== 'LOBBY_CREATION' && p.estado !== 'IN_PROGRESS') return null
+  const pessoas = pessoasDa(e, p)
+  const eu = e.sessao?.perfilId ?? ''
+  const votos = (p.votosCancelar ?? []).filter((id) => pessoas.includes(id))
+  return {
+    votos: votos.length,
+    necessarios: Math.max(1, Math.floor(pessoas.length / 2) + 1),
+    euVotei: votos.includes(eu),
+    aberto: p.estado === 'LOBBY_CREATION' || (!!p.comecouEm && Date.now() - ms(p.comecouEm) < MINUTOS_CANCELAR * 60_000),
   }
 }
 
@@ -1251,6 +1273,22 @@ export const dadosLocais: Dados = {
     avisarMudanca('partida')
   },
 
+  async votarCancelar(id, voto) {
+    const e = await pronto()
+    const p = obterPartida(e, id)
+    const me = eu(e)
+    if (p.automatica) throw new Error('Numa simulação automática não há nada para cancelar.')
+    if (!p.jogadores.some((j) => j.perfilId === me.id && j.equipa)) throw new Error('Só quem está na partida pode votar.')
+    const c = estadoCancelamento(e, p)
+    if (!c || !c.aberto) throw new Error('Já não dá para votar o cancelamento: só enquanto o grupo é criado e nos primeiros 10 minutos de jogo.')
+    p.votosCancelar = [...new Set([...(p.votosCancelar ?? []).filter((x) => x !== me.id), ...(voto ? [me.id] : [])])]
+    toque(p, Date.now())
+    const depois = estadoCancelamento(e, p)
+    if (depois && depois.votos >= depois.necessarios) cancelar(e, p, Date.now())
+    guardar()
+    avisarMudanca('partida')
+  },
+
   async sugerirMapa(id, valor) {
     const e = await pronto()
     const p = obterPartida(e, id)
@@ -1931,7 +1969,7 @@ export const dadosLocais: Dados = {
     for (const j of p.jogadores) {
       if (!j.equipa) continue
       const perf = bonusDesempenho(j.rangifyScore)
-      const novo = calcularPontos(j.equipa === p.vencedor).total + perf
+      const novo = calcularPontos(j.equipa === p.vencedor, p.resultadoA ?? 0, p.resultadoB ?? 0).total + perf
       const dif = novo - (j.deltaPontos ?? 0)
       const perfil = e.perfis[j.perfilId]
       if (perfil && (p.pontosAplicados ?? !p.simulada)) perfil.pontos += dif

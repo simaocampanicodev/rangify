@@ -44,7 +44,7 @@ function Previsao({ p, a, b, eu }: { p: Partida; a: number; b: number; eu: strin
         <div key={eq} className="flex flex-col gap-1">
           <span className={`px-0.5 pt-2.5 pb-1 font-mono text-[10px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{l('EQUIPA', 'TEAM')} {eq} · {eq === vence ? l('VITÓRIA', 'WIN') : l('DERROTA', 'LOSS')}</span>
           {equipa(p, eq).map((j) => {
-            const r = calcularPontos(eq === vence)
+            const r = calcularPontos(eq === vence, a, b)
             return (
               <div key={j.perfilId} className={`flex min-h-[38px] items-center gap-2.5 rounded-[9px] px-2 ${j.perfilId === eu ? 'bg-laranja/10' : ''}`}>
                 <span className={`min-w-0 flex-1 truncate text-[13px] ${j.perfilId === eu ? 'font-bold' : ''}`}>{nomeJogador(j)}</span>

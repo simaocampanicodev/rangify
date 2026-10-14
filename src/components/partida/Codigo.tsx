@@ -1,4 +1,4 @@
-import { ClipboardPaste, Copy, Lock, Timer } from 'lucide-react'
+import { ClipboardPaste, Copy, Lock, Settings2, Timer, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
@@ -6,11 +6,78 @@ import { useAgora } from '@/hooks/useAgora'
 import { dados, type Partida } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
 import { capitao, equipa, ladoInicial, nomeJogador } from '@/lib/partida'
-import { DESEMPENHO_MAX, emJogo, comSinal } from '@/lib/pontos'
+import { DESEMPENHO_MAX, emJogo } from '@/lib/pontos'
 import { MINUTOS_BLOQUEIO, PADRAO_CODIGO, limparCodigo } from '@/lib/regras'
 import { emFalta, relogio } from '@/lib/tempo'
 import { ColunaEquipa } from './comum'
 import { l } from '@/lib/idioma'
+
+/** As definições do grupo personalizado que têm de estar sempre assim (nomes como aparecem no Valorant). */
+const DEFINICOES_LOBBY: { en: string; pt: string; ligado: boolean }[] = [
+  { en: 'Allow Cheats', pt: 'Permitir batotas', ligado: false },
+  { en: 'Tournament Mode', pt: 'Modo torneio', ligado: true },
+  { en: 'Overtime: Win By Two', pt: 'Prolongamento: ganhar por duas rondas', ligado: true },
+  { en: 'Play Out All Rounds', pt: 'Jogar todas as rondas', ligado: false },
+  { en: 'Hide Match History', pt: 'Ocultar o histórico da partida', ligado: false },
+  { en: 'Record Replay', pt: 'Gravar a repetição', ligado: true },
+]
+
+/** O que o grupo tem de ter no lobby, para quem o cria confirmar antes de começar. */
+function DefinicoesLobby() {
+  return (
+    <div className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
+      <span className="flex items-center gap-2 text-[14px] font-bold"><Settings2 size={16} className="text-laranja" aria-hidden />{l('Definições do grupo: mete sempre assim', 'Party settings: always set them like this')}</span>
+      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2 p-0">
+        {DEFINICOES_LOBBY.map((d) => (
+          <li key={d.en} className="flex items-center justify-between gap-3 rounded-xl border border-white/7 bg-[rgba(9,9,11,0.45)] px-3 py-2.5">
+            <span className="flex min-w-0 flex-col">
+              <span className="font-mono text-[12.5px] font-semibold text-texto">{d.en}</span>
+              <span className="text-[11.5px] text-mudo">{l(d.pt, d.en)}</span>
+            </span>
+            <span className={`inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 font-mono text-[11px] font-bold ${d.ligado ? 'border-laranja/40 bg-laranja/14 text-pessego-claro' : 'border-white/12 bg-white/[0.04] text-suave'}`}>
+              {d.ligado ? l('LIGADO', 'ON') : l('DESLIGADO', 'OFF')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** Alguém caiu ou não pode jogar: com a maioria dos votos a partida é cancelada, sem pontos nem castigos. */
+function CancelarPartida({ p }: { p: Partida }) {
+  const acao = useAcao()
+  const { atualizar } = usePartida()
+  const [aVotar, setAVotar] = useState(false)
+  const c = p.cancelamento
+  if (!c || !c.aberto || p.automatica) return null
+  const votar = async () => {
+    setAVotar(true)
+    await acao(() => dados.votarCancelar(p.id, !c.euVotei), c.euVotei ? l('Voto retirado.', 'Vote withdrawn.') : l('Votaste para cancelar a partida.', 'You voted to cancel the match.'))
+    await atualizar()
+    setAVotar(false)
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+      <span className="grid size-11 place-items-center rounded-xl border border-derrota/30 bg-derrota/10 text-derrota"><UserX size={19} aria-hidden /></span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[14px] font-bold">{l('Alguém caiu ou não pode jogar?', 'Did someone drop or can they not play?')}</span>
+        <span className="text-[12.5px] text-mudo">
+          {l(`Se ${c.necessarios} jogadores votarem, a partida é cancelada, sem pontos nem castigos, e ninguém fica preso.`, `If ${c.necessarios} players vote, the match is cancelled with no points and no penalties, and nobody is stuck.`)}
+        </span>
+      </span>
+      <span className="flex items-center gap-3">
+        <span className="flex flex-col items-end gap-1" role="status" aria-live="polite">
+          <span className="font-mono text-[15px] font-bold">{c.votos}/{c.necessarios}</span>
+          <span className="block h-1.5 w-24 overflow-hidden rounded-full bg-white/8"><span className="block h-full rounded-full bg-derrota transition-[width] duration-300" style={{ width: `${Math.min(100, (c.votos / c.necessarios) * 100)}%` }} /></span>
+        </span>
+        <button type="button" onClick={votar} disabled={aVotar} aria-pressed={c.euVotei} className={`btn !min-h-10 ${c.euVotei ? 'btn-fantasma' : 'btn-suave'}`}>
+          {c.euVotei ? l('Retirar o meu voto', 'Withdraw my vote') : l('Votar para cancelar', 'Vote to cancel')}
+        </button>
+      </span>
+    </div>
+  )
+}
 
 /** LOBBY_CREATION e IN_PROGRESS: o Capitão A partilha o código e começa o bloqueio de 15 minutos. */
 export function Codigo({ p, eu }: { p: Partida; eu: string }) {
@@ -81,8 +148,8 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
           {aposta && (
             <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-4 py-3">
               <span className="rotulo">{l('Em jogo para ti', 'At stake for you')}</span>
-              <span className="font-mono text-[15px] font-semibold"><span className="text-vitoria">{comSinal(aposta.vitoria)}</span> <span className="text-mudo">/</span> <span className="text-derrota">{comSinal(aposta.derrota)}</span></span>
-              <span className="font-mono text-[11px] text-mudo" title={l('O Rangify Score da partida soma ou tira até 6 pontos.', 'The match Rangify Score adds or takes up to 6 points.')}>{l(`± ${DESEMPENHO_MAX} pelo RS`, `± ${DESEMPENHO_MAX} from RS`)}</span>
+              <span className="font-mono text-[15px] font-semibold"><span className="text-vitoria">+{aposta.minimo} a +{aposta.maximo}</span> <span className="text-mudo">/</span> <span className="text-derrota">-{aposta.minimo} a -{aposta.maximo}</span></span>
+              <span className="font-mono text-[11px] text-mudo" title={l('Depende das rondas do resultado (13-1 vale mais do que 13-11) e o Rangify Score da partida soma ou tira até 6 pontos.', 'It depends on the round score (13-1 is worth more than 13-11) and the match Rangify Score adds or takes up to 6 points.')}>{l(`pelas rondas e ± ${DESEMPENHO_MAX} pelo RS`, `by rounds and ± ${DESEMPENHO_MAX} from RS`)}</span>
             </div>
           )}
         </div>
@@ -106,6 +173,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
                 <button type="button" onClick={copiar} className="btn btn-primario !h-[52px] !rounded-[13px] !px-6 !text-[15px] !font-extrabold"><Copy size={17} aria-hidden />{l('Copiar código', 'Copy code')}</button>
               </div>
               <p className="m-0 text-[13.5px] leading-[1.55] text-suave">{l('No Valorant:', 'In Valorant:')} <b className="text-texto">{l('Jogar', 'Play')}</b>, <b className="text-texto">{l('Personalizado', 'Custom')}</b>, <b className="text-texto">{l('Entrar com código', 'Join with code')}</b>. {l('Cola o código e espera pelo resto da sala.', 'Paste the code and wait for the rest of the lobby.')}</p>
+              <DefinicoesLobby />
               {emCurso && (
                 <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <span className="grid size-11 place-items-center rounded-xl border border-laranja/32 bg-laranja/12 text-laranja"><Lock size={19} aria-hidden /></span>
@@ -155,6 +223,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
                   <button type="submit" disabled={!valido || aGuardar} className="btn btn-primario !h-[50px] !rounded-[13px] !px-6 !text-[15px] !font-extrabold">{l('Guardar e partilhar', 'Save and share')}</button>
                 </div>
               </form>
+              <DefinicoesLobby />
             </>
           ) : (
             <div className="flex flex-col items-start gap-3.5 py-2.5">
@@ -168,6 +237,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               <span className="text-[13px] text-[#a6a19a]">{l('Assim que o código for guardado, aparece aqui com um botão para copiar.', 'As soon as the code is saved, it shows up here with a copy button.')}</span>
             </div>
           )}
+          {minha && <CancelarPartida p={p} />}
         </section>
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           <ColunaEquipa eq="A" jogadores={equipa(p, 'A')} eu={eu} />

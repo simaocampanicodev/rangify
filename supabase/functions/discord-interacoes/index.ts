@@ -8,7 +8,7 @@
 // O Discord assina cada pedido; sem a assinatura certa (chave pública da aplicação,
 // secret DISCORD_PUBLIC_KEY) a resposta é 401, como o Discord exige.
 import nacl from 'npm:tweetnacl@1.0.3'
-import { admin } from '../_shared/comum.ts'
+import { SITE, admin } from '../_shared/comum.ts'
 import { BOTAO_PING, CANAL_PING, CARGO_PING, SEGUNDOS_ENTRE_PINGS } from '../_shared/discord-ping.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
@@ -68,12 +68,11 @@ async function chamar(quem: string) {
     return soParaTi(`Já houve uma chamada há pouco${por}. Só pode haver uma de 5 em 5 minutos: a próxima fica livre <t:${quando}:R>.`)
   }
 
-  const site = Deno.env.get('SITE_URL')
   const publicada = await bot('POST', `/channels/${CANAL_PING}/messages`, {
     content: `<@&${CARGO_PING}> <@${quem}> está a chamar para a fila! Entra no hub e bora jogar.`,
     // Só o cargo é pingado; quem chamou aparece, mas não recebe notificação.
     allowed_mentions: { roles: [CARGO_PING] },
-    components: site ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila', url: `${site}/jogar` }] }] : [],
+    components: SITE ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila', url: `${SITE}/jogar` }] }] : [],
   })
   if (!publicada.ok) {
     console.error('Discord', publicada.status, await publicada.text())
