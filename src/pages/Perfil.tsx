@@ -5,7 +5,7 @@ import { Desempenho, OndeJogaMelhor } from '@/components/DesempenhoPerfil'
 import { EditarPerfil } from '@/components/EditarPerfil'
 import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
-import { BannerPerfil, TituloJogador } from '@/components/Cosmeticos'
+import { FundoBanner, TituloJogador } from '@/components/Cosmeticos'
 import { Avatar, Cabecalho, Carregando, Chip, LinkSeta, Modal, Painel, RankBadge, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -83,7 +83,7 @@ export function Perfil() {
 
   return (
     <>
-      <BannerPerfil perfilId={p.id} />
+      <FundoBanner perfilId={p.id}>
       <Cabecalho
         migalhas={[l('Conta', 'Account'), souEu ? l('O teu perfil', 'Your profile') : l('Perfil', 'Profile')]}
         titulo={<span className="flex flex-wrap items-center gap-4"><Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={64} destaque={souEu} perfilId={p.id} /><span className="flex flex-col gap-1.5"><span>{nomeJogador(p)}<span className="font-mono text-[0.45em] font-medium tracking-normal text-mudo">{tagJogador(p)}</span></span><TituloJogador perfilId={p.id} className="tracking-normal" /></span></span>}
@@ -107,6 +107,7 @@ export function Perfil() {
           </>
         )}
       />
+      </FundoBanner>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
         {[

@@ -5,7 +5,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { dados, type Equipa, type JogadorPartida, type Partida } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
-import { caminhoPerfil, capitao, equipa, nomeJogador, souCapitao } from '@/lib/partida'
+import { caminhoPerfil, capitao, equipa, ladoInicial, nomeJogador, souCapitao } from '@/lib/partida'
 import { calcularPontos, comSinal } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { validarResultado } from '@/lib/regras'
@@ -218,6 +218,9 @@ export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
           <caption className={`pb-2 text-left font-mono text-[11px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>
             {l('EQUIPA', 'TEAM')} {eq} · {p.resultadoA != null ? (eq === 'A' ? p.resultadoA : p.resultadoB) : '-'} {l('RONDAS', 'ROUNDS')} {p.vencedor === eq ? `· ${l('VITÓRIA', 'WIN')} ` : ''}
             <span className="font-medium text-mudo">· {l('MÉDIA', 'AVERAGE')} {nomeRank(tierMedio(equipa(p, eq).map((j) => j.tier))).toUpperCase()}</span>
+            {ladoInicial(p, eq) && (
+              <span className="font-medium text-mudo"> · {ladoInicial(p, eq) === 'ataque' ? l('COMEÇOU A ATACAR', 'STARTED ON ATTACK') : l('COMEÇOU A DEFENDER', 'STARTED ON DEFENCE')}{p.lado?.equipa === eq && <span className="ml-1.5 rounded-[5px] border border-laranja/40 bg-laranja/12 px-1.5 py-px text-pessego">{l('ESCOLHEU O LADO', 'PICKED THE SIDE')}</span>}</span>
+            )}
           </caption>
           <thead>
             <tr className="rotulo text-left">

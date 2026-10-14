@@ -81,6 +81,11 @@ export interface JogadorPartida {
 
 export interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
 export interface Submissao { capitaoId: string; a: number; b: number; em: string }
+export type Lado = 'ataque' | 'defesa'
+/** Depois do último ban, a equipa que não o fez escolhe o lado em que começa. */
+export interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
+/** O que os colegas do capitão sugerem na vez atual (um mapa a banir, ou o lado). */
+export interface SugestaoMapa { perfilId: string; valor: string }
 
 export interface Partida {
   id: string
@@ -110,6 +115,9 @@ export interface Partida {
   jogadores: JogadorPartida[]
   bans: BanMapa[]
   submissoes: Submissao[]
+  lado: EscolhaLado | null
+  /** Só a equipa que está a decidir as vê. */
+  sugestoes: SugestaoMapa[]
 }
 
 export interface EstadoFila {
@@ -430,6 +438,10 @@ export interface Dados {
   responderConfirmacao(id: string, aceita: boolean): Promise<void>
   escolherJogador(id: string, perfilId: string): Promise<void>
   banirMapa(id: string, mapa: string): Promise<void>
+  /** O capitão da equipa que não fez o último ban escolhe Ataque ou Defesa. */
+  escolherLado(id: string, lado: Lado): Promise<void>
+  /** Um colega do capitão sugere o mapa a banir (ou o lado). Sugerir outra vez o mesmo tira a sugestão. */
+  sugerirMapa(id: string, valor: string): Promise<void>
   definirCodigo(id: string, codigo: string): Promise<void>
   submeterResultado(id: string, a: number, b: number): Promise<void>
 
@@ -522,6 +534,10 @@ export interface Dados {
   // Staff
   disputas(): Promise<Partida[]>
   resolverDisputa(id: string, resultado: { a: number; b: number } | null): Promise<void>
+  /** As partidas a jogar ou à espera do resultado. */
+  resultadosPendentes(): Promise<Partida[]>
+  /** A staff submete o resultado pelos capitães que ainda não o fizeram. */
+  submeterResultadoStaff(id: string, resultado: { a: number; b: number }): Promise<void>
   partidasEncravadas(): Promise<Partida[]>
   cancelarPartida(id: string): Promise<void>
   /** Owner e Dev: apaga uma partida terminada ou cancelada (os pontos dela são devolvidos). */

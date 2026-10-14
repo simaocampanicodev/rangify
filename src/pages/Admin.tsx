@@ -51,6 +51,51 @@ function Disputa({ p }: { p: Partida }) {
   )
 }
 
+/**
+ * Uma partida a jogar ou à espera do resultado: a staff vê quem já submeteu e
+ * submete pelos capitães que faltam (se baterem certo segue para a API; se não, disputa).
+ */
+function ResultadoPendente({ p }: { p: Partida }) {
+  const acao = useAcao()
+  const [a, setA] = useState(String(p.submissoes[0]?.a ?? 13))
+  const [b, setB] = useState(String(p.submissoes[0]?.b ?? 11))
+  const v = validarResultado(Number(a), Number(b))
+  const falta = [p.capitaoA, p.capitaoB].filter((c) => c && !p.submissoes.some((s) => s.capitaoId === c))
+  return (
+    <article className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-[13px] font-semibold text-pessego">{p.codigo} · {p.mapa ?? tx('sem mapa', 'no map')}</span>
+        <span className="flex items-center gap-2">
+          <Chip tom={p.estado === 'RESULT_SUBMISSION' ? 'laranja' : 'neutro'}>{NOMES_ESTADO[p.estado]}</Chip>
+          <span className="text-[12px] text-mudo">{tx('começou', 'started')} {haQuanto(p.comecouEm ?? p.atualizadaEm)}</span>
+        </span>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2">
+        {(['A', 'B'] as const).map((eq) => {
+          const c = capitao(p, eq)
+          const s = p.submissoes.find((x) => x.capitaoId === c?.perfilId)
+          return (
+            <div key={eq} className="flex items-center justify-between gap-2 rounded-xl border border-white/7 px-3 py-2">
+              <span className="text-[13px]">{c ? nomeJogador(c) : '?'} <span className="text-mudo">({tx('capitão', 'captain')} {eq})</span></span>
+              {s ? <span className="font-mono text-[16px] font-semibold">{s.a}-{s.b}</span> : <span className="font-mono text-[12px] text-mudo">{tx('por submeter', 'not submitted')}</span>}
+            </div>
+          )
+        })}
+      </div>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); acao(() => dados.submeterResultadoStaff(p.id, { a: Number(a), b: Number(b) }), tx('Resultado submetido pela staff.', 'Result submitted by staff.')) }}>
+        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} A<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} /></label>
+        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} B<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} /></label>
+        <button type="submit" className="btn btn-primario !min-h-10" disabled={!v.ok}>
+          <Gavel size={15} aria-hidden />{falta.length === 2 ? tx(`Submeter ${a}-${b} pelos dois capitães`, `Submit ${a}-${b} for both captains`) : tx(`Submeter ${a}-${b} pelo capitão que falta`, `Submit ${a}-${b} for the missing captain`)}
+        </button>
+      </form>
+      <span className={`text-[12px] ${v.ok ? 'text-mudo' : 'text-derrota'}`}>
+        {v.ok ? (p.submissoes.length ? tx('Se não bater certo com o que o outro capitão já submeteu, a partida vai para disputa.', 'If it does not match what the other captain submitted, the match goes to dispute.') : tx('Com os dois capitães submetidos pela staff, a partida segue para a confirmação na API.', 'With both captains submitted by staff, the match moves on to the API check.')) : v.titulo}
+      </span>
+    </article>
+  )
+}
+
 /** Pontos de um jogador, editáveis por Owner e Dev. */
 function CampoPontos({ p, onGuardado }: { p: Perfil; onGuardado: () => void }) {
   const acao = useAcao()
@@ -192,8 +237,9 @@ export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'loja' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<'disputas' | 'resultados' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'loja' | 'jogadores'>('disputas')
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
+  const pendentes = useCarregar(() => (eStaff ? dados.resultadosPendentes() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const encravadas = useCarregar(() => (eStaff ? dados.partidasEncravadas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
   if (carregando) return <Carregando />
@@ -211,6 +257,7 @@ export function Admin() {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
         {[
           [<Scale size={18} key="d" />, tx('Disputas', 'Disputes'), disputas.valor?.length ?? 0],
+          [<Gavel size={18} key="p" />, tx('À espera do resultado', 'Awaiting result'), pendentes.valor?.filter((p) => p.estado === 'RESULT_SUBMISSION').length ?? 0],
           [<Hourglass size={18} key="e" />, tx('Encravadas', 'Stuck'), encravadas.valor?.length ?? 0],
           [<Flag size={18} key="r" />, tx('Denúncias abertas', 'Open reports'), abertas.length],
         ].map(([icone, nome, n]) => (
@@ -225,12 +272,20 @@ export function Admin() {
           rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
+          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'resultados', texto: tx('Resultados', 'Results') }, { valor: 'partidas', texto: tx('Partidas', 'Matches') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
         />
         {aba === 'disputas' && (
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('DISPUTAS', 'DISPUTES')} titulo={tx('Resultados que não coincidem', 'Results that do not match')} />
             {disputas.valor?.length ? disputas.valor.map((p) => <Disputa key={p.id} p={p} />) : <Vazio icone={<Scale size={22} />} titulo={tx('Sem disputas', 'No disputes')} texto={tx('Quando os capitães submeterem resultados diferentes, aparecem aqui.', 'When captains submit different results, they show up here.')} />}
+          </div>
+        )}
+        {aba === 'resultados' && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('RESULTADOS', 'RESULTS')} titulo={tx('Partidas à espera do resultado', 'Matches awaiting the result')} />
+            {pendentes.valor?.length
+              ? [...pendentes.valor].sort((x, y) => (x.estado === 'RESULT_SUBMISSION' ? 0 : 1) - (y.estado === 'RESULT_SUBMISSION' ? 0 : 1)).map((p) => <ResultadoPendente key={p.id} p={p} />)
+              : <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
           </div>
         )}
         {aba === 'partidas' && (

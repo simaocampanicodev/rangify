@@ -73,15 +73,16 @@ export function novoJogador(p: Perfil): JogadorGuardado {
   }
 }
 
-/** Os dois ranks oficiais mais altos são capitães; desempata quem tem mais pontos. */
+/** Ordena pelo rank oficial (e pelos pontos), para os capitães automáticos escolherem os melhores. */
 export function ordenarParaCapitao(jogadores: JogadorGuardado[], perfis: Record<string, Perfil>) {
   return [...jogadores].sort((x, y) => y.tier - x.tier || (perfis[y.perfilId]?.pontos ?? 0) - (perfis[x.perfilId]?.pontos ?? 0))
 }
 
-export function definirCapitaes(p: PartidaGuardada, perfis: Record<string, Perfil>, forcarA?: string) {
-  const ord = ordenarParaCapitao(p.jogadores, perfis)
-  const a = forcarA ? p.jogadores.find((j) => j.perfilId === forcarA)! : ord[0]
-  const b = ord.find((j) => j !== a)!
+/** Os dois capitães são sorteados entre os 10 (as ferramentas de teste podem obrigar o capitão A). */
+export function definirCapitaes(p: PartidaGuardada, forcarA?: string, rng: Rng = Math.random) {
+  const sorteio = baralhar(rng, p.jogadores)
+  const a = forcarA ? p.jogadores.find((j) => j.perfilId === forcarA)! : sorteio[0]
+  const b = sorteio.find((j) => j !== a)!
   a.capitao = true; a.equipa = 'A'
   b.capitao = true; b.equipa = 'B'
   p.capitaoA = a.perfilId

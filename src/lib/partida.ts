@@ -11,6 +11,8 @@ export function escolhidos(p: Partida) {
 export function vezDe(p: Partida): Equipa | null {
   if (p.estado === 'DRAFT_PHASE') return equipaDaEscolha(escolhidos(p))
   if (p.estado === 'MAP_BAN' && p.bans.length < totalBans(p.pool)) return equipaDoBan(p.bans.length)
+  // Depois do último ban, a equipa que não o fez escolhe o lado.
+  if (p.estado === 'MAP_BAN' && p.lado && !p.lado.escolha) return p.lado.equipa
   return null
 }
 
@@ -55,4 +57,12 @@ export function riotIdDoCaminho(parte: string) {
   const d = decodeURIComponent(parte)
   const i = d.lastIndexOf('-')
   return i > 0 ? `${d.slice(0, i)}#${d.slice(i + 1)}` : d
+}
+
+/** O lado em que uma equipa começou (quem não escolheu fica com o outro). */
+export function ladoInicial(p: Partida, eq: Equipa): 'ataque' | 'defesa' | null {
+  const e = p.lado?.escolha
+  if (!p.lado || !e) return null
+  if (eq === p.lado.equipa) return e
+  return e === 'ataque' ? 'defesa' : 'ataque'
 }

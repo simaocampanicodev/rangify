@@ -13,7 +13,7 @@ import { AGENTES_SIMULADOS } from '../agentes'
 import { divisao, mediaDivisoes } from '../ranks'
 import {
   ESTADOS_ATIVOS, HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, PADRAO_CODIGO, PADRAO_RIOT_ID,
-  SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA, equipaDaEscolha, validarResultado,
+  SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA, SEGUNDOS_LADO, equipaDaEscolha, validarResultado,
 } from '../regras'
 import { blobParaDataUrl } from '../imagem'
 import { nivelDe } from '../experiencia'
@@ -32,7 +32,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, Dados, Denuncia, Equipa, EstadoLoja, EstadoPartida, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, Dados, Denuncia, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -244,7 +244,40 @@ function jogadorPublico(e: Estado, j: JogadorGuardado): JogadorPartida {
 }
 
 function publica(e: Estado, p: PartidaGuardada): Partida {
-  return { ...p, bans: [...p.bans], submissoes: [...p.submissoes], jogadores: p.jogadores.map((j) => jogadorPublico(e, j)) }
+  // As sugestões só aparecem à equipa que está a decidir (no demo, a do jogador).
+  const meu = p.jogadores.find((j) => j.perfilId === e.sessao?.perfilId)?.equipa
+  const sugestoes = p.estado === 'MAP_BAN' && meu && meu === vezMapas(p).equipa ? [...(p.sugestoes ?? [])] : []
+  return {
+    ...p, bans: [...p.bans], submissoes: [...p.submissoes], lado: p.lado ? { ...p.lado } : null, sugestoes,
+    jogadores: p.jogadores.map((j) => jogadorPublico(e, j)),
+  }
+}
+
+/** A vez nos mapas: um ban (passo 0, 1, 2...) ou a escolha do lado (passo 100). */
+function vezMapas(p: PartidaGuardada): { passo: number; equipa: Equipa; capitao: string | null } {
+  if (p.mapa && p.lado) return { passo: 100, equipa: p.lado.equipa, capitao: p.lado.equipa === 'A' ? p.capitaoA : p.capitaoB }
+  const equipa = equipaDoBan(p.bans.length)
+  return { passo: p.bans.length, equipa, capitao: equipa === 'A' ? p.capitaoA : p.capitaoB }
+}
+
+/** A sugestão mais votada da equipa (a mais antiga desempata), se ainda for válida. */
+function sugestaoTop(p: PartidaGuardada): string | null {
+  const vez = vezMapas(p)
+  const validas = (p.sugestoes ?? []).filter((s) => vez.passo === 100 ? s.valor === 'ataque' || s.valor === 'defesa'
+    : p.pool.includes(s.valor) && !p.bans.some((b) => b.mapa === s.valor))
+  const votos = new Map<string, number>()
+  for (const s of validas) votos.set(s.valor, (votos.get(s.valor) ?? 0) + 1)
+  let melhor: string | null = null
+  for (const [v, n] of votos) if (melhor === null || n > (votos.get(melhor) ?? 0)) melhor = v
+  return melhor
+}
+
+/** Um capitão automático espera mais se houver uma pessoa na equipa, para ela poder sugerir. */
+function atrasoMapas(e: Estado, p: PartidaGuardada, equipa: Equipa) {
+  if (p.automatica) return aleatorio(450, 900)
+  const humano = e.sessao?.perfilId
+  const naEquipa = p.jogadores.some((j) => j.perfilId === humano && j.equipa === equipa && !j.capitao)
+  return naEquipa ? aleatorio(7000, 12000) : aleatorio(1600, 3400)
 }
 
 // As partidas de teste contam como as outras.
@@ -311,7 +344,7 @@ function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; autom
     simulada: opts.simulada, automatica: opts.automatica, pool: [...e.poolMapas],
     prazoConfirmacao: iso(agora + SEGUNDOS_CONFIRMAR * 1000), inicioFase: iso(agora), prazoFase: iso(agora + SEGUNDOS_CONFIRMAR * 1000),
     comecouEm: null, terminouEm: null, estatisticas: false, criadaEm: iso(agora), atualizadaEm: iso(agora),
-    jogadores: ids.map((id) => novoJogador(e.perfis[id])), bans: [], submissoes: [],
+    jogadores: ids.map((id) => novoJogador(e.perfis[id])), bans: [], submissoes: [], lado: null, sugestoes: [],
   }
   const m: Motor = { aceitaEm: {}, jogadaEm: null, resultado: null }
   for (const id of ids) m.aceitaEm[id] = agora + (opts.automatica ? aleatorio(300, 1400) : aleatorio(1200, 8000))
@@ -372,7 +405,7 @@ function atraso(p: PartidaGuardada) {
 function iniciarDraft(e: Estado, p: PartidaGuardada, agora: number) {
   const humano = e.sessao?.perfilId
   const forcar = p.simulada && e.serCapitao && humano && p.jogadores.some((j) => j.perfilId === humano) ? humano : undefined
-  definirCapitaes(p, e.perfis, forcar)
+  definirCapitaes(p, forcar)
   p.estado = 'DRAFT_PHASE'
   p.inicioFase = iso(agora)
   p.prazoFase = iso(agora + SEGUNDOS_ESCOLHA * 1000)
@@ -390,27 +423,45 @@ function escolher(e: Estado, p: PartidaGuardada, perfilId: string, agora: number
   if (n + 1 >= 8) {
     p.estado = 'MAP_BAN'
     p.prazoFase = iso(agora + SEGUNDOS_BAN * 1000)
+    p.sugestoes = []
+    motor(e, p).jogadaEm = agora + atrasoMapas(e, p, 'A')
   } else {
     p.prazoFase = iso(agora + SEGUNDOS_ESCOLHA * 1000)
+    motor(e, p).jogadaEm = agora + atraso(p)
   }
-  motor(e, p).jogadaEm = agora + atraso(p)
   toque(p, agora)
 }
 
 function banir(e: Estado, p: PartidaGuardada, mapa: string, agora: number) {
+  if (p.mapa) throw new Error('Os bans já terminaram: falta escolher o lado.')
   if (!p.pool.includes(mapa) || p.bans.some((b) => b.mapa === mapa)) throw new Error('Esse mapa já não está disponível.')
   const n = p.bans.length
-  p.bans.push({ mapa, equipa: equipaDoBan(n), ordem: n + 1 })
+  const equipa = equipaDoBan(n)
+  p.bans.push({ mapa, equipa, ordem: n + 1 })
   p.inicioFase = iso(agora)
+  p.sugestoes = []
+  const outra: Equipa = equipa === 'A' ? 'B' : 'A'
   if (n + 1 >= totalBans(p.pool)) {
+    // Sobra um mapa. A equipa que não fez o último ban escolhe o lado.
     p.mapa = p.pool.find((m) => !p.bans.some((b) => b.mapa === m)) ?? null
-    p.estado = 'LOBBY_CREATION'
-    p.prazoFase = iso(agora + 10 * 60_000)
-    motor(e, p).jogadaEm = agora + (p.automatica ? 800 : aleatorio(3500, 5500))
+    p.lado = { equipa: outra, escolha: null }
+    p.prazoFase = iso(agora + SEGUNDOS_LADO * 1000)
   } else {
     p.prazoFase = iso(agora + SEGUNDOS_BAN * 1000)
-    motor(e, p).jogadaEm = agora + atraso(p)
   }
+  motor(e, p).jogadaEm = agora + atrasoMapas(e, p, outra)
+  toque(p, agora)
+}
+
+function escolherLado(e: Estado, p: PartidaGuardada, lado: Lado, agora: number) {
+  if (p.estado !== 'MAP_BAN' || !p.mapa || !p.lado || p.lado.escolha) throw new Error('O lado já foi escolhido.')
+  if (lado !== 'ataque' && lado !== 'defesa') throw new Error('Escolhe Ataque ou Defesa.')
+  p.lado = { ...p.lado, escolha: lado }
+  p.sugestoes = []
+  p.estado = 'LOBBY_CREATION'
+  p.inicioFase = iso(agora)
+  p.prazoFase = iso(agora + 10 * 60_000)
+  motor(e, p).jogadaEm = agora + (p.automatica ? 800 : aleatorio(3500, 5500))
   toque(p, agora)
 }
 
@@ -486,10 +537,15 @@ function passoPartida(e: Estado, p: PartidaGuardada, agora: number): boolean {
       return false
     }
     case 'MAP_BAN': {
-      const cap = equipaDoBan(p.bans.length) === 'A' ? p.capitaoA : p.capitaoB
-      if (agora >= ms(p.prazoFase) || (auto(cap) && m.jogadaEm != null && agora >= m.jogadaEm)) {
-        const livres = p.pool.filter((x) => !p.bans.some((b) => b.mapa === x))
-        banir(e, p, livres[Math.floor(Math.random() * livres.length)], agora)
+      const vez = vezMapas(p)
+      if (agora >= ms(p.prazoFase) || (auto(vez.capitao) && m.jogadaEm != null && agora >= m.jogadaEm)) {
+        // Sem decisão a tempo (ou capitão bot): vale a sugestão mais votada da equipa, senão ao calhas.
+        const sugerido = sugestaoTop(p)
+        if (vez.passo === 100) escolherLado(e, p, (sugerido as Lado | null) ?? (Math.random() < 0.5 ? 'ataque' : 'defesa'), agora)
+        else {
+          const livres = p.pool.filter((x) => !p.bans.some((b) => b.mapa === x))
+          banir(e, p, sugerido ?? livres[Math.floor(Math.random() * livres.length)], agora)
+        }
         return true
       }
       return false
@@ -1174,9 +1230,38 @@ export const dadosLocais: Dados = {
     const p = obterPartida(e, id)
     const me = eu(e)
     if (p.estado !== 'MAP_BAN') throw new Error('Os bans já terminaram.')
-    const cap = equipaDoBan(p.bans.length) === 'A' ? p.capitaoA : p.capitaoB
-    if (cap !== me.id) throw new Error('Ainda não é a tua vez de banir.')
+    if (p.mapa) throw new Error('Os bans já terminaram: falta escolher o lado.')
+    if (vezMapas(p).capitao !== me.id) throw new Error('Ainda não é a tua vez de banir.')
     banir(e, p, mapa, Date.now())
+    guardar()
+    avisarMudanca('partida')
+  },
+
+  async escolherLado(id, lado) {
+    const e = await pronto()
+    const p = obterPartida(e, id)
+    const me = eu(e)
+    if (p.estado !== 'MAP_BAN' || !p.mapa) throw new Error('Ainda não é altura de escolher o lado.')
+    if (vezMapas(p).capitao !== me.id) throw new Error('Só o capitão da equipa que escolhe o lado pode decidir.')
+    escolherLado(e, p, lado, Date.now())
+    guardar()
+    avisarMudanca('partida')
+  },
+
+  async sugerirMapa(id, valor) {
+    const e = await pronto()
+    const p = obterPartida(e, id)
+    const me = eu(e)
+    if (p.estado !== 'MAP_BAN') throw new Error('Já não há nada para sugerir.')
+    const vez = vezMapas(p)
+    const minha = p.jogadores.find((j) => j.perfilId === me.id)?.equipa
+    if (!minha || minha !== vez.equipa) throw new Error('Só a equipa que está a decidir pode sugerir.')
+    if (vez.passo === 100) { if (valor !== 'ataque' && valor !== 'defesa') throw new Error('Sugere Ataque ou Defesa.') }
+    else if (!p.pool.includes(valor) || p.bans.some((b) => b.mapa === valor)) throw new Error('Esse mapa já não está disponível.')
+    const lista = (p.sugestoes ?? []).filter((s) => s.perfilId !== me.id)
+    const tinha = (p.sugestoes ?? []).some((s) => s.perfilId === me.id && s.valor === valor)
+    p.sugestoes = tinha ? lista : [...lista, { perfilId: me.id, valor }]
+    toque(p, Date.now())
     guardar()
     avisarMudanca('partida')
   },
@@ -1747,6 +1832,31 @@ export const dadosLocais: Dados = {
     }
     guardar()
     avisarMudanca('staff')
+  },
+
+  async resultadosPendentes() {
+    const e = await pronto()
+    exigirStaff(e)
+    return e.partidas.filter((p) => p.estado === 'IN_PROGRESS' || p.estado === 'RESULT_SUBMISSION').map((p) => publica(e, p))
+  },
+
+  async submeterResultadoStaff(id, r) {
+    const e = await pronto()
+    exigirStaff(e)
+    const p = obterPartida(e, id)
+    if (p.estado !== 'IN_PROGRESS' && p.estado !== 'RESULT_SUBMISSION') throw new Error('Esta partida já não está à espera do resultado.')
+    const v = validarResultado(r.a, r.b)
+    if (!v.ok) throw new Error(v.titulo)
+    const agora = Date.now()
+    if (p.estado === 'IN_PROGRESS') abrirResultado(e, p, agora)
+    // Em nome de cada capitão que ainda não submeteu (se um já tinha submetido outro resultado, vai para disputa).
+    for (const cap of [p.capitaoA, p.capitaoB]) {
+      if (p.estado !== 'RESULT_SUBMISSION' || !cap) break
+      if (!p.submissoes.some((s) => s.capitaoId === cap)) submeter(e, p, cap, r.a, r.b, agora)
+    }
+    guardar()
+    avisarMudanca('staff')
+    avisarMudanca('partida')
   },
 
   async partidasEncravadas() {

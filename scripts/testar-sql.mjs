@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -133,7 +133,18 @@ ok(partida.estado === 'READY_CHECK', 'com 9 de 10 aceites continua à espera')
 await rpc(uids[9], 'responder_confirmacao', { p_match: mid, p_aceita: true })
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
 ok(partida.estado === 'DRAFT_PHASE', 'todos aceitaram: DRAFT_PHASE')
-ok(partida.capitaoA === pid(0) && partida.capitaoB === pid(1), 'capitães são os dois ranks oficiais mais altos (A = o mais alto)')
+ok(partida.capitaoA && partida.capitaoB && partida.capitaoA !== partida.capitaoB && [partida.capitaoA, partida.capitaoB].every((c) => partida.jogadores.some((j) => j.perfilId === c && j.capitao)), 'há dois capitães diferentes, sorteados entre os 10')
+// Para o resto do teste ficar sempre igual, os capitães passam a ser o Kaiser (A) e o Lince (B).
+await raiz(`update match_players set is_captain = false, team = null where match_id = $1`, [mid])
+await raiz(`update match_players set is_captain = true, team = 'A' where match_id = $1 and profile_id = $2`, [mid, pid(0)])
+await raiz(`update match_players set is_captain = true, team = 'B' where match_id = $1 and profile_id = $2`, [mid, pid(1)])
+await raiz(`update matches set captain_a = $2, captain_b = $3 where id = $1`, [mid, pid(0), pid(1)])
+{
+  // Sorteio: em 30 sorteios, o capitão A não pode ser sempre o mesmo (a hipótese de acontecer por acaso é ínfima).
+  const sorteados = new Set()
+  for (let k = 0; k < 30; k++) sorteados.add((await raiz(`select profile_id from match_players where match_id = $1 order by random() limit 1`, [mid]))[0].profile_id)
+  ok(sorteados.size > 1, `o sorteio dá capitães diferentes (${sorteados.size} jogadores em 30 sorteios)`)
+}
 
 // ------------------------------------------------------------ draft
 console.log('\nDraft')
@@ -152,13 +163,44 @@ ok(partida.jogadores.filter((j) => j.equipa === 'A').length === 5 && partida.jog
 console.log('\nBans')
 // A rotação de origem tem 7 mapas: 6 bans e sobra o Sunset.
 const pool = ['Abyss', 'Ascent', 'Bind', 'Haven', 'Lotus', 'Split']
+{
+  const p = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
+  ok(Date.parse(p.prazoFase) - Date.now() > 55000, 'cada ban tem 60 segundos')
+  const colegas = p.jogadores.filter((j) => j.equipa === 'A' && !j.capitao).map((j) => j.perfilId)
+  await rpc(uidDe(colegas[0]), 'sugerir_mapa', { p_match: mid, p_valor: 'Abyss' })
+  await rpc(uidDe(colegas[1]), 'sugerir_mapa', { p_match: mid, p_valor: 'Abyss' })
+  await rpc(uidDe(colegas[2]), 'sugerir_mapa', { p_match: mid, p_valor: 'Bind' })
+  ok((await servico(`select public._sugestao_top($1, 'A', 0) as v`, [mid]))[0].v === 'Abyss', 'a sugestão com mais votos ganha (Abyss 2, Bind 1)')
+  await rpc(uidDe(colegas[0]), 'sugerir_mapa', { p_match: mid, p_valor: 'Abyss' })
+  ok((await rpc(uids[0], 'partida_detalhe', { p_match: mid })).sugestoes.length === 2, 'voltar a sugerir o mesmo mapa tira a sugestão')
+  await falha(rpc(uidDe(colegas[0]), 'escolher_lado', { p_match: mid, p_lado: 'ataque' }), 'altura de escolher o lado', 'durante os bans não se escolhe o lado')
+}
 for (let n = 0; n < pool.length; n++) {
   const quem = n % 2 === 0 ? uids[0] : uids[1]
   if (n === 1) await falha(rpc(quem, 'banir_mapa', { p_match: mid, p_mapa: 'Abyss' }), 'não está disponível', 'não se bane um mapa já banido')
   await rpc(quem, 'banir_mapa', { p_match: mid, p_mapa: pool[n] })
 }
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-ok(partida.estado === 'LOBBY_CREATION' && partida.mapa === 'Sunset', '6 bans na rotação de 7: sobra o Sunset e passa a LOBBY_CREATION')
+ok(partida.estado === 'MAP_BAN' && partida.mapa === 'Sunset' && partida.lado?.equipa === 'A' && partida.lado.escolha === null, '6 bans na rotação de 7: sobra o Sunset e a Equipa A (não fez o último ban) escolhe o lado')
+ok(Date.parse(partida.prazoFase) - Date.now() > 55000, 'escolher o lado tem 60 segundos')
+await falha(rpc(uids[1], 'banir_mapa', { p_match: mid, p_mapa: 'Sunset' }), 'falta escolher o lado', 'depois do último ban já não se bane')
+await falha(rpc(uids[1], 'escolher_lado', { p_match: mid, p_lado: 'ataque' }), 'Só o capitão', 'o Capitão B não escolhe o lado')
+{
+  const colegaA = partida.jogadores.find((j) => j.equipa === 'A' && !j.capitao).perfilId
+  const colegaB = partida.jogadores.find((j) => j.equipa === 'B' && !j.capitao).perfilId
+  await rpc(uidDe(colegaA), 'sugerir_mapa', { p_match: mid, p_valor: 'defesa' })
+  await falha(rpc(uidDe(colegaB), 'sugerir_mapa', { p_match: mid, p_valor: 'ataque' }), 'equipa que está a decidir', 'a outra equipa não sugere')
+  await falha(rpc(uidDe(colegaA), 'sugerir_mapa', { p_match: mid, p_valor: 'Lotus' }), 'Ataque ou Defesa', 'no lado só se sugere Ataque ou Defesa')
+  const vistaA = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
+  const vistaB = await rpc(uids[1], 'partida_detalhe', { p_match: mid })
+  ok(vistaA.sugestoes.length === 1 && vistaA.sugestoes[0].valor === 'defesa' && vistaA.sugestoes[0].perfilId === colegaA, 'o capitão A vê a sugestão da equipa')
+  ok(vistaB.sugestoes.length === 0, 'a outra equipa não vê as sugestões')
+  ok((await servico(`select public._sugestao_top($1, 'A', 100) as v`, [mid]))[0].v === 'defesa', 'se o tempo acabar, vale a sugestão mais votada')
+}
+await falha(rpc(uids[0], 'escolher_lado', { p_match: mid, p_lado: 'meio' }), 'Ataque ou Defesa', 'o lado é Ataque ou Defesa')
+await rpc(uids[0], 'escolher_lado', { p_match: mid, p_lado: 'defesa' })
+partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
+ok(partida.estado === 'LOBBY_CREATION' && partida.lado.equipa === 'A' && partida.lado.escolha === 'defesa', 'com o lado escolhido passa a LOBBY_CREATION e fica registado quem escolheu')
 
 // ------------------------------------------------------------ código
 console.log('\nCódigo do grupo')
@@ -713,5 +755,30 @@ await falha(servico(`select public._discord_ping($1, 300) as r`, ['abc']), 'inv�
 await falha(como(uids[3], `select public._discord_ping('323456789012345678', 300)`), 'permission denied', 'os jogadores não chamam a função diretamente')
 await db.exec(readFileSync(new URL('../supabase/migrations/0016_discord_ping.sql', import.meta.url), 'utf8'))
 ok((await raiz(`select count(*)::int as n from discord_ping_estado`))[0].n === 1, 'correr a 0016 outra vez não dá erro e continua a haver uma só linha')
+// ------------------------------------------------------------ resultados pela staff
+console.log('\nResultados submetidos pela staff')
+{
+  await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: true })
+  const sim = await rpc(uids[0], 'partida_ativa')
+  await raiz(`update match_players set accepted = true where match_id = $1`, [sim.id])
+  await servico(`select public._iniciar_draft($1)`, [sim.id])
+  const capB = (await raiz(`select captain_b from matches where id = $1`, [sim.id]))[0].captain_b
+  await raiz(`update match_players set team = case when profile_id = $2 then 'A'::team else 'B'::team end where match_id = $1 and team is null`, [sim.id, pid(0)])
+  await raiz(`update matches set state = 'RESULT_SUBMISSION', map = 'Lotus', phase_deadline = now() + interval '1 hour', bot_move_at = null where id = $1`, [sim.id])
+  await raiz(`insert into match_results (match_id, captain_id, score_a, score_b) values ($1, $2, 13, 7)`, [sim.id, pid(0)])
+  await falha(rpc(uids[5], 'resultados_pendentes'), 'equipa do Rangify', 'um jogador não vê os resultados por submeter')
+  const pend = await rpc(uids[0], 'resultados_pendentes')
+  ok(pend.some((p) => p.id === sim.id && p.submissoes.length === 1), 'a staff vê a partida à espera do resultado e quem já submeteu')
+  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 13 }), '', 'um resultado impossível é recusado')
+  await rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 7 })
+  const depois = await raiz(`select state, score_a, score_b from matches where id = $1`, [sim.id])
+  const subs = await raiz(`select captain_id from match_results where match_id = $1`, [sim.id])
+  ok(depois[0].state === 'PROCESSING_API' && subs.length === 2 && subs.some((x) => x.captain_id === capB), 'a staff submete pelo capitão que faltava e, como bate certo, segue para a API')
+  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 7 }), 'já não está à espera', 'não se submete duas vezes')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [sim.id])
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0017_lados_sugestoes.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0017 outra vez não dá erro')
+
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

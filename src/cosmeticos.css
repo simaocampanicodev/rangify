@@ -280,3 +280,15 @@ html[data-fundo='leve'] [class*='cz-'] *, html[data-fundo='leve'] .cz-mvp * { an
 @media (prefers-reduced-motion: reduce) {
   [class*='cz-'], [class*='cz-']::before, [class*='cz-']::after, [class*='cz-'] * { animation: none !important; }
 }
+
+/*
+ * Listas com muitas decorações (tabela, amigos, catálogo da loja): ficam paradas e só
+ * mexe a linha ou o cartão com o rato por cima, e o teu (.cz-sempre). Assim nunca há
+ * dezenas de animações ao mesmo tempo.
+ */
+.cz-calmo [class*='cz-'], .cz-calmo [class*='cz-']::before, .cz-calmo [class*='cz-']::after,
+.cz-calmo [class*='cz-'] * { animation-play-state: paused !important; }
+.cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre), .cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre)::before,
+.cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre)::after, .cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre) *,
+.cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre) [class*='cz-']::before,
+.cz-calmo :is(.cz-item:hover, .cz-item:focus-within, .cz-sempre) [class*='cz-']::after { animation-play-state: running !important; }

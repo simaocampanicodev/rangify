@@ -26,7 +26,7 @@ function LinhaAmigo({ index, style, lista, remover, dica }: RowComponentProps<{ 
   return (
     <div style={style} className="border-t border-white/6">
       {/* As primeiras linhas entram em cascata; as que aparecem ao fazer scroll entram logo. */}
-      <div className={`flex h-full items-center gap-3 px-1 ${index < 10 ? 'entra-linha' : ''} ${cz.placa ? `${cz.placa} rounded-xl px-3` : ''}`} style={{ '--i': index } as React.CSSProperties}>
+      <div className={`cz-item flex h-full items-center gap-3 px-1 ${index < 10 ? 'entra-linha' : ''} ${cz.placa ? `${cz.placa} rounded-xl px-3` : ''}`} style={{ '--i': index } as React.CSSProperties}>
       <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 flex-1 items-center gap-3 text-texto no-underline hover:text-pessego">
         <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={38} perfilId={p.id} />
         <span className="flex min-w-0 flex-col gap-0.5">
@@ -107,6 +107,7 @@ export function Amigos() {
               rowCount={aceites.length}
               rowHeight={ALTURA_LINHA}
               rowProps={{ lista: aceites, remover, dica }}
+              className="cz-calmo"
               style={{ height: Math.min(aceites.length, 8) * ALTURA_LINHA }}
             />
           ) : (

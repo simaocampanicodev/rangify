@@ -61,6 +61,22 @@ export function BannerPerfil({ perfilId, cos, className = '', children }: { perf
   return <div aria-hidden className={`cz-banner ${classe(c.banner)} ${className}`}>{children}</div>
 }
 
+/**
+ * O banner como fundo de um bloco (o cabeçalho do perfil): fica por trás de tudo,
+ * com um véu escuro do lado do texto para se ler bem. Sem banner, devolve o bloco tal e qual.
+ */
+export function FundoBanner({ perfilId, cos, children }: { perfilId?: string | null; cos?: Cosmeticos; children: ReactNode }) {
+  const c = useDe(perfilId, cos)
+  if (!c.banner) return <>{children}</>
+  return (
+    <div className="relative isolate overflow-hidden rounded-[22px] border border-white/8 px-[clamp(18px,3vw,30px)] py-[clamp(18px,2.6vw,26px)]">
+      <div aria-hidden className={`cz-banner ${classe(c.banner)} !absolute inset-0 -z-10 !h-auto !rounded-none !border-0`} />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(9,9,11,0.9)_0%,rgba(9,9,11,0.72)_45%,rgba(9,9,11,0.35)_100%)]" />
+      {children}
+    </div>
+  )
+}
+
 /** À volta do selo de MVP, a animação de quem o ganhou. */
 export function DecoracaoMvp({ perfilId, cos, children }: { perfilId?: string | null; cos?: Cosmeticos; children: ReactNode }) {
   const c = useDe(perfilId, cos)

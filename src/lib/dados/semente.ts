@@ -99,9 +99,9 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
     codigo: codigoPartida(rng), estado: 'IN_PROGRESS', regiao: 'eu', mapa: null, capitaoA: null, capitaoB: null,
     codigoGrupo: codigoGrupo(rng), resultadoA: null, resultadoB: null, vencedor: null, simulada: false, pool: [...ROTACAO_PADRAO], automatica: false,
     prazoConfirmacao: null, inicioFase: null, prazoFase: null, comecouEm: new Date(quando + 6 * 60_000).toISOString(), terminouEm: null,
-    estatisticas: false, criadaEm: inicio, atualizadaEm: fim, jogadores: ids.map((id) => ({ ...novoJogador(perfis[id]), aceitou: true })), bans: [], submissoes: [],
+    estatisticas: false, criadaEm: inicio, atualizadaEm: fim, jogadores: ids.map((id) => ({ ...novoJogador(perfis[id]), aceitou: true })), bans: [], submissoes: [], lado: null, sugestoes: [],
   }
-  definirCapitaes(p, perfis)
+  definirCapitaes(p, undefined, rng)
   for (let n = 0; n < 8; n++) {
     const j = melhorDisponivel(rng, p, perfis)!
     j.equipa = equipaDaEscolha(n)
@@ -111,6 +111,8 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
   const bans = totalBans(pool)
   for (let n = 0; n < bans; n++) p.bans.push({ mapa: pool[n], equipa: equipaDoBan(n), ordem: n + 1 })
   p.mapa = pool[bans]
+  // A equipa que não fez o último ban escolheu o lado.
+  p.lado = { equipa: equipaDoBan(bans - 1) === 'A' ? 'B' : 'A', escolha: rng() < 0.5 ? 'ataque' : 'defesa' }
   const tiers = (eq: 'A' | 'B') => p.jogadores.filter((j) => j.equipa === eq).map((j) => j.tier)
   let r = gerarResultado(rng, tiers('A'), tiers('B'))
   // A conta de exemplo segue uma subida tranquila (cerca de +4 por partida),

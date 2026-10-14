@@ -40,7 +40,7 @@ function topicos(): Record<TopicoAjuda, Topico> {
       eyebrow: 'Draft', titulo: l('Como funciona o draft', 'How the draft works'), icone: <Crown size={20} />,
       intro: l('Os capitães montam as equipas à vez, a partir dos 8 jogadores que sobram.', 'The captains build the teams in turns, from the 8 remaining players.'),
       passos: [
-        { titulo: l('Dois capitães', 'Two captains'), texto: l('Os dois jogadores com o rank oficial mais alto são os capitães. O mais alto fica com a Equipa A.', 'The two players with the highest official rank are the captains. The highest gets Team A.') },
+        { titulo: l('Dois capitães ao calhas', 'Two random captains'), texto: l('Os dois capitães são sorteados entre os 10, para o draft não ficar sempre com as mesmas pessoas.', 'The two captains are drawn at random from the 10, so the draft does not always go to the same people.') },
         { titulo: l('Escolhas alternadas', 'Alternating picks'), texto: l('O Capitão A escolhe primeiro e depois alternam: A, B, A, B, até cada equipa ter 5 jogadores.', 'Captain A picks first and then they alternate: A, B, A, B, until each team has 5 players.') },
         { titulo: l(`${SEGUNDOS_ESCOLHA} segundos por escolha`, `${SEGUNDOS_ESCOLHA} seconds per pick`), texto: l('Se o tempo acabar, o sistema escolhe pelo capitão o jogador disponível com o rank oficial mais alto.', 'If time runs out, the system picks the available player with the highest official rank for the captain.') },
         { titulo: l('Toda a gente vê', 'Everyone sees it'), texto: l('Os outros jogadores acompanham as escolhas em direto, com o rank e a função preferida de cada um.', 'The other players follow the picks live, with each player\'s rank and preferred role.') },
@@ -51,8 +51,8 @@ function topicos(): Record<TopicoAjuda, Topico> {
       intro: l('Entram os mapas da rotação escolhida pela staff (7 de origem). Os capitães tiram mapas até sobrar um, que é o da partida.', 'The maps in the rotation chosen by the staff are used (7 by default). The captains remove maps until one is left, which is the match map.'),
       passos: [
         { titulo: l('Bans alternados', 'Alternating bans'), texto: l('Entre capitães: A, B, A, B... Com 7 mapas são 6 bans.', 'Between captains: A, B, A, B... With 7 maps there are 6 bans.') },
-        { titulo: l(`${SEGUNDOS_BAN} segundos por ban`, `${SEGUNDOS_BAN} seconds per ban`), texto: l('Se o tempo acabar, sai um mapa ao acaso dos que ainda estão disponíveis.', 'If time runs out, a random map is removed from the ones still available.') },
-        { titulo: l('O decisivo', 'The decider'), texto: l('O mapa que sobra é o da partida. Vês logo quem baniu o quê.', 'The map left over is the match map. You see right away who banned what.') },
+        { titulo: l(`${SEGUNDOS_BAN} segundos por ban`, `${SEGUNDOS_BAN} seconds per ban`), texto: l('Os colegas do capitão podem sugerir o mapa a banir; o capitão decide. Se o tempo acabar, sai o mais sugerido pela equipa, ou um ao acaso.', 'The captain\'s teammates can suggest the map to ban; the captain decides. If time runs out, the team\'s most suggested map goes, or a random one.') },
+        { titulo: l('O decisivo e o lado', 'The decider and the side'), texto: l('O mapa que sobra é o da partida. A equipa que não fez o último ban escolhe se começa a atacar ou a defender.', 'The map left over is the match map. The team that did not make the last ban picks whether it starts on attack or defence.') },
       ],
     },
     codigo: {
@@ -89,7 +89,7 @@ function topicos(): Record<TopicoAjuda, Topico> {
     },
     rank: {
       eyebrow: l('Rank oficial', 'Official rank'), titulo: l('Para que serve o rank oficial', 'What the official rank is for'), icone: <Shield size={20} />,
-      intro: l('O rank oficial da Riot nunca ordena a tabela. Serve para escolher os capitães e para atribuir os pontos.', 'The official Riot rank never sorts the leaderboard. It picks the captains and is used to award points.'),
+      intro: l('O rank oficial da Riot nunca ordena a tabela. Serve para atribuir os pontos.', 'The official Riot rank never sorts the leaderboard. It is used to award points.'),
       passos: [
         { titulo: l('Vem do teu Riot ID', 'It comes from your Riot ID'), texto: l('É lido através da Henrik Dev API quando ligas a conta.', 'It is read through the Henrik Dev API when you link your account.') },
         { titulo: l(`Atualiza no máximo a cada ${HORAS_CACHE_RANK} horas`, `Updates at most every ${HORAS_CACHE_RANK} hours`), texto: l('Podes pedir uma sincronização no perfil. Pelo meio fica guardado, para não abusar da API.', 'You can request a sync on your profile. In between it is cached, so the API is not overused.') },

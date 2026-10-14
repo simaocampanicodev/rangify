@@ -1,5 +1,5 @@
 import { Minus, Plus, RefreshCw, Search, Trophy } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -93,7 +93,7 @@ function PodioEsqueleto() {
 function LinhaBase({ posicao: pos, perfil: p, eu, i, children }: { posicao: number; perfil: Perfil; eu: boolean; i: number; children: ReactNode }) {
   const cz = useClassesCosmeticos(p.id)
   return (
-    <tr className={`linha-hover entra-linha ${eu ? 'bg-laranja/8' : ''} ${cz.linha}`} style={{ '--i': i } as React.CSSProperties}>
+    <tr className={`linha-hover entra-linha cz-item ${eu ? 'bg-laranja/8 cz-sempre' : ''} ${cz.linha}`} style={{ '--i': i } as React.CSSProperties}>
       <td className="w-12 py-2.5 pl-3 font-mono text-[14px] font-semibold">
         <span className={pos <= 3 || eu ? 'text-laranja' : 'text-suave'}>#{pos}</span>
       </td>
@@ -128,13 +128,51 @@ function Linha({ l, eu, i }: { l: LinhaRanking; eu: boolean; i: number }) {
 type Ambito = 'global' | 'amigos'
 interface Coluna { texto: string; classe: string }
 
+/**
+ * Quantas linhas cabem até ao fundo da coluna da direita (A tua posição, Simulador,
+ * Rank oficial), para a tabela acabar alinhada com ela. Com a coluna por baixo
+ * (telemóvel), ficam 10. Devolve também a altura dessa coluna.
+ */
+function useLinhasQueCabem(marca: React.RefObject<HTMLSpanElement | null>, corpo: React.RefObject<HTMLTableSectionElement | null>, pronto: boolean) {
+  const [r, setR] = useState<{ cabem: number; altura: number | null }>({ cabem: 10, altura: null })
+  useLayoutEffect(() => {
+    const painel = marca.current?.parentElement
+    const lado = painel?.nextElementSibling as HTMLElement | null | undefined
+    if (!painel || !lado) return
+    const medir = () => {
+      const p = painel.getBoundingClientRect()
+      const c = lado.getBoundingClientRect()
+      // Se a coluna caiu para baixo da tabela, não há nada com que alinhar.
+      if (Math.abs(c.top - p.top) > 4) { setR({ cabem: 10, altura: null }); return }
+      const primeira = corpo.current?.rows[0]
+      if (!primeira) { setR((x) => ({ ...x, altura: c.height })); return }
+      const linha = primeira.getBoundingClientRect()
+      // Por baixo das linhas fica o botão "Mostrar mais" (56 px) e o espaço do painel (22 px).
+      const cabem = Math.max(5, Math.floor((c.height - (linha.top - p.top) - 78) / (linha.height || 52)))
+      setR({ cabem, altura: c.height })
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(lado)
+    return () => ro.disconnect()
+  }, [marca, corpo, pronto])
+  return r
+}
+
 /** O painel "Classificação" igual nas três tabelas: filtro, pesquisa e a tabela. */
 function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, carregando, colunas, linhas, comPodio, vazio, rodape }: {
   total: number; ambito: Ambito; setAmbito: (a: Ambito) => void; pesquisa: string; setPesquisa: (v: string) => void
   carregando: boolean; colunas: Coluna[]; linhas: ReactNode[]; comPodio: boolean; vazio: ReactNode; rodape?: ReactNode
 }) {
+  const marca = useRef<HTMLSpanElement>(null)
+  const corpo = useRef<HTMLTableSectionElement>(null)
+  const [aberto, setAberto] = useState(false)
+  const { cabem, altura } = useLinhasQueCabem(marca, corpo, !carregando && linhas.length > 0)
+  const cortar = !aberto && linhas.length > cabem
+  const vistas = cortar ? linhas.slice(0, cabem) : linhas
   return (
-    <Painel aria-labelledby="rg-tabela" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]">
+    <Painel aria-labelledby="rg-tabela" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]" style={!aberto && altura ? { minHeight: altura } : undefined}>
+      <span ref={marca} hidden />
       <TituloPainel
         eyebrow={`${total} ${tx('JOGADORES', 'PLAYERS')}`}
         titulo={tx('Classificação', 'Standings')}
@@ -148,7 +186,7 @@ function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, 
       </label>
       {carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : linhas.length ? (
         <div className="-mx-2 overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="cz-calmo w-full border-collapse">
             <thead>
               <tr className="rotulo text-left">
                 <th scope="col" className="py-2 pl-3 font-normal">#</th>
@@ -156,13 +194,20 @@ function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, 
                 {colunas.map((c) => <th key={c.texto} scope="col" className={`font-normal ${c.classe}`}>{c.texto}</th>)}
               </tr>
             </thead>
-            <tbody className="[&>tr]:border-t [&>tr]:border-white/6">{linhas}</tbody>
+            <tbody ref={corpo} className="[&>tr]:border-t [&>tr]:border-white/6">{vistas}</tbody>
           </table>
         </div>
       ) : comPodio ? (
         <p className="m-0 py-6 text-center text-[13.5px] text-mudo">{tx('Só há três jogadores nesta lista, e estão todos no pódio.', 'There are only three players on this list, all on the podium.')}</p>
       ) : vazio}
-      {rodape}
+      {cortar ? (
+        <button type="button" className="btn btn-fantasma mt-auto self-center" onClick={() => setAberto(true)}>{tx(`Mostrar mais (${linhas.length - cabem})`, `Show more (${linhas.length - cabem})`)}</button>
+      ) : (
+        <div className="mt-auto flex flex-wrap justify-center gap-2">
+          {aberto && <button type="button" className="btn btn-fantasma" onClick={() => setAberto(false)}>{tx('Mostrar menos', 'Show less')}</button>}
+          {rodape}
+        </div>
+      )}
     </Painel>
   )
 }

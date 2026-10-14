@@ -1,7 +1,7 @@
 import { Check, Eye, FlaskConical, ImagePlay, Lock, RotateCcw, ShoppingBag, Sparkles, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { BannerPerfil, DecoracaoAvatar, DecoracaoMvp, ExtraLinha, TituloJogador, useClassesCosmeticos } from '@/components/Cosmeticos'
+import { BannerPerfil, DecoracaoAvatar, FundoBanner, DecoracaoMvp, ExtraLinha, TituloJogador, useClassesCosmeticos } from '@/components/Cosmeticos'
 import { NomeRangify } from '@/components/Marca'
 import { Avatar, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, SeloMvp, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -79,7 +79,7 @@ function Montra({ item, perfil }: { item: ItemLoja; perfil: Perfil }) {
       return (
         <div className="w-full">
           <BannerPerfil cos={cos} className="!h-[74px] !rounded-xl" />
-          <span className="-mt-5 ml-3 flex items-end gap-2"><Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} tamanho={40} destaque /></span>
+          <span className="relative z-[1] -mt-5 ml-3 flex items-end gap-2"><Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} tamanho={40} destaque /></span>
         </div>
       )
     case 'titulo':
@@ -149,7 +149,7 @@ function CartaoItem({ item, loja, perfil, vendo, onVer, etiqueta, grande = false
   }
 
   return (
-    <article className={`painel cartao-hover flex flex-col overflow-hidden !rounded-2xl ${vendo ? '!border-laranja/70 shadow-[0_0_0_3px_rgba(255,91,31,0.15)]' : ''}`}>
+    <article className={`painel cartao-hover cz-item flex flex-col overflow-hidden !rounded-2xl [contain-intrinsic-size:auto_330px] [content-visibility:auto] ${vendo ? 'cz-sempre !border-laranja/70 shadow-[0_0_0_3px_rgba(255,91,31,0.15)]' : ''}`}>
       <div className={`relative grid place-items-center border-b border-white/6 bg-[radial-gradient(80%_90%_at_50%_40%,rgba(255,91,31,0.08),transparent_70%)] px-4 ${grande ? 'h-[190px]' : 'h-[150px]'}`}>
         {etiqueta && <span className="absolute top-2.5 left-3 font-mono text-[10px] tracking-[0.14em] text-mudo uppercase">{etiqueta}</span>}
         {tem && (
@@ -276,19 +276,19 @@ export function Loja() {
 
           {vista === 'hoje' ? (
             <>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,230px),1fr))] gap-3.5">
+              <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,230px),1fr))] gap-3.5">
                 {cartao(loja.hoje.destaque, <span className="text-ouro">{l(`Destaque · sai em ${relogioAte(loja.hoje.destaqueAte, agora)}`, `Featured · leaves in ${relogioAte(loja.hoje.destaqueAte, agora)}`)}</span>, true)}
                 {loja.hoje.semanais.map((id) => cartao(id, l(`Semanal · sai em ${relogioAte(loja.hoje.semanaisAte, agora)}`, `Weekly · leaves in ${relogioAte(loja.hoje.semanaisAte, agora)}`), true))}
               </div>
               <div className="flex flex-col gap-3">
                 <span className="rotulo">{l('Diários · um de cada categoria', 'Daily · one per category')}</span>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">
+                <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">
                   {loja.hoje.diarios.map((id) => cartao(id, nomeCategoria(ITEM_POR_ID[id]?.categoria ?? 'borda')))}
                 </div>
               </div>
               <div className="flex flex-col gap-3">
                 <span className="rotulo">{l('Sempre à venda', 'Always for sale')}</span>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">{cartao('gif')}</div>
+                <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">{cartao('gif')}</div>
               </div>
             </>
           ) : (
@@ -297,7 +297,7 @@ export function Loja() {
                 <Segmentado pequeno rotulo={l('Categoria', 'Category')} valor={filtro} onChange={setFiltro}
                   opcoes={[{ valor: 'tudo' as const, texto: l('Tudo', 'All') }, ...CATEGORIAS_LOJA.map((c) => ({ valor: c.id, texto: lg(c.nome) }))]} />
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">
+              <div className="cz-calmo grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-3.5">
                 {catalogo.map((i) => cartao(i.id))}
               </div>
             </>
@@ -329,13 +329,22 @@ function PreVisualizacao({ perfil, cos, ver, repor }: { perfil: Perfil; cos: Cos
 
       <div className="flex flex-col gap-2">
         <span className="rotulo">{l('Perfil', 'Profile')}</span>
-        <BannerPerfil cos={cos} className="!h-[86px] !rounded-xl" />
-        <div className={`flex items-center gap-3.5 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3.5 ${cz.placa} ${cos.banner ? '-mt-1' : ''}`}>
-          <FotoNyx perfil={perfil} tamanho={52} cos={cos} />
-          <span className="flex min-w-0 flex-col gap-1">
-            <span className="cz-nome truncate text-[17px] font-extrabold">{nomeJogador(perfil)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(perfil)}</span></span>
-            <TituloJogador cos={cos} />
-          </span>
+        <FundoBanner cos={cos}>
+          <div className={`flex items-center gap-3.5 ${cos.banner ? 'py-2' : 'rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3.5'}`}>
+            <FotoNyx perfil={perfil} tamanho={52} cos={cos} />
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="cz-nome truncate text-[17px] font-extrabold">{nomeJogador(perfil)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(perfil)}</span></span>
+              <TituloJogador cos={cos} />
+            </span>
+          </div>
+        </FundoBanner>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="rotulo">{l('Placa, no menu e nos amigos', 'Nameplate, in the menu and friends')}</span>
+        <div className={`flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5 ${cz.placa}`}>
+          <FotoNyx perfil={perfil} tamanho={36} cos={cos} />
+          <span className="flex min-w-0 flex-col"><span className="cz-nome truncate text-[14px] font-semibold">{nomeJogador(perfil)}</span><span className="font-mono text-[11px] text-mudo">{perfil.riotId ?? perfil.utilizador}</span></span>
         </div>
       </div>
 

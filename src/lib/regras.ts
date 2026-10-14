@@ -5,8 +5,10 @@ import { l } from './idioma'
 export const SEGUNDOS_CONFIRMAR = 20
 /** Segundos por escolha no draft. */
 export const SEGUNDOS_ESCOLHA = 30
-/** Segundos por ban de mapa. */
-export const SEGUNDOS_BAN = 20
+/** Segundos por ban de mapa (a equipa tem tempo para sugerir ao capitão). */
+export const SEGUNDOS_BAN = 60
+/** Segundos para escolher o lado, depois do último ban. */
+export const SEGUNDOS_LADO = 60
 /** Bloqueio depois de partilhar o código (PRD, estado 6). */
 export const MINUTOS_BLOQUEIO = 15
 /** Cooldown para quem recusa ou não aceita a tempo. */

@@ -5,7 +5,7 @@ import { usePartida } from '@/contexts/Partida'
 import { useAgora } from '@/hooks/useAgora'
 import { dados, type Partida } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
-import { capitao, equipa, nomeJogador } from '@/lib/partida'
+import { capitao, equipa, ladoInicial, nomeJogador } from '@/lib/partida'
 import { DESEMPENHO_MAX, emJogo, comSinal } from '@/lib/pontos'
 import { MINUTOS_BLOQUEIO, PADRAO_CODIGO, limparCodigo } from '@/lib/regras'
 import { emFalta, relogio } from '@/lib/tempo'
@@ -64,6 +64,12 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
         <div className="relative flex w-full flex-wrap items-end justify-between gap-4 px-7 py-[26px]">
           <div className="flex max-w-[560px] flex-col gap-2">
             <span className="font-mono text-[11px] font-bold tracking-[0.18em] text-pessego">{emCurso ? l('EM JOGO', 'IN GAME') : 'LOBBY'} · {p.mapa?.toUpperCase()}</span>
+            {p.lado?.escolha && (
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-laranja/35 bg-[rgba(9,9,11,0.6)] px-2.5 py-1 font-mono text-[11.5px] font-semibold text-pessego-claro">
+                {l(`Equipa A começa a ${ladoInicial(p, 'A') === 'ataque' ? 'atacar' : 'defender'}`, `Team A starts on ${ladoInicial(p, 'A') === 'ataque' ? 'attack' : 'defence'}`)}
+                <span className="text-mudo">· {l(`escolha da Equipa ${p.lado.equipa}`, `picked by Team ${p.lado.equipa}`)}</span>
+              </span>
+            )}
             <h1 id="rg-cod-titulo" className="m-0 text-[clamp(30px,3.6vw,42px)] leading-[1.04] font-black tracking-[-0.04em]">
               {emCurso ? l('Boa partida. O resultado abre daqui a pouco.', 'Good game. The result opens shortly.') : souHost ? l('Cria o grupo e partilha o código', 'Create the party and share the code') : l(`${capA ? nomeJogador(capA) : 'O Capitão A'} está a criar o grupo`, `${capA ? nomeJogador(capA) : 'Captain A'} is creating the party`)}
             </h1>
