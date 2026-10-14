@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
 
     if (corpo.riotId) {
       const riotId = corpo.riotId.trim()
-      if (!/^[^#]{3,16}#[A-Za-z0-9]{3,5}$/.test(riotId)) return erro('O Riot ID tem o formato Nome#TAG, por exemplo Nyx#4521.')
+      if (!/^[^#]{3,16}#[\p{L}\p{N}]{3,5}$/u.test(riotId)) return erro('O Riot ID tem o formato Nome#TAG, por exemplo Nyx#4521.')
       // Mudar de Riot ID a meio de uma partida estragava a confirmação pela API.
       if (perfil.riot_id) {
         const { data: ativa } = await db.rpc('_partida_ativa', { p_perfil: perfil.id })

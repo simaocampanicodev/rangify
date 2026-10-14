@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -254,14 +254,16 @@ const mediaRs = partida.jogadores.reduce((t, j) => t + j.rangifyScore, 0) / 10
 ok(mediaRs > 95 && mediaRs < 105, `o RS médio da partida anda à volta de 100 (${mediaRs})`)
 ok(partida.jogadores.every((j) => j.agente === stats.find((s) => s.perfilId === j.perfilId).agente), 'guarda o agente de cada jogador')
 
-// Os pontos batem certo com a fórmula do site: resultado, desnível e desempenho.
-const divisao = (t) => (t >= 3 ? Math.min(25, t - 2) : 9)
-const esperado = (j) => {
-  const adv = partida.jogadores.filter((x) => x.equipa !== j.equipa).map((x) => divisao(x.tier))
-  const dif = Math.round(adv.reduce((s, x) => s + x, 0) / adv.length) - divisao(j.tier)
-  return (j.equipa === partida.vencedor ? 20 : -20) + Math.max(-8, Math.min(10, 3 * dif)) + bonusRs(rsEsperado.get(j.perfilId))
-}
+// Os pontos batem certo com a fórmula do site: resultado e desempenho. O rank não conta.
+const esperado = (j) => (j.equipa === partida.vencedor ? 20 : -20) + bonusRs(rsEsperado.get(j.perfilId))
 ok(partida.jogadores.every((j) => j.deltaPontos === esperado(j)), 'deltas de pontos iguais aos do site para os 10 jogadores')
+ok(new Set(partida.jogadores.map((j) => j.tier)).size > 3, 'a partida tem ranks muito diferentes (para o teste de baixo valer a pena)')
+ok(partida.jogadores.every((j) => j.deltaPontos - (j.deltaDesempenho ?? 0) === (j.equipa === partida.vencedor ? 20 : -20)), 'sem o desempenho, todos os vencedores ganham 20 e todos os vencidos perdem 20, sejam de que rank forem')
+ok((await raiz(`select public._pontos(3, array[27, 27, 27], true) as a, public._pontos(27, array[3, 3, 3], true) as b, public._pontos(15, array[15], false) as c`))[0].a === 20
+  && (await raiz(`select public._pontos(27, array[3, 3, 3], true) as b`))[0].b === 20
+  && (await raiz(`select public._pontos(15, array[15], false) as c`))[0].c === -20, '_pontos ignora os ranks: vitória +20 e derrota -20')
+ok((await raiz(`select active from quests where id = 'm-acima'`))[0].active === false, 'a missão que comparava ranks ficou desativada')
+ok((await raiz(`select count(*)::int as n from quest_rotations where 'm-acima' = any (quest_ids)`))[0].n === 0, 'e já não está em nenhuma rotação')
 ok(partida.jogadores.every((j) => j.deltaDesempenho === bonusRs(j.rangifyScore) && Math.abs(j.deltaDesempenho) <= 6), 'a parte do desempenho fica guardada e vai de -6 a +6')
 ok(partida.jogadores.some((j) => j.deltaDesempenho > 0) && partida.jogadores.some((j) => j.deltaDesempenho < 0), 'quem joga melhor ganha pontos extra e quem joga pior perde')
 const depois = await raiz(`select id, points, wins, losses from profiles`)

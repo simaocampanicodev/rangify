@@ -37,7 +37,6 @@ function Cabeca({ p, eyebrow, titulo, texto, direita }: { p: Partida; eyebrow: s
 
 /** Pré-visualização dos pontos de cada jogador para um resultado. */
 function Previsao({ p, a, b, eu }: { p: Partida; a: number; b: number; eu: string }) {
-  const tiers = (eq: Equipa) => equipa(p, eq).map((j) => j.tier)
   const vence: Equipa = a > b ? 'A' : 'B'
   return (
     <div className="flex flex-col gap-1">
@@ -45,11 +44,10 @@ function Previsao({ p, a, b, eu }: { p: Partida; a: number; b: number; eu: strin
         <div key={eq} className="flex flex-col gap-1">
           <span className={`px-0.5 pt-2.5 pb-1 font-mono text-[10px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{l('EQUIPA', 'TEAM')} {eq} · {eq === vence ? l('VITÓRIA', 'WIN') : l('DERROTA', 'LOSS')}</span>
           {equipa(p, eq).map((j) => {
-            const r = calcularPontos(j.tier, tiers(eq === 'A' ? 'B' : 'A'), eq === vence)
+            const r = calcularPontos(eq === vence)
             return (
               <div key={j.perfilId} className={`flex min-h-[38px] items-center gap-2.5 rounded-[9px] px-2 ${j.perfilId === eu ? 'bg-laranja/10' : ''}`}>
                 <span className={`min-w-0 flex-1 truncate text-[13px] ${j.perfilId === eu ? 'font-bold' : ''}`}>{nomeJogador(j)}</span>
-                <span className="font-mono text-[11px] text-mudo">{nomeRank(j.tier)}</span>
                 <span className={`w-11 text-right font-mono text-[13.5px] font-bold ${r.total > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(r.total)}</span>
               </div>
             )

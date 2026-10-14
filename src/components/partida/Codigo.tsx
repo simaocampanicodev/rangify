@@ -25,8 +25,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
   const emCurso = p.estado === 'IN_PROGRESS'
   const valido = PADRAO_CODIGO.test(codigo)
   const minha = p.jogadores.find((j) => j.perfilId === eu)
-  const adversarios = p.jogadores.filter((j) => j.equipa && j.equipa !== minha?.equipa).map((j) => j.tier)
-  const aposta = minha ? emJogo(minha.tier, adversarios) : null
+  const aposta = minha ? emJogo() : null
 
   const colar = async () => {
     try {

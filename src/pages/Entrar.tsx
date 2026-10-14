@@ -47,13 +47,13 @@ export function Entrar() {
             {l('O teu 5v5 de Valorant,', 'Your Valorant 5v5,')} <span className="font-serif font-normal text-laranja italic">{l('a sério.', 'for real.')}</span>
           </h1>
           <p className="m-0 text-[15.5px] leading-[1.6] text-suave">
-            {l('Fila por região, draft de capitães, ban de mapas e uma tabela própria em que toda a gente começa com 1000 pontos. O teu rank oficial é usado para atribuir os pontos de cada vitória.', 'Regional queue, captains\' draft, map bans and our own leaderboard where everyone starts at 1000 points. Your official rank is used to award the points for each win.')}
+            {l('Fila por região, draft de capitães, ban de mapas e uma tabela própria em que toda a gente começa com 1000 pontos. Os pontos dependem de ganhares e do teu desempenho, não do rank.', 'Regional queue, captains\' draft, map bans and our own leaderboard where everyone starts at 1000 points. Points depend on winning and on how you play, not on rank.')}
           </p>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {[
               [<Crown size={17} key="c" />, l('Capitães escolhem as equipas à vez', 'Captains pick the teams in turns')],
               [<IconeMapa size={17} key="m" />, l('Bans de mapas até sobrar o decisivo', 'Map bans until the decider is left')],
-              [<Scale size={17} key="s" />, l('Pontos ajustados ao rank da equipa adversária', 'Points adjusted to the enemy team\'s rank')],
+              [<Scale size={17} key="s" />, l('Pontos pelo teu desempenho em cada partida', 'Points for how you perform in each match')],
             ].map(([icone, texto]) => (
               <li key={texto as string} className="flex items-center gap-3 text-[14px] text-marfim">
                 <span className="grid size-9 place-items-center rounded-[10px] border border-laranja/32 bg-laranja/12 text-laranja">{icone}</span>

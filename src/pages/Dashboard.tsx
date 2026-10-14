@@ -253,7 +253,7 @@ export function Dashboard() {
                 <p className="m-0 text-[13px] leading-normal whitespace-pre-line text-[#a6a19a]">{novidade.texto}</p>
               </>
             ) : <h2 id="rg-novidades" className="m-0 text-[14px] font-medium text-mudo">{novidades.carregando ? l('A carregar…', 'Loading…') : l('Sem novidades por agora.', 'No news for now.')}</h2>}
-            <div className="flex items-center gap-2 pt-1 text-[12.5px] text-mudo"><Shield size={14} className="text-laranja" aria-hidden />{l('Rank oficial usado para atribuição de pontos', 'Official rank used to award points')}</div>
+            <div className="flex items-center gap-2 pt-1 text-[12.5px] text-mudo"><Shield size={14} className="text-laranja" aria-hidden />{l('Rank oficial da Riot, só informativo', 'Official Riot rank, informational only')}</div>
           </Painel>
         </div>
       </div>

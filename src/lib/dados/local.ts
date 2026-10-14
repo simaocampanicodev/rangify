@@ -1928,11 +1928,10 @@ export const dadosLocais: Dados = {
       j.agente = lista[n % lista.length]
     }
     calcularRangifyScore(p)
-    const tiers = (eq: Equipa) => p.jogadores.filter((x) => x.equipa === eq).map((x) => x.tier)
     for (const j of p.jogadores) {
       if (!j.equipa) continue
       const perf = bonusDesempenho(j.rangifyScore)
-      const novo = calcularPontos(j.tier, tiers(j.equipa === 'A' ? 'B' : 'A'), j.equipa === p.vencedor).total + perf
+      const novo = calcularPontos(j.equipa === p.vencedor).total + perf
       const dif = novo - (j.deltaPontos ?? 0)
       const perfil = e.perfis[j.perfilId]
       if (perfil && (p.pontosAplicados ?? !p.simulada)) perfil.pontos += dif

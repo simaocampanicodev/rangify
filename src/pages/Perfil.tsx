@@ -147,7 +147,7 @@ export function Perfil() {
           {souEu && <div className="mt-auto border-t border-white/6"><LinkSeta to="/partidas">{l('Ver histórico completo', 'View full history')}</LinkSeta></div>}
         </Painel>
         <Painel aria-labelledby="rg-perfil-rank" className="flex min-w-0 flex-col gap-3 p-[22px]">
-          <TituloPainel eyebrow={l('RANK OFICIAL', 'OFFICIAL RANK')} titulo={l('Da Riot, para atribuir pontos', 'From Riot, used to award points')} id="rg-perfil-rank" />
+          <TituloPainel eyebrow={l('RANK OFICIAL', 'OFFICIAL RANK')} titulo={l('Da Riot, só informativo', 'From Riot, informational only')} id="rg-perfil-rank" />
           <RankBadge tier={p.tier} rr={p.rr} />
           <p className="m-0 text-[13px] leading-normal text-suave">{l('Sincronizado', 'Synced')} {haQuanto(p.rankAtualizadoEm)}. {l(`Atualiza no máximo a cada ${HORAS_CACHE_RANK} horas, através da Henrik Dev API.`, `Updates at most every ${HORAS_CACHE_RANK} hours, through the Henrik Dev API.`)}</p>
           <p className="m-0 text-[13px] leading-normal text-mudo">{l('Não conta para a posição na tabela. Serve para escolher capitães e para atribuir os pontos de cada partida.', 'It does not count for your leaderboard position. It picks the captains and awards the points of each match.')}</p>

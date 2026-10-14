@@ -42,7 +42,6 @@ export const MISSOES: DefinicaoMissao[] = [
   { id: 'd-acs', titulo: 'Bom jogo', descricao: 'Acaba uma partida hoje com 250 de ACS ou mais.', tipo: 'acs', alvo: 250, ambito: 'diaria', xp: 150 },
   { id: 'm-jogos', titulo: 'Rotina de competição', descricao: 'Joga 10 partidas esta semana.', tipo: 'jogos', alvo: 10, ambito: 'semanal', xp: 400 },
   { id: 'm-vitorias', titulo: 'Cinco vitórias', descricao: 'Ganha 5 partidas esta semana.', tipo: 'vitorias', alvo: 5, ambito: 'semanal', xp: 450 },
-  { id: 'm-acima', titulo: 'Contra os favoritos', descricao: 'Ganha 2 partidas contra uma equipa com rank oficial médio acima do teu.', tipo: 'vitorias_acima', alvo: 2, ambito: 'semanal', xp: 400 },
   { id: 'm-fb', titulo: 'Primeiro sangue', descricao: 'Faz 15 first bloods esta semana.', tipo: 'first_bloods', alvo: 15, ambito: 'semanal', xp: 350 },
   { id: 'm-mvp', titulo: 'Jogador da partida', descricao: 'Sê MVP em 2 partidas esta semana.', tipo: 'mvp', alvo: 2, ambito: 'semanal', xp: 400 },
   { id: 's-serie', titulo: 'Em forma', descricao: 'Ganha 3 partidas seguidas esta semana.', tipo: 'sequencia', alvo: 3, ambito: 'semanal', xp: 450 },

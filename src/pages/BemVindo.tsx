@@ -91,7 +91,7 @@ export function BemVindo() {
                 <span className="eyebrow flex items-center gap-2"><Shield size={13} aria-hidden />{l('PASSO 2 DE 2', 'STEP 2 OF 2')}</span>
                 <h1 className="m-0 text-[28px] font-extrabold tracking-[-0.04em]">{l('Liga o teu Riot ID', 'Link your Riot ID')}</h1>
                 <p className="m-0 text-[14px] leading-normal text-suave">
-                  {l('O teu rank oficial é usado para atribuir os pontos de cada partida. Na tabela do', 'Your official rank is used to award the points of each match. On the')} <NomeRangify className="text-laranja-claro" /> {l('toda a gente começa com 1000 pontos.', 'leaderboard everyone starts at 1000 points.')}
+                  {l('O teu rank oficial aparece no perfil, mas não conta para os pontos: só o teu desempenho. Na tabela do', 'Your official rank shows on your profile, but it does not count towards points: only how you play does. On the')} <NomeRangify className="text-laranja-claro" /> {l('toda a gente começa com 1000 pontos.', 'leaderboard everyone starts at 1000 points.')}
                 </p>
               </div>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">

@@ -28,8 +28,11 @@ export function limparCodigo(v: string): string {
   return v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
 }
 
-/** Riot ID no formato Nome#TAG (3 a 16 caracteres no nome, 3 a 5 na tag). */
-export const PADRAO_RIOT_ID = /^[^#]{3,16}#[A-Za-z0-9]{3,5}$/
+/**
+ * Riot ID no formato Nome#TAG (3 a 16 caracteres no nome, 3 a 5 na tag). A tag pode ter
+ * letras de qualquer alfabeto (a Riot aceita, por exemplo, s3v7n#star惠), por isso não é só A-Z e 0-9.
+ */
+export const PADRAO_RIOT_ID = /^[^#]{3,16}#[\p{L}\p{N}]{3,5}$/u
 
 export interface Validacao { ok: boolean; titulo: string; detalhe: string }
 

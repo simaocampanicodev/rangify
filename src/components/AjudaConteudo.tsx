@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { l } from '@/lib/idioma'
-import { BONUS_MAX, BONUS_MIN, DESEMPENHO_MAX, PONTOS_BASE, PONTOS_INICIAIS, POR_DIVISAO, RS_POR_PONTO } from '@/lib/pontos'
+import { DESEMPENHO_MAX, PONTOS_BASE, PONTOS_INICIAIS, RS_POR_PONTO } from '@/lib/pontos'
 import { HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { NomeRangify } from './Marca'
 import { Modal } from './ui'
@@ -80,20 +80,18 @@ function topicos(): Record<TopicoAjuda, Topico> {
       intro: <>{l('A tabela é ordenada pelos pontos', 'The leaderboard is sorted by')} {R} {l(`, não pelo rank oficial. Toda a gente começa a temporada com ${PONTOS_INICIAIS} pontos.`, `points, not by official rank. Everyone starts the season with ${PONTOS_INICIAIS} points.`)}</>,
       passos: [
         { titulo: l(`Base de ${PONTOS_BASE} pontos`, `${PONTOS_BASE}-point base`), texto: l(`Uma vitória vale +${PONTOS_BASE} e uma derrota tira ${PONTOS_BASE}.`, `A win is worth +${PONTOS_BASE} and a loss takes ${PONTOS_BASE}.`) },
-        { titulo: l('O desnível', 'The rank gap'), texto: l('O teu rank oficial é comparado com a média do rank oficial da equipa adversária.', 'Your official rank is compared with the average official rank of the enemy team.') },
-        { titulo: l('Adversários acima de ti', 'Opponents above you'), texto: l(`Cada divisão de diferença soma +${POR_DIVISAO}, até +${BONUS_MAX}. Ganhar vale mais e perder custa menos.`, `Each division of difference adds +${POR_DIVISAO}, up to +${BONUS_MAX}. Winning is worth more and losing costs less.`) },
-        { titulo: l('Adversários abaixo de ti', 'Opponents below you'), texto: l(`Cada divisão de diferença tira ${POR_DIVISAO}, até ${BONUS_MIN}. Ganhar vale menos e perder custa mais.`, `Each division of difference takes ${POR_DIVISAO}, down to ${BONUS_MIN}. Winning is worth less and losing costs more.`) },
+        { titulo: l('O rank não conta', 'Rank does not count'), texto: l('O rank oficial da Riot não entra nas contas: ganhar vale o mesmo para toda a gente. O que muda os pontos é o que jogas.', 'Official Riot rank is not part of the maths: winning is worth the same for everyone. What changes your points is how you play.') },
         { titulo: l('O teu desempenho: Rangify Score', 'Your performance: Rangify Score'), texto: l(`O RS junta o teu ACS (35%), KDA (25%), KAST (25%) e trades (15%), comparados com a média dos 10 jogadores da partida. 100 é a média. Cada ${RS_POR_PONTO} de RS acima ou abaixo de 100 vale 1 ponto, até ${DESEMPENHO_MAX} para cada lado. O MVP é quem tem o RS mais alto.`, `RS combines your ACS (35%), KDA (25%), KAST (25%) and trades (15%), compared with the average of the 10 players in the match. 100 is average. Every ${RS_POR_PONTO} RS above or below 100 is worth 1 point, up to ${DESEMPENHO_MAX} either way. The MVP is whoever has the highest RS.`) },
       ],
-      nota: <>{l('Exemplo: és Diamante 2 e a outra equipa tem média Ascendente 1, duas divisões acima. Uma vitória dá', 'Example: you are Diamond 2 and the other team averages Ascendant 1, two divisions above. A win gives')} <b className="text-vitoria">+26</b> {l('e uma derrota tira só', 'and a loss only takes')} <b className="text-derrota">14</b>{l(`, antes do desempenho. Com um RS de 124, somas mais ${Math.round(24 / RS_POR_PONTO)}.`, `, before performance. With an RS of 124, you add ${Math.round(24 / RS_POR_PONTO)} more.`)}</>,
+      nota: <>{l('Exemplo: ganhas e fazes um RS de 124. A vitória dá', 'Example: you win with an RS of 124. The win gives')} <b className="text-vitoria">+{PONTOS_BASE}</b> {l('e o desempenho soma mais', 'and performance adds')} <b className="text-vitoria">{Math.round(24 / RS_POR_PONTO)}</b>{l('. Se perdesses com o mesmo RS, a derrota tiraria só', '. If you lost with the same RS, the loss would only take')} <b className="text-derrota">{PONTOS_BASE - Math.round(24 / RS_POR_PONTO)}</b>.</>,
     },
     rank: {
       eyebrow: l('Rank oficial', 'Official rank'), titulo: l('Para que serve o rank oficial', 'What the official rank is for'), icone: <Shield size={20} />,
-      intro: l('O rank oficial da Riot nunca ordena a tabela. Serve para atribuir os pontos.', 'The official Riot rank never sorts the leaderboard. It is used to award points.'),
+      intro: l('O rank oficial da Riot é só informativo: aparece no perfil e na média da sala e das equipas. Não ordena a tabela e não conta para os pontos.', 'The official Riot rank is informational only: it shows on profiles and in the lobby and team averages. It does not sort the leaderboard and does not count towards points.'),
       passos: [
         { titulo: l('Vem do teu Riot ID', 'It comes from your Riot ID'), texto: l('É lido através da Henrik Dev API quando ligas a conta.', 'It is read through the Henrik Dev API when you link your account.') },
         { titulo: l(`Atualiza no máximo a cada ${HORAS_CACHE_RANK} horas`, `Updates at most every ${HORAS_CACHE_RANK} hours`), texto: l('Podes pedir uma sincronização no perfil. Pelo meio fica guardado, para não abusar da API.', 'You can request a sync on your profile. In between it is cached, so the API is not overused.') },
-        { titulo: l('Sem rank', 'Unranked'), texto: l('Quem ainda não tem rank competitivo conta como Prata 3 nas contas dos pontos.', 'Players without a competitive rank count as Silver 3 for points.') },
+        { titulo: l('Sem rank', 'Unranked'), texto: l('Quem ainda não tem rank competitivo conta como Prata 3 na média da sala e das equipas.', 'Players without a competitive rank count as Silver 3 in the lobby and team averages.') },
       ],
     },
     missoes: {

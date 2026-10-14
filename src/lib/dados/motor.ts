@@ -170,11 +170,10 @@ export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perf
   p.resultadoA = a
   p.resultadoB = b
   p.vencedor = a > b ? 'A' : 'B'
-  const tiers = (eq: Equipa) => p.jogadores.filter((j) => j.equipa === eq).map((j) => j.tier)
   for (const j of p.jogadores) {
     if (!j.equipa) continue
     const venceu = j.equipa === p.vencedor
-    const r = calcularPontos(j.tier, tiers(j.equipa === 'A' ? 'B' : 'A'), venceu)
+    const r = calcularPontos(venceu)
     const perf = bonusDesempenho(j.rangifyScore)
     j.deltaDesempenho = j.rangifyScore != null ? perf : null
     j.deltaPontos = r.total + perf
