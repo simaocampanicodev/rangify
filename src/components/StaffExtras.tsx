@@ -1,9 +1,9 @@
 import { ChevronUp, CircleAlert, Lightbulb, Lock, Megaphone, PlugZap, RefreshCw, ShoppingBag, Trash } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type EstadoSugestao, type RecargaPartida, type TesteApi } from '@/lib/dados'
+import { dados, type EstadoSugestao, type PaginaPartidas, type RecargaPartida, type ResumoPartida, type TesteApi } from '@/lib/dados'
 import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
 import { comSinal, rangifyScores } from '@/lib/pontos'
@@ -323,6 +323,111 @@ export function BotaoRecarregar({ id, simulada, aoAcabar, pequeno = false }: { i
   )
 }
 
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+interface FimRecarga { ok: number; mudaram: number; falhas: { codigo: string; erro: string }[]; avisos: string[]; parou: boolean }
+
+/**
+ * Recarrega, uma a uma, todas as partidas terminadas (por exemplo, depois de mudar a fórmula
+ * dos pontos). Nas reais lê a Henrik Dev API, por isso espera uns segundos entre partidas para
+ * não esgotar o limite de pedidos. Se alguma falhar, as outras seguem e no fim vê-se quais foram.
+ */
+function RecarregarTodas() {
+  const avisar = useAvisos()
+  const [estado, setEstado] = useState<{ feitas: number; total: number; codigo: string } | null>(null)
+  const [fim, setFim] = useState<FimRecarga | null>(null)
+  const parar = useRef(false)
+
+  const correr = async () => {
+    parar.current = false
+    setFim(null)
+    setEstado({ feitas: 0, total: 0, codigo: '' })
+    const todas: ResumoPartida[] = []
+    try {
+      let cursor: string | null = null
+      do {
+        const pagina: PaginaPartidas = await dados.partidas({ minhas: false, cursor })
+        todas.push(...pagina.linhas)
+        cursor = pagina.cursor
+      } while (cursor)
+    } catch (e) {
+      setEstado(null)
+      avisar(e instanceof Error ? e.message : l('Não foi possível listar as partidas.', 'Could not list the matches.'), 'erro')
+      return
+    }
+    const r: FimRecarga = { ok: 0, mudaram: 0, falhas: [], avisos: [], parou: false }
+    for (let i = 0; i < todas.length; i++) {
+      if (parar.current) break
+      const m = todas[i]
+      setEstado({ feitas: i, total: todas.length, codigo: m.codigo })
+      try {
+        const x = await dados.recarregarPartida(m.id, m.simulada)
+        r.ok++
+        r.mudaram += x.jogadores.filter((j) => j.antes !== j.depois).length
+        for (const a of x.avisos ?? []) r.avisos.push(`${m.codigo}: ${a}`)
+      } catch (e) {
+        r.falhas.push({ codigo: m.codigo, erro: e instanceof Error ? e.message : l('Erro desconhecido.', 'Unknown error.') })
+      }
+      // A API da Riot (Henrik) tem um limite de pedidos por minuto.
+      if (!m.simulada && i < todas.length - 1 && !parar.current) await esperar(4000)
+    }
+    r.parou = parar.current
+    setEstado(null)
+    setFim(r)
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-[14px] font-bold">{l('Recarregar todas as partidas', 'Reload all matches')}</span>
+          <span className="text-[12.5px] text-mudo">{l('Percorre todas as partidas terminadas, uma a uma. Cada jogador só recebe a diferença nos pontos.', 'Goes through every finished match, one by one. Each player only gets the points difference.')}</span>
+        </span>
+        {estado ? (
+          <button type="button" className="btn btn-fantasma !min-h-10" onClick={() => { parar.current = true }}>{l('Parar depois desta', 'Stop after this one')}</button>
+        ) : (
+          <BotaoSegurar
+            rotulo={l('Segura para recarregar todas as partidas', 'Hold to reload all matches')}
+            className="btn btn-suave !min-h-10"
+            onConfirmar={correr}
+          >
+            <RefreshCw size={15} aria-hidden />{l('Recarregar todas', 'Reload all')}
+          </BotaoSegurar>
+        )}
+      </div>
+      {estado && (
+        <div className="flex flex-col gap-1.5" role="status" aria-live="polite">
+          <span className="font-mono text-[12.5px] text-pessego">
+            {estado.total ? `${estado.feitas + 1}/${estado.total} · ${estado.codigo}` : l('A listar as partidas…', 'Listing matches…')}
+          </span>
+          <span className="block h-1.5 overflow-hidden rounded-full bg-white/7">
+            <span className="block h-full rounded-full bg-laranja transition-[width] duration-300" style={{ width: `${estado.total ? (estado.feitas / estado.total) * 100 : 3}%` }} />
+          </span>
+        </div>
+      )}
+      {fim && (
+        <div className="flex flex-col gap-2 text-[13px]">
+          <span className="font-semibold text-pessego-claro">
+            {fim.parou ? l('Parou. ', 'Stopped. ') : ''}
+            {l(`${fim.ok} ${fim.ok === 1 ? 'partida recarregada' : 'partidas recarregadas'}, ${fim.mudaram} ${fim.mudaram === 1 ? 'jogador mudou' : 'jogadores mudaram'} de pontos.`, `${fim.ok} ${fim.ok === 1 ? 'match' : 'matches'} reloaded, ${fim.mudaram} ${fim.mudaram === 1 ? 'player' : 'players'} changed points.`)}
+          </span>
+          {fim.falhas.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-xl border border-derrota/30 bg-derrota/[0.06] p-3">
+              <span className="font-semibold text-derrota">{l(`${fim.falhas.length} falharam. Tenta-as outra vez, uma a uma, na lista de baixo:`, `${fim.falhas.length} failed. Try them again, one at a time, in the list below:`)}</span>
+              {fim.falhas.map((x) => <span key={x.codigo} className="font-mono text-[12px] text-suave">{x.codigo}: {x.erro}</span>)}
+            </div>
+          )}
+          {fim.avisos.length > 0 && (
+            <div className="flex flex-col gap-1 rounded-xl border border-laranja/25 bg-laranja/[0.05] p-3">
+              {fim.avisos.map((a) => <span key={a} className="text-[12.5px] text-suave">{a}</span>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** As últimas partidas terminadas, cada uma com o botão para recarregar. */
 export function RecarregarStaff() {
   const lista = useCarregar(() => dados.partidas({ minhas: false }), [], ['partida'])
@@ -334,6 +439,7 @@ export function RecarregarStaff() {
       <p className="m-0 max-w-[640px] text-[13px] leading-normal text-mudo">
         {l('Para partidas fechadas antes do Rangify Score e dos agentes, ou com dados incompletos. Numa partida real, o jogo é lido outra vez na Henrik Dev API. Numa de teste, usa as estatísticas que já tem. O RS, o MVP e os pontos são refeitos e cada jogador recebe só a diferença. O resultado não muda.', 'For matches closed before the Rangify Score and agents, or with incomplete data. In a real match, the game is read again from the Henrik Dev API. In a test match, it uses the stats it already has. RS, MVP and points are redone and each player only gets the difference. The result does not change.')}
       </p>
+      {linhas.length > 0 && <RecarregarTodas />}
       {!linhas.length ? <Vazio icone={<RefreshCw size={22} />} titulo={l('Sem partidas terminadas', 'No finished matches')} /> : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {linhas.map((m) => (
