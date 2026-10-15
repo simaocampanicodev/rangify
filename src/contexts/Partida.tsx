@@ -17,6 +17,10 @@ interface ValorPartida {
 }
 
 const Contexto = createContext<ValorPartida | null>(null)
+/** Marca no separador que a fila foi deixada ao descarregar a página: um recarregar volta a pô-la. */
+const CHAVE_RECARGA = 'rangify:fila-ao-fechar'
+const JANELA_RECARGA = 30_000
+const BATIMENTO = 30_000
 const ativo = (p: Partida | null) => !!p && (ESTADOS_ATIVOS as readonly string[]).includes(p.estado)
 
 /**
@@ -105,6 +109,40 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
     const off = aoMudarDados((o) => { if (o === 'partida' || o === 'fila') ciclo() })
     return () => { if (t != null) window.clearInterval(t); off() }
   }, [sessao, intervalo, ciclo])
+
+  // Fechar o separador ou o browser tira-te da fila. Recarregar a página também a deixa, mas
+  // ao abrir de novo voltas a entrar (é o mesmo separador), por isso quase não se nota.
+  useEffect(() => {
+    if (!naFila) return
+    const sair = () => {
+      try { sessionStorage.setItem(CHAVE_RECARGA, String(Date.now())) } catch { /* sem sessionStorage */ }
+      dados.sairFilaAoFechar()
+    }
+    window.addEventListener('pagehide', sair)
+    return () => window.removeEventListener('pagehide', sair)
+  }, [naFila])
+
+  // Sinal de vida: se o aviso de fecho não chegar (browser rebentou, portátil adormeceu), o servidor tira-te ao fim de 3 minutos.
+  useEffect(() => {
+    if (!naFila || demo) return
+    const t = window.setInterval(() => { dados.batimentoFila() }, BATIMENTO)
+    return () => window.clearInterval(t)
+  }, [naFila, demo])
+
+  // Se esta página nasceu de um recarregar com a fila aberta, volta a entrar.
+  const perfilDaFila = sessao && !sessao.incompleta ? sessao.perfilId : null
+  useEffect(() => {
+    if (!perfilDaFila) return
+    let antes = 0
+    try {
+      antes = Number(sessionStorage.getItem(CHAVE_RECARGA))
+      sessionStorage.removeItem(CHAVE_RECARGA)
+    } catch { /* sem sessionStorage */ }
+    if (!antes || Date.now() - antes > JANELA_RECARGA) return
+    // Um instante para o pedido de saída da página anterior chegar primeiro.
+    const t = window.setTimeout(() => { dados.entrarFila().then(() => avisarMudanca('fila')).catch(() => {}) }, 1500)
+    return () => window.clearTimeout(t)
+  }, [perfilDaFila])
 
   // Os avisos do Realtime chegam em rajadas (dez jogadores a entrar): junta-os num só pedido.
   const perfilId = sessao && !sessao.incompleta ? sessao.perfilId : null

@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -887,6 +887,44 @@ console.log(String.fromCharCode(10) + 'Histórico por páginas')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0022_historico_paginas.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0022 outra vez não dá erro')
+
+// ------------------------------------------------------------ fila: sair ao fechar
+console.log(String.fromCharCode(10) + 'Fila e sinal de vida')
+{
+  await raiz(`delete from queue_entries`)
+  await rpc(uids[4], 'entrar_fila')
+  await rpc(uids[10], 'entrar_fila')
+  const presenca = async () => (await raiz(`select count(*)::int as n from fila_presenca`))[0].n
+  ok((await presenca()) === 2, 'entrar na fila começa o relógio de cada pessoa')
+  await rpc(uids[4], 'fila_batimento')
+  ok((await raiz(`select count(*)::int as n from queue_entries`))[0].n === 2, 'com sinal de vida recente ninguém sai')
+
+  // A pessoa 10 deixou de dar sinal há 4 minutos (fechou o browser sem aviso).
+  await raiz(`update fila_presenca set visto = now() - interval '4 minutes' where profile_id = $1`, [pid(10)])
+  await rpc(uids[4], 'fila_batimento')
+  const resto = await raiz(`select profile_id from queue_entries`)
+  ok(resto.length === 1 && resto[0].profile_id === pid(4), 'quem passa 3 minutos sem sinal é tirado da fila; quem dá sinal fica')
+  ok((await presenca()) === 1, 'sair da fila apaga também o relógio')
+
+  // Um bot de teste não dá sinal e não pode ser tirado.
+  await raiz(`update profiles set is_bot = true where id = $1`, [pid(10)])
+  await rpc(uids[10], 'entrar_fila').catch(() => {})
+  await raiz(`insert into queue_entries (profile_id, region) values ($1, 'eu') on conflict do nothing`, [pid(10)])
+  await raiz(`update fila_presenca set visto = now() - interval '1 hour' where profile_id = $1`, [pid(10)])
+  await servico(`select public._limpar_fila()`)
+  ok((await raiz(`select count(*)::int as n from queue_entries where profile_id = $1`, [pid(10)]))[0].n === 1, 'os bots de teste ficam na fila')
+  await raiz(`update profiles set is_bot = false where id = $1`, [pid(10)])
+
+  await raiz(`update fila_presenca set visto = now() - interval '10 minutes' where profile_id = $1`, [pid(4)])
+  await servico(`select public._emparelhar('eu')`)
+  ok((await raiz(`select count(*)::int as n from queue_entries where profile_id = $1`, [pid(4)]))[0].n === 0, 'formar partidas também limpa quem já saiu')
+  await raiz(`delete from queue_entries`)
+  await rpc(uids[4], 'entrar_fila')
+  await rpc(uids[4], 'sair_fila')
+  ok((await presenca()) === 0, 'sair da fila pelo botão apaga o relógio')
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0023_fila_presenca.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0023 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

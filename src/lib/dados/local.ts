@@ -1192,6 +1192,16 @@ export const dadosLocais: Dados = {
     avisarMudanca('fila')
   },
 
+  async batimentoFila() { /* no demo ninguém sai por falta de sinal */ },
+
+  sairFilaAoFechar() {
+    // Síncrono: só mexe no estado já carregado em memória e guarda.
+    if (!estado?.sessao) return
+    const eu = estado.sessao.perfilId
+    estado.fila = estado.fila.filter((f) => f.perfilId !== eu)
+    guardar()
+  },
+
   async partidaAtiva() {
     const e = await pronto()
     const id = e.sessao?.perfilId

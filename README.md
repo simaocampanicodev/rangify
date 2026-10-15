@@ -35,7 +35,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql` e `0022_historico_paginas.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` e `0023_fila_presenca.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;

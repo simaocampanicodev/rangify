@@ -433,6 +433,13 @@ export interface Dados {
   estadoFila(): Promise<EstadoFila>
   entrarFila(): Promise<void>
   sairFila(): Promise<void>
+  /** Sinal de vida de quem está na fila: quem passa 3 minutos sem o dar é tirado dela. */
+  batimentoFila(): Promise<void>
+  /**
+   * O separador está a fechar: tira a pessoa da fila sem esperar por resposta (o browser
+   * só deixa pedidos que não precisem de ser esperados).
+   */
+  sairFilaAoFechar(): void
   partidaAtiva(): Promise<Partida | null>
   partida(id: string): Promise<Partida | null>
   /** Aplica prazos e jogadas automáticas e devolve a partida atualizada. */

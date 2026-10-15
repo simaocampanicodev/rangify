@@ -231,7 +231,7 @@ export function Sidebar() {
         {conteudo(false)}
       </aside>
       <Modal aberto={aSair} onFechar={() => { if (!aTerminar) setASair(false) }} titulo={l('Terminar sessão?', 'Sign out?')} eyebrow={l('CONTA', 'ACCOUNT')} largura={440}>
-        <p className="m-0 text-[14px] leading-normal text-suave">{l('Vais ter de voltar a entrar para jogar. Se estás na fila ou numa partida, continuas lá, e se a partida for encontrada podes falhar a confirmação.', 'You will need to sign in again to play. If you are in the queue or a match, you stay there, and if a match is found you may miss the ready check.')}</p>
+        <p className="m-0 text-[14px] leading-normal text-suave">{l('Vais ter de voltar a entrar para jogar. Se estás na fila, sais dela. Se estás numa partida, ela continua sem ti.', 'You will need to sign in again to play. If you are in the queue, you leave it. If you are in a match, it goes on without you.')}</p>
         <div className="flex flex-wrap justify-end gap-2.5">
           <button type="button" className="btn btn-fantasma" disabled={aTerminar} onClick={() => setASair(false)}>{l('Cancelar', 'Cancel')}</button>
           <button type="button" className="btn btn-primario" disabled={aTerminar} onClick={sair} autoFocus><LogOut size={16} aria-hidden />{aTerminar ? l('A sair…', 'Signing out…') : l('Terminar sessão', 'Sign out')}</button>

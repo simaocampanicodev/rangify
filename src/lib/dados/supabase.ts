@@ -5,13 +5,23 @@
  * O que precisa de chaves secretas (Henrik Dev API, login por utilizador)
  * passa pelas Edge Functions.
  */
-import { supabase } from '../supabase'
+import { chaveSupabase, supabase, urlSupabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
   Amizade, Dados, Denuncia, EstadoDiscord, EstadoLoja, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
+
+/**
+ * O token da sessão, guardado à parte: quando o separador está a fechar já não dá tempo
+ * de o pedir (é assíncrono) e o pedido de saída da fila precisa dele.
+ */
+let token: string | null = null
+if (supabase) {
+  supabase.auth.getSession().then(({ data }) => { token = data.session?.access_token ?? null }).catch(() => {})
+  supabase.auth.onAuthStateChange((_evento, s) => { token = s?.access_token ?? null })
+}
 
 function cliente() {
   if (!supabase) throw new Error('O Supabase não está configurado.')
@@ -164,6 +174,19 @@ export const dadosSupabase: Dados = {
     }
   },
   async sairFila() { await rpc('sair_fila') },
+  async batimentoFila() {
+    try {
+      await rpc('fila_batimento')
+    } catch { /* sem a migração 0023 não há sinal de vida, e também ninguém é tirado por falta dele */ }
+  },
+  sairFilaAoFechar() {
+    if (!token || !urlSupabase || !chaveSupabase) return
+    // keepalive: o browser conclui o pedido mesmo com o separador já fechado.
+    fetch(`${urlSupabase}/rest/v1/rpc/sair_fila`, {
+      method: 'POST', keepalive: true, body: '{}',
+      headers: { 'Content-Type': 'application/json', apikey: chaveSupabase, Authorization: `Bearer ${token}` },
+    }).catch(() => {})
+  },
   partidaAtiva: () => rpc<Partida | null>('partida_ativa'),
   partida: (id) => rpc<Partida | null>('partida_detalhe', { p_match: id }),
   avancarPartida: async (id) => depoisDeAvancar(await rpc<Partida | null>('avancar_partida', { p_match: id })),
