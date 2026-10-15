@@ -10,7 +10,7 @@ import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
-  Amizade, Dados, Denuncia, EstadoDiscord, EstadoLoja, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PontoForma, ResumoPartida, Sugestao,
+  Amizade, Dados, Denuncia, EstadoDiscord, EstadoLoja, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
 function cliente() {
@@ -199,9 +199,15 @@ export const dadosSupabase: Dados = {
   async devSaltarBloqueio(id) { await rpc('dev_saltar_bloqueio', { p_match: id }) },
   async devAcelerar(id) { await rpc('dev_acelerar', { p_match: id }) },
 
-  partidas: ({ minhas, cursor, mapa, perfilId }) => rpc<{ linhas: ResumoPartida[]; cursor: string | null }>('historico', {
-    p_perfil: perfilId ?? null, p_minhas: minhas, p_mapa: mapa ?? null, p_offset: cursor ? Number(cursor) : 0,
-  }),
+  async partidas({ minhas, cursor, mapa, perfilId, limite }) {
+    const args = { p_perfil: perfilId ?? null, p_minhas: minhas, p_mapa: mapa ?? null, p_offset: cursor ? Number(cursor) : 0 }
+    if (!limite) return rpc<PaginaPartidas>('historico', args)
+    // Sem a migração 0022 o servidor não conhece p_limite: pede o padrão (20) e o cursor continua certo.
+    return rpc<PaginaPartidas>('historico', { ...args, p_limite: limite }).catch((e) => {
+      if (e instanceof Error && /historico|p_limite/.test(e.message)) return rpc<PaginaPartidas>('historico', args)
+      throw e
+    })
+  },
 
   async jogadoresDaPartida(id) {
     const p = await rpc<Partida | null>('partida_detalhe', { p_match: id })

@@ -1420,7 +1420,7 @@ export const dadosLocais: Dados = {
     avisarMudanca('partida')
   },
 
-  async partidas({ minhas, cursor, mapa, perfilId }) {
+  async partidas({ minhas, cursor, mapa, perfilId, limite = 20 }) {
     const e = await pronto()
     const ref = perfilId ?? (minhas ? e.sessao?.perfilId ?? null : null)
     let lista = e.partidas.filter((p) => p.estado === 'COMPLETED')
@@ -1428,8 +1428,8 @@ export const dadosLocais: Dados = {
     if (mapa) lista = lista.filter((p) => p.mapa === mapa)
     lista.sort((x, y) => ms(y.terminouEm) - ms(x.terminouEm))
     const inicio = cursor ? Number(cursor) : 0
-    const pagina = lista.slice(inicio, inicio + 20)
-    return { linhas: pagina.map((p) => resumo(e, p, ref)), cursor: inicio + 20 < lista.length ? String(inicio + 20) : null }
+    const pagina = lista.slice(inicio, inicio + limite)
+    return { linhas: pagina.map((p) => resumo(e, p, ref)), cursor: inicio + limite < lista.length ? String(inicio + limite) : null }
   },
 
   async jogadoresDaPartida(id) {

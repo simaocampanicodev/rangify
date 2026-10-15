@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -869,6 +869,24 @@ console.log('\nPartidas ao vivo (staff)')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0021_partidas_ao_vivo.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0021 outra vez não dá erro')
+
+// ------------------------------------------------------------ histórico por páginas
+console.log(String.fromCharCode(10) + 'Histórico por páginas')
+{
+  const total = (await raiz(`select count(*)::int as n from matches where state = 'COMPLETED'`))[0].n
+  const todas = await rpc(uids[0], 'historico', { p_perfil: null, p_minhas: false, p_mapa: null, p_offset: 0 })
+  ok(todas.linhas.length === Math.min(20, total), 'sem limite, a página continua a ser de 20')
+  const um = await rpc(uids[0], 'historico', { p_perfil: null, p_minhas: false, p_mapa: null, p_offset: 0, p_limite: 1 })
+  ok(um.linhas.length === 1 && (total > 1 ? um.cursor === '1' : um.cursor === null), 'com limite 1 vem uma partida e o cursor aponta para a seguinte')
+  if (total > 1) {
+    const dois = await rpc(uids[0], 'historico', { p_perfil: null, p_minhas: false, p_mapa: null, p_offset: Number(um.cursor), p_limite: 1 })
+    ok(dois.linhas.length === 1 && dois.linhas[0].id !== um.linhas[0].id, 'o cursor leva à partida seguinte, sem repetir')
+  }
+  const ultimo = await rpc(uids[0], 'historico', { p_perfil: null, p_minhas: false, p_mapa: null, p_offset: 0, p_limite: 50 })
+  ok(ultimo.linhas.length === Math.min(50, total) && (total > 50 || ultimo.cursor === null), 'quando já não há mais, o cursor vem vazio')
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0022_historico_paginas.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0022 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

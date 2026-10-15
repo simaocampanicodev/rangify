@@ -13,6 +13,10 @@ import { MAPAS } from '@/lib/mapas'
 import { l as tx } from '@/lib/idioma'
 import { dataHora } from '@/lib/tempo'
 
+/** Partidas por página: as mais recentes primeiro, e "Ver mais" traz as seguintes. */
+const POR_PAGINA = 10
+
+/** Só existe (e só pede a tabela da partida) enquanto a partida estiver aberta. */
 function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) {
   const { perfil, podeTestar } = useSessao()
   const acao = useAcao()
@@ -86,14 +90,14 @@ export function Partidas() {
   const [mais, setMais] = useState(false)
   const aberta = params.get('p')
 
-  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa }), [ambito, mapa], ['partida'], { minimo: 450, chave: `partidas:${ambito}:${mapa ?? ''}` })
+  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa, limite: POR_PAGINA }), [ambito, mapa], ['partida'], { minimo: 450, chave: `partidas:${ambito}:${mapa ?? ''}` })
   useEffect(() => {
     if (pagina.valor) { setLinhas(pagina.valor.linhas); setCursor(pagina.valor.cursor) }
   }, [pagina.valor])
 
   const carregarMais = async () => {
     setMais(true)
-    const r = await acao(() => dados.partidas({ minhas: ambito === 'minhas', mapa, cursor }))
+    const r = await acao(() => dados.partidas({ minhas: ambito === 'minhas', mapa, cursor, limite: POR_PAGINA }))
     if (r) { setLinhas((l) => [...l, ...r.linhas]); setCursor(r.cursor) }
     setMais(false)
   }
@@ -140,9 +144,9 @@ export function Partidas() {
             texto={ambito === 'minhas' ? tx('Entra na fila: cada partida confirmada aparece aqui.', 'Join the queue: every confirmed match shows up here.') : tx('Quando o hub tiver partidas terminadas, aparecem aqui.', 'When the hub has finished matches, they show up here.')}
           />
         )}
-        {cursor && <button type="button" className="btn btn-fantasma mt-2 self-center" disabled={mais} onClick={carregarMais}>{mais ? tx('A carregar…', 'Loading…') : tx('Carregar mais', 'Load more')}</button>}
+        {cursor && <button type="button" className="btn btn-fantasma mt-2 self-center" disabled={mais} onClick={carregarMais}>{mais ? tx('A carregar…', 'Loading…') : tx('Ver mais', 'Show more')}</button>}
       </Painel>
-      <Detalhe id={aberta} onFechar={() => setParams({})} />
+      {aberta && <Detalhe id={aberta} onFechar={() => setParams({})} />}
     </>
   )
 }
