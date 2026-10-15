@@ -80,7 +80,8 @@ export interface JogadorPartida {
 }
 
 export interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
-export interface Submissao { capitaoId: string; a: number; b: number; em: string }
+/** O voto de um capitão: a equipa que diz ter ganho. Só confirma que o jogo acabou; o resultado vem da API. */
+export interface Submissao { capitaoId: string; vencedor: Equipa; em: string }
 export type Lado = 'ataque' | 'defesa'
 /** Depois do último ban, a equipa que não o fez escolhe o lado em que começa. */
 export interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
@@ -459,7 +460,8 @@ export interface Dados {
   /** Vota (ou retira o voto) para cancelar a partida, se alguém caiu ou não pode jogar. A maioria cancela-a, sem pontos nem castigos. */
   votarCancelar(id: string, voto: boolean): Promise<void>
   definirCodigo(id: string, codigo: string): Promise<void>
-  submeterResultado(id: string, a: number, b: number): Promise<void>
+  /** Um capitão confirma que o jogo acabou e diz que equipa ganhou. A API define o resultado e quem ganhou a sério. */
+  submeterResultado(id: string, vencedor: Equipa): Promise<void>
 
   // Ferramentas de teste (só owner e dev)
   devEncherFila(opts: { serCapitao: boolean }): Promise<void>
@@ -553,7 +555,7 @@ export interface Dados {
   /** As partidas a jogar ou à espera do resultado. */
   resultadosPendentes(): Promise<Partida[]>
   /** A staff submete o resultado pelos capitães que ainda não o fizeram. */
-  submeterResultadoStaff(id: string, resultado: { a: number; b: number }): Promise<void>
+  submeterResultadoStaff(id: string, vencedor: Equipa): Promise<void>
   /** Staff: todas as partidas que ainda não acabaram, com os jogadores de cada uma. */
   partidasAoVivo(): Promise<Partida[]>
   cancelarPartida(id: string): Promise<void>

@@ -3,7 +3,7 @@
 // pelos jogadores, tira o resultado e as estatísticas de cada jogador (KDA, ACS,
 // first bloods, trades, HS% e KAST) e fecha a partida com aplicar_resultado.
 // Se ainda não aparecer, devolve { pendente: true } e o site volta a pedir; ao
-// fim de 30 minutos a base de dados fecha sem estatísticas.
+// fim de 30 minutos a partida vai para a staff (Disputas), que decide o resultado.
 import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
 import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       mapa: String(m.map), desde: new Date(m.started_at ?? m.created_at).getTime() - 10 * 60_000, nossos, minimo: MINIMO_EM_COMUM,
     })
     if (achada) {
-      // É esta. O resultado vem da API, que corrige o que os capitães escreveram.
+      // É esta. O resultado e quem ganhou vêm da API (os capitães só votaram na equipa vencedora).
       const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: achada.a, p_b: achada.b, p_stats: achada.stats })
       if (error) return erro(error.message)
       return resposta({ estado: 'COMPLETED' })

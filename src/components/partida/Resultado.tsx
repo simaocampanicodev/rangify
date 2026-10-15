@@ -1,14 +1,15 @@
-import { CircleAlert, CircleCheck, Hourglass, LoaderCircle, Minus, Plus, Scale, Send, Trophy } from 'lucide-react'
+import { CircleCheck, Hourglass, LoaderCircle, Scale, Send, Trophy } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
+import { useAgora } from '@/hooks/useAgora'
 import { dados, type Equipa, type JogadorPartida, type Partida } from '@/lib/dados'
 import { imagemMapa } from '@/lib/mapas'
 import { caminhoPerfil, capitao, equipa, ladoInicial, nomeJogador, souCapitao } from '@/lib/partida'
 import { calcularPontos, comSinal } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
-import { validarResultado } from '@/lib/regras'
+import { emFalta, relogio } from '@/lib/tempo'
 import { Chip, IconeAgente, SeloMvp } from '../ui'
 import { Iniciais } from './comum'
 import { l } from '@/lib/idioma'
@@ -61,27 +62,39 @@ function Previsao({ p, a, b, eu }: { p: Partida; a: number; b: number; eu: strin
 function Submeter({ p, eu }: { p: Partida; eu: string }) {
   const acao = useAcao()
   const { atualizar } = usePartida()
-  const [a, setA] = useState(13)
-  const [b, setB] = useState(11)
+  const agora = useAgora(1000)
+  const [escolha, setEscolha] = useState<Equipa | null>(null)
   const [aEnviar, setAEnviar] = useState(false)
   const meuLado = souCapitao(p, eu)
-  const jaSubmeti = p.submissoes.find((s) => s.capitaoId === eu)
-  const v = validarResultado(a, b)
-  const valores = { A: a, B: b }
-  const mudar = { A: setA, B: setB }
+  const jaVotei = p.submissoes.find((s) => s.capitaoId === eu)
+  // Com um voto dado, a API entra em ação quando o outro capitão votar ou ao fim deste prazo.
+  const faltam = p.submissoes.length ? emFalta(p.prazoFase, agora) : 0
 
   const enviar = async () => {
+    if (!escolha) return
     setAEnviar(true)
-    await acao(() => dados.submeterResultado(p.id, a, b), l('Resultado submetido.', 'Result submitted.'))
+    await acao(() => dados.submeterResultado(p.id, escolha), l('Voto guardado.', 'Vote saved.'))
     await atualizar()
     setAEnviar(false)
   }
+
+  const espera = (
+    <div className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5" role="status">
+      <Hourglass size={17} className="text-laranja" aria-hidden />
+      <span className="flex-1 text-[13.5px]">
+        {p.submissoes.length
+          ? l(`A Henrik Dev API entra em ação quando o outro capitão votar, ou daqui a ${relogio(faltam)}.`, `The Henrik Dev API steps in when the other captain votes, or in ${relogio(faltam)}.`)
+          : l('Quando os dois capitães votarem, ou 3 minutos depois do primeiro voto, a Henrik Dev API entra em ação.', 'When both captains vote, or 3 minutes after the first vote, the Henrik Dev API steps in.')}
+      </span>
+      <span className="ao-vivo size-2 rounded-full bg-laranja" />
+    </div>
+  )
 
   if (!meuLado || p.automatica) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="eyebrow m-0">{l('À ESPERA DOS CAPITÃES', 'WAITING FOR THE CAPTAINS')}</h2>
-        <p className="m-0 text-[14px] leading-normal text-suave">{l('Só os capitães submetem o resultado. Assim que os dois baterem certo, os pontos entram na tua conta.', 'Only the captains submit the result. As soon as both match, the points go into your account.')}</p>
+        <p className="m-0 text-[14px] leading-normal text-suave">{l('Só os capitães confirmam que o jogo acabou, escolhendo a equipa que ganhou. O resultado e os pontos vêm depois da API.', 'Only the captains confirm the game is over, by picking the winning team. The result and points come from the API afterwards.')}</p>
         {(['A', 'B'] as const).map((eq) => {
           const c = capitao(p, eq)
           const s = c && p.submissoes.find((x) => x.capitaoId === c.perfilId)
@@ -90,73 +103,68 @@ function Submeter({ p, eu }: { p: Partida; eu: string }) {
               <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={30} url={c.avatarUrl} perfilId={c.perfilId} />
               <span className="flex flex-1 flex-col gap-px">
                 <span className="text-[13.5px] font-bold">{nomeJogador(c)} · {l('capitão', 'captain')} {eq}</span>
-                <span className="text-[12px] text-[#d0cbc4]">{s ? l(`Submeteu ${s.a}-${s.b}`, `Submitted ${s.a}-${s.b}`) : l('Ainda não submeteu', 'Not submitted yet')}</span>
+                <span className="text-[12px] text-[#d0cbc4]">{s ? l(`Votou na Equipa ${s.vencedor}`, `Voted for Team ${s.vencedor}`) : l('Ainda não votou', 'Has not voted yet')}</span>
               </span>
               {s ? <CircleCheck size={18} className="text-laranja" aria-hidden /> : <span className="ao-vivo size-2 rounded-full bg-laranja" />}
             </div>
           ) : null
         })}
+        {espera}
       </div>
     )
   }
 
-  if (jaSubmeti) {
+  if (jaVotei) {
     const outro = capitao(p, meuLado === 'A' ? 'B' : 'A')
+    const outroVoto = outro && p.submissoes.find((s) => s.capitaoId === outro.perfilId)
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="eyebrow m-0">{l('SUBMETESTE', 'YOU SUBMITTED')} {jaSubmeti.a}-{jaSubmeti.b}</h2>
+        <h2 className="eyebrow m-0">{l('VOTASTE NA EQUIPA', 'YOU VOTED FOR TEAM')} {jaVotei.vencedor}</h2>
         <div className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-laranja/32 bg-laranja/12 px-3.5">
           <CircleCheck size={18} className="text-laranja" aria-hidden />
-          <span className="text-[13.5px] font-bold">{l('O teu resultado está guardado', 'Your result is saved')}</span>
+          <span className="text-[13.5px] font-bold">{l('O teu voto está guardado', 'Your vote is saved')}</span>
         </div>
-        <div className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5">
-          <Hourglass size={17} className="text-laranja" aria-hidden />
-          <span className="flex-1 text-[13.5px]">{l(`À espera de ${outro ? nomeJogador(outro) : 'o outro capitão'} confirmar.`, `Waiting for ${outro ? nomeJogador(outro) : 'the other captain'} to confirm.`)}</span>
-          <span className="ao-vivo size-2 rounded-full bg-laranja" />
-        </div>
-        <p className="m-0 text-[12.5px] text-mudo">{l('Se o outro capitão submeter um resultado diferente, a partida vai para disputa e a staff decide.', 'If the other captain submits a different result, the match goes into dispute and the staff decides.')}</p>
+        {!outroVoto && (
+          <div className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5">
+            <Hourglass size={17} className="text-laranja" aria-hidden />
+            <span className="flex-1 text-[13.5px]">{l(`À espera de ${outro ? nomeJogador(outro) : 'o outro capitão'} votar.`, `Waiting for ${outro ? nomeJogador(outro) : 'the other captain'} to vote.`)}</span>
+          </div>
+        )}
+        {espera}
+        <p className="m-0 text-[12.5px] text-mudo">{l('O voto só confirma que o jogo acabou. Quem ganhou e o resultado em rondas vêm da API: se alguém votar na equipa errada, a API corrige.', 'The vote only confirms the game is over. The winner and the round score come from the API: if someone votes for the wrong team, the API corrects it.')}</p>
       </div>
     )
   }
 
   return (
     <div className="flex flex-1 flex-col gap-5">
-      <h2 className="eyebrow m-0">{l('RONDAS GANHAS', 'ROUNDS WON')}</h2>
-      <div className="flex flex-1 flex-wrap items-stretch gap-3.5">
+      <h2 className="eyebrow m-0">{l('QUEM GANHOU?', 'WHO WON?')}</h2>
+      <div role="radiogroup" aria-label={l('Equipa vencedora', 'Winning team')} className="flex flex-1 flex-wrap items-stretch gap-3.5">
         {(['A', 'B'] as const).map((eq) => {
           const c = capitao(p, eq)
-          const ganha = v.ok && (eq === 'A' ? a > b : b > a)
+          const marcada = escolha === eq
           return (
-            <div key={eq} className={`relative flex min-w-0 flex-[1_1_240px] flex-col items-center justify-center gap-3.5 rounded-[18px] border px-4 py-5 ${ganha ? 'border-laranja/50 bg-laranja/8' : 'border-white/8 bg-white/[0.025]'}`}>
-              {ganha && <span className="absolute top-3 right-3 rounded-[5px] bg-laranja px-2 py-[3px] font-mono text-[9.5px] font-extrabold tracking-[0.1em] text-escuro-laranja">{l('VENCEDOR', 'WINNER')}</span>}
-              <span className="flex flex-col items-center gap-[3px]">
-                <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{l('EQUIPA', 'TEAM')} {eq}{meuLado === eq ? ` · ${l('A TUA', 'YOURS')}` : ''}</span>
-                <span className="text-[13px] text-[#a6a19a]">{l('capitão', 'captain')} {c ? nomeJogador(c) : '?'} · {l('média', 'average')} {nomeRank(tierMedio(equipa(p, eq).map((j) => j.tier)))}</span>
-              </span>
-              <div className="flex items-center gap-3.5">
-                <button type="button" aria-label={l(`Menos uma ronda para a Equipa ${eq}`, `One less round for Team ${eq}`)} onClick={() => mudar[eq](Math.max(0, valores[eq] - 1))} className="grid size-[50px] cursor-pointer place-items-center rounded-[14px] border border-white/14 bg-white/[0.04] text-texto hover:bg-white/8">
-                  <Minus size={20} aria-hidden />
-                </button>
-                <output aria-live="polite" className="min-w-[110px] text-center font-mono text-[88px] leading-none font-semibold tracking-[-0.05em]" style={{ color: ganha ? '#ffb592' : '#f3f0eb' }}>{valores[eq]}</output>
-                <button type="button" aria-label={l(`Mais uma ronda para a Equipa ${eq}`, `One more round for Team ${eq}`)} onClick={() => mudar[eq](Math.min(30, valores[eq] + 1))} className="grid size-[50px] cursor-pointer place-items-center rounded-[14px] border border-white/14 bg-white/[0.04] text-texto hover:bg-white/8">
-                  <Plus size={20} aria-hidden />
-                </button>
-              </div>
-            </div>
+            <button
+              key={eq}
+              type="button"
+              role="radio"
+              aria-checked={marcada}
+              onClick={() => setEscolha(eq)}
+              className={`relative flex min-h-[200px] min-w-0 flex-[1_1_240px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[18px] border px-4 py-5 text-texto transition-colors ${marcada ? 'border-laranja/60 bg-laranja/10' : 'border-white/8 bg-white/[0.025] hover:bg-white/[0.05]'}`}
+            >
+              {marcada && <span className="absolute top-3 right-3 rounded-[5px] bg-laranja px-2 py-[3px] font-mono text-[9.5px] font-extrabold tracking-[0.1em] text-escuro-laranja">{l('VENCEDOR', 'WINNER')}</span>}
+              <span className={`font-mono text-[11px] font-bold tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{l('EQUIPA', 'TEAM')} {eq}{meuLado === eq ? ` · ${l('A TUA', 'YOURS')}` : ''}</span>
+              <span className="font-mono text-[88px] leading-none font-semibold tracking-[-0.05em]" style={{ color: marcada ? '#ffb592' : '#f3f0eb' }}>{eq}</span>
+              <span className="text-[13px] text-[#a6a19a]">{l('capitão', 'captain')} {c ? nomeJogador(c) : '?'} · {l('média', 'average')} {nomeRank(tierMedio(equipa(p, eq).map((j) => j.tier)))}</span>
+            </button>
           )
         })}
       </div>
-      <div role="status" className={`flex items-start gap-2.5 rounded-[14px] border px-4 py-3.5 ${v.ok ? 'border-laranja/32 bg-laranja/10' : 'border-derrota/32 bg-derrota/7'}`}>
-        {v.ok ? <CircleCheck size={18} className="mt-px text-laranja" aria-hidden /> : <CircleAlert size={18} className="mt-px text-derrota" aria-hidden />}
-        <span className="flex flex-col gap-0.5">
-          <strong className={`text-[14.5px] ${v.ok ? 'text-pessego-claro' : 'text-[#ffc2cb]'}`}>{v.titulo}</strong>
-          <span className="text-[13px] text-suave">{v.detalhe}</span>
-        </span>
-      </div>
+      {espera}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-4">
-        <span className="max-w-[380px] text-[12.5px] text-mudo">{l('Depois de submeteres, o outro capitão tem de confirmar. Se não coincidir, a partida vai para disputa.', 'After you submit, the other captain has to confirm. If it does not match, the match goes into dispute.')}</span>
-        <button type="button" disabled={!v.ok || aEnviar} onClick={enviar} className="btn btn-primario !h-[52px] !rounded-[13px] !px-[26px] !text-[15.5px] !font-extrabold">
-          <Send size={16} aria-hidden />{l('Submeter', 'Submit')} {a}-{b}
+        <span className="max-w-[420px] text-[12.5px] text-mudo">{l('Votar só confirma que o jogo acabou. A API define o resultado e quem ganhou, por isso, se te enganares, ela corrige.', 'Voting only confirms the game is over. The API sets the score and the winner, so if you get it wrong, it corrects you.')}</span>
+        <button type="button" disabled={!escolha || aEnviar} onClick={enviar} className="btn btn-primario !h-[52px] !rounded-[13px] !px-[26px] !text-[15.5px] !font-extrabold">
+          <Send size={16} aria-hidden />{escolha ? l(`Confirmar: ganhou a Equipa ${escolha}`, `Confirm: Team ${escolha} won`) : l('Escolhe a equipa vencedora', 'Pick the winning team')}
         </button>
       </div>
     </div>
@@ -287,16 +295,16 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
   if (p.estado === 'DISPUTE') {
     return (
       <div className="flex flex-col gap-[18px]">
-        <Cabeca p={p} eyebrow={`${l('DISPUTA', 'DISPUTE')} · ${p.mapa?.toUpperCase()}`} titulo={l('Os resultados não coincidem', 'The results do not match')} texto={l('A partida está nas mãos da staff, que compara com os dados oficiais e decide.', 'The match is in the staff\'s hands; they compare it with the official data and decide.')} />
+        <Cabeca p={p} eyebrow={`${l('DISPUTA', 'DISPUTE')} · ${p.mapa?.toUpperCase()}`} titulo={l('A API não encontrou a partida', 'The API could not find the match')} texto={l('A partida está nas mãos da staff, que compara com os dados oficiais e decide.', 'The match is in the staff\'s hands; they compare it with the official data and decide.')} />
         <section className="painel flex flex-col gap-3.5 p-[22px]">
-          <span className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.16em] text-derrota"><Scale size={14} aria-hidden />{l('SUBMISSÕES', 'SUBMISSIONS')}</span>
+          <span className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.16em] text-derrota"><Scale size={14} aria-hidden />{l('VOTOS DOS CAPITÃES', 'CAPTAINS\' VOTES')}</span>
           {p.submissoes.map((s) => {
             const c = p.jogadores.find((j) => j.perfilId === s.capitaoId)
             return (
               <div key={s.capitaoId} className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5">
                 {c && <Iniciais nome={nomeJogador(c)} equipa={c.equipa} tamanho={30} url={c.avatarUrl} perfilId={c.perfilId} />}
                 <span className="flex-1 text-[13.5px] font-bold">{c ? nomeJogador(c) : '?'} · {l('capitão', 'captain')} {c?.equipa}</span>
-                <span className="font-mono text-[18px] font-semibold">{s.a}-{s.b}</span>
+                <span className="font-mono text-[15px] font-semibold">{l('Equipa', 'Team')} {s.vencedor}</span>
               </div>
             )
           })}
@@ -312,7 +320,7 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
   if (p.estado === 'PROCESSING_API') {
     return (
       <div className="flex flex-col gap-[18px]">
-        <Cabeca p={p} eyebrow={`${l('A PROCESSAR', 'PROCESSING')} · ${p.mapa?.toUpperCase()}`} titulo={`${l('Resultado confirmado', 'Result confirmed')}: ${p.resultadoA}-${p.resultadoB}`} texto={l('Os dois capitães submeteram o mesmo resultado.', 'Both captains submitted the same result.')} />
+        <Cabeca p={p} eyebrow={`${l('A PROCESSAR', 'PROCESSING')} · ${p.mapa?.toUpperCase()}`} titulo={l('Jogo confirmado', 'Game confirmed')} texto={l('Os capitães confirmaram que o jogo acabou. O resultado e quem ganhou vêm da API.', 'The captains confirmed the game is over. The score and the winner come from the API.')} />
         <section className="painel flex items-center gap-4 p-[22px]" role="status">
           <LoaderCircle size={28} className="shrink-0 animate-spin text-laranja" aria-hidden />
           <span className="flex flex-col gap-1">
@@ -329,9 +337,9 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
       <Cabeca
         p={p}
         eyebrow={`${l('RESULTADO', 'RESULT')} · ${p.mapa?.toUpperCase()}${min ? ` · ${min} MIN` : ''}`}
-        titulo={l('Qual foi o resultado final?', 'What was the final score?')}
-        texto={l('O bloqueio de 15 minutos já terminou. Os dois capitães têm de submeter o mesmo resultado.', 'The 15-minute lock is over. Both captains have to submit the same result.')}
-        direita={cap && !p.automatica ? <Chip tom="laranja">{l('A submeter como capitão', 'Submitting as captain')} {cap}</Chip> : undefined}
+        titulo={l('Quem ganhou?', 'Who won?')}
+        texto={l('O bloqueio de 15 minutos já terminou. Os capitães confirmam que o jogo acabou e a API diz o resultado.', 'The 15-minute lock is over. The captains confirm the game is over and the API gives the score.')}
+        direita={cap && !p.automatica ? <Chip tom="laranja">{l('A votar como capitão', 'Voting as captain')} {cap}</Chip> : undefined}
       />
       {/* Lado a lado com a mesma altura: o espaço a mais vai para os cartões das rondas. */}
       <div className="flex flex-wrap items-stretch gap-4">

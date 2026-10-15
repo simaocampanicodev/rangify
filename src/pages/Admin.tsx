@@ -21,8 +21,10 @@ const FUNCOES: { valor: Funcao; nome: string }[] = [
 
 function Disputa({ p }: { p: Partida }) {
   const acao = useAcao()
-  const [a, setA] = useState(String(p.submissoes[0]?.a ?? 13))
-  const [b, setB] = useState(String(p.submissoes[0]?.b ?? 11))
+  // Se os capitães votaram na mesma equipa, começa por aí.
+  const votoComum = p.submissoes.length && p.submissoes.every((x) => x.vencedor === p.submissoes[0].vencedor) ? p.submissoes[0].vencedor : null
+  const [a, setA] = useState(votoComum === 'B' ? '11' : '13')
+  const [b, setB] = useState(votoComum === 'B' ? '13' : '11')
   const v = validarResultado(Number(a), Number(b))
   return (
     <article className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
@@ -36,11 +38,12 @@ function Disputa({ p }: { p: Partida }) {
           return (
             <div key={s.capitaoId} className="flex items-center justify-between gap-2 rounded-xl border border-white/7 px-3 py-2">
               <span className="text-[13px]">{c ? nomeJogador(c) : '?'} <span className="text-mudo">({tx('capitão', 'captain')} {c?.equipa})</span></span>
-              <span className="font-mono text-[16px] font-semibold">{s.a}-{s.b}</span>
+              <span className="font-mono text-[14px] font-semibold">{tx('Equipa', 'Team')} {s.vencedor}</span>
             </div>
           )
         })}
       </div>
+      <span className="text-[12px] text-mudo">{tx('A API não encontrou esta partida. Os capitães só votaram quem ganhou: o resultado em rondas tens de o pôr tu.', 'The API did not find this match. The captains only voted for the winner: you have to enter the round score.')}</span>
       <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); acao(() => dados.resolverDisputa(p.id, { a: Number(a), b: Number(b) }), tx('Disputa resolvida.', 'Dispute resolved.')) }}>
         <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} A ({capitao(p, 'A') ? nomeJogador(capitao(p, 'A')!) : 'A'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} /></label>
         <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} B ({capitao(p, 'B') ? nomeJogador(capitao(p, 'B')!) : 'B'})<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} /></label>
@@ -131,13 +134,10 @@ function PartidaAoVivo({ p }: { p: Partida }) {
 
 /**
  * Uma partida a jogar ou à espera do resultado: a staff vê quem já submeteu e
- * submete pelos capitães que faltam (se baterem certo segue para a API; se não, disputa).
+ * vota pelos capitães que faltam (com os dois votos, ou 3 minutos depois do primeiro, a API decide o resultado).
  */
 function ResultadoPendente({ p }: { p: Partida }) {
   const acao = useAcao()
-  const [a, setA] = useState(String(p.submissoes[0]?.a ?? 13))
-  const [b, setB] = useState(String(p.submissoes[0]?.b ?? 11))
-  const v = validarResultado(Number(a), Number(b))
   const falta = [p.capitaoA, p.capitaoB].filter((c) => c && !p.submissoes.some((s) => s.capitaoId === c))
   return (
     <article className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
@@ -155,21 +155,19 @@ function ResultadoPendente({ p }: { p: Partida }) {
           return (
             <div key={eq} className="flex items-center justify-between gap-2 rounded-xl border border-white/7 px-3 py-2">
               <span className="text-[13px]">{c ? nomeJogador(c) : '?'} <span className="text-mudo">({tx('capitão', 'captain')} {eq})</span></span>
-              {s ? <span className="font-mono text-[16px] font-semibold">{s.a}-{s.b}</span> : <span className="font-mono text-[12px] text-mudo">{tx('por submeter', 'not submitted')}</span>}
+              {s ? <span className="font-mono text-[14px] font-semibold">{tx('votou', 'voted')} {s.vencedor}</span> : <span className="font-mono text-[12px] text-mudo">{tx('por votar', 'not voted')}</span>}
             </div>
           )
         })}
       </div>
-      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); acao(() => dados.submeterResultadoStaff(p.id, { a: Number(a), b: Number(b) }), tx('Resultado submetido pela staff.', 'Result submitted by staff.')) }}>
-        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} A<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} /></label>
-        <label className="flex flex-col gap-1 text-[12px] text-mudo">{tx('Equipa', 'Team')} B<input className="campo !h-10 w-24 font-mono" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} /></label>
-        <button type="submit" className="btn btn-primario !min-h-10" disabled={!v.ok}>
-          <Gavel size={15} aria-hidden />{falta.length === 2 ? tx(`Submeter ${a}-${b} pelos dois capitães`, `Submit ${a}-${b} for both captains`) : tx(`Submeter ${a}-${b} pelo capitão que falta`, `Submit ${a}-${b} for the missing captain`)}
-        </button>
-      </form>
-      <span className={`text-[12px] ${v.ok ? 'text-mudo' : 'text-derrota'}`}>
-        {v.ok ? (p.submissoes.length ? tx('Se não bater certo com o que o outro capitão já submeteu, a partida vai para disputa.', 'If it does not match what the other captain submitted, the match goes to dispute.') : tx('Com os dois capitães submetidos pela staff, a partida segue para a confirmação na API.', 'With both captains submitted by staff, the match moves on to the API check.')) : v.titulo}
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        {(['A', 'B'] as const).map((eq) => (
+          <button key={eq} type="button" className="btn btn-primario !min-h-10" disabled={falta.length === 0} onClick={() => acao(() => dados.submeterResultadoStaff(p.id, eq), tx('Voto submetido pela staff.', 'Vote submitted by staff.'))}>
+            <Gavel size={15} aria-hidden />{falta.length === 2 ? tx(`Votar Equipa ${eq} pelos dois capitães`, `Vote Team ${eq} for both captains`) : tx(`Votar Equipa ${eq} pelo capitão que falta`, `Vote Team ${eq} for the missing captain`)}
+          </button>
+        ))}
+      </div>
+      <span className="text-[12px] text-mudo">{tx('O voto só confirma que o jogo acabou: a API define o resultado e quem ganhou, mesmo que a equipa escolhida esteja errada.', 'The vote only confirms the game is over: the API sets the score and the winner, even if the chosen team is wrong.')}</span>
     </article>
   )
 }

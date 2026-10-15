@@ -214,7 +214,7 @@ export const dadosSupabase: Dados = {
   async sugerirMapa(id, valor) { await rpc('sugerir_mapa', { p_match: id, p_valor: valor }) },
   async votarCancelar(id, voto) { await rpc('votar_cancelar', { p_match: id, p_voto: voto }) },
   async definirCodigo(id, codigo) { await rpc('definir_codigo', { p_match: id, p_codigo: codigo.trim().toUpperCase() }) },
-  async submeterResultado(id, a, b) { await rpc('submeter_resultado', { p_match: id, p_a: a, p_b: b }) },
+  async submeterResultado(id, vencedor) { await rpc('submeter_resultado', { p_match: id, p_vencedor: vencedor }) },
 
   async devEncherFila({ serCapitao }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao }) },
   async devCompletarFila({ serCapitao }) { await rpc('dev_completar_fila', { p_ser_capitao: serCapitao }) },
@@ -317,7 +317,7 @@ export const dadosSupabase: Dados = {
   disputas: () => rpc<Partida[]>('disputas'),
   async resolverDisputa(id, r) { await rpc('resolver_disputa', { p_match: id, p_a: r?.a ?? null, p_b: r?.b ?? null }) },
   resultadosPendentes: () => rpc<Partida[]>('resultados_pendentes'),
-  async submeterResultadoStaff(id, r) { await rpc('staff_submeter_resultado', { p_match: id, p_a: r.a, p_b: r.b }) },
+  async submeterResultadoStaff(id, vencedor) { await rpc('staff_submeter_resultado', { p_match: id, p_vencedor: vencedor }) },
   partidasAoVivo: () => rpc<Partida[]>('partidas_ao_vivo'),
   async cancelarPartida(id) { await rpc('cancelar_partida', { p_match: id }) },
   async removerPartida(id) { await rpc('remover_partida', { p_match: id }) },

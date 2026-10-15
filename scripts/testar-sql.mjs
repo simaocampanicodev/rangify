@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -214,24 +214,31 @@ ok((await como(uids[10], `select * from match_secrets`)).length === 0, 'nem lend
 
 // ------------------------------------------------------------ resultado
 console.log('\nResultado')
-await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_a: 13, p_b: 9 }), '15 minutos', 'o resultado está bloqueado durante 15 minutos')
+await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_vencedor: 'A' }), '15 minutos', 'o voto está bloqueado durante 15 minutos')
 await raiz(`update matches set phase_deadline = now() - interval '1 second' where id = $1`, [mid])
 partida = await rpc(uids[0], 'avancar_partida', { p_match: mid })
 ok(partida.estado === 'RESULT_SUBMISSION', 'acabado o bloqueio: RESULT_SUBMISSION')
-await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_a: 13, p_b: 12 }), 'prolongamento', '13-12 não é válido')
-await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_a: 15, p_b: 12 }), '2 rondas', '15-12 não é válido')
-await falha(rpc(uids[4], 'submeter_resultado', { p_match: mid, p_a: 13, p_b: 9 }), 'capitães', 'só os capitães submetem')
-await rpc(uids[0], 'submeter_resultado', { p_match: mid, p_a: 14, p_b: 12 })
-await rpc(uids[1], 'submeter_resultado', { p_match: mid, p_a: 14, p_b: 12 })
+await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_vencedor: 'C' }), 'A ou B', 'só se vota na equipa A ou B')
+await falha(rpc(uids[4], 'submeter_resultado', { p_match: mid, p_vencedor: 'A' }), 'capitães', 'só os capitães votam')
+// O capitão A engana-se e vota na equipa B: a API vai corrigir.
+await rpc(uids[0], 'submeter_resultado', { p_match: mid, p_vencedor: 'B' })
+await falha(rpc(uids[0], 'submeter_resultado', { p_match: mid, p_vencedor: 'A' }), 'Já votaste', 'cada capitão só vota uma vez')
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-ok(partida.estado === 'PROCESSING_API' && partida.resultadoA === 14, 'resultados iguais: PROCESSING_API')
+ok(partida.estado === 'RESULT_SUBMISSION' && partida.submissoes.length === 1 && partida.submissoes[0].vencedor === 'B', 'com um só voto a partida espera pelo outro capitão')
+const resto = (await raiz(`select extract(epoch from phase_deadline - now())::int as s from matches where id = $1`, [mid]))[0].s
+ok(resto > 150 && resto <= 180, 'o primeiro voto marca a API para daqui a 3 minutos')
+// Passados os 3 minutos sem o outro votar, a API entra em ação.
+await raiz(`update matches set phase_deadline = now() - interval '1 second' where id = $1`, [mid])
+partida = await rpc(uids[0], 'avancar_partida', { p_match: mid })
+ok(partida.estado === 'PROCESSING_API' && partida.resultadoA === null && partida.resultadoB === null, '3 minutos depois do primeiro voto: PROCESSING_API, sem resultado (é a API que o diz)')
+await falha(rpc(uids[1], 'submeter_resultado', { p_match: mid, p_vencedor: 'A' }), 'já não aceita', 'depois de a API entrar já não se vota')
 
 // A Edge Function devolve as estatísticas tiradas da Henrik Dev API.
 const AGENTES_TESTE = ['Jett', 'Sova', 'Omen', 'Killjoy', 'Raze', 'Skye', 'Viper', 'Cypher', 'Reyna', 'Fade']
 const stats = partida.jogadores.map((j, i) => ({ perfilId: j.perfilId, kills: 10 + i, deaths: 12, assists: 4, acs: 180 + i * 10, firstBloods: i % 3, trades: i % 4, hsPct: 20 + i, kastPct: 65 + i, agente: AGENTES_TESTE[i] }))
-await servico(`select public.aplicar_resultado($1, null, null, $2)`, [mid, JSON.stringify(stats)])
+await servico(`select public.aplicar_resultado($1, 14, 12, $2)`, [mid, JSON.stringify(stats)])
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-ok(partida.estado === 'COMPLETED' && partida.vencedor === 'A' && partida.estatisticas, 'aplicar_resultado fecha a partida com estatísticas')
+ok(partida.estado === 'COMPLETED' && partida.vencedor === 'A' && partida.resultadoA === 14 && partida.estatisticas, 'a API fecha a partida: ganhou a A por 14-12, mesmo com o voto do capitão na B')
 ok(partida.jogadores.every((j) => j.trades != null && j.hsPct >= 20 && j.kastPct >= 65), 'guarda Trades, HS% e KAST%')
 
 // O Rangify Score, com a mesma conta de src/lib/pontos.ts.
@@ -325,9 +332,14 @@ await rpc(uids[0], 'avancar_partida', { p_match: m3 })
 await raiz(`update matches set state = 'RESULT_SUBMISSION', phase_deadline = now() + interval '1 hour', map = 'Bind', started_at = now() where id = $1`, [m3])
 await raiz(`update match_players set team = case when profile_id in (select profile_id from match_players where match_id = $1 order by tier_snapshot desc limit 5) then 'A'::team else 'B'::team end where match_id = $1 and team is null`, [m3])
 const p3 = await rpc(uids[0], 'partida_detalhe', { p_match: m3 })
-await rpc(uidDe(p3.capitaoA), 'submeter_resultado', { p_match: m3, p_a: 13, p_b: 10 })
-await rpc(uidDe(p3.capitaoB), 'submeter_resultado', { p_match: m3, p_a: 10, p_b: 13 })
-ok((await rpc(uids[0], 'partida_detalhe', { p_match: m3 })).estado === 'DISPUTE', 'resultados diferentes: DISPUTE')
+await rpc(uidDe(p3.capitaoA), 'submeter_resultado', { p_match: m3, p_vencedor: 'A' })
+await rpc(uidDe(p3.capitaoB), 'submeter_resultado', { p_match: m3, p_vencedor: 'B' })
+ok((await rpc(uids[0], 'partida_detalhe', { p_match: m3 })).estado === 'PROCESSING_API', 'votos diferentes já não geram disputa: a API decide')
+// A API não encontra a partida em 30 minutos: a staff decide.
+await raiz(`update matches set phase_deadline = now() - interval '1 second' where id = $1`, [m3])
+await rpc(uids[0], 'avancar_partida', { p_match: m3 })
+const emDisputa = await rpc(uids[0], 'partida_detalhe', { p_match: m3 })
+ok(emDisputa.estado === 'DISPUTE' && emDisputa.submissoes.length === 2, 'sem resposta da API: DISPUTE, com os votos dos capitães à vista')
 const disputas = await rpc(uids[0], 'disputas')
 ok(disputas.length === 1, 'a staff vê a disputa')
 await rpc(uids[0], 'resolver_disputa', { p_match: m3, p_a: 13, p_b: 10 })
@@ -769,22 +781,24 @@ console.log('\nResultados submetidos pela staff')
   const capB = (await raiz(`select captain_b from matches where id = $1`, [sim.id]))[0].captain_b
   await raiz(`update match_players set team = case when profile_id = $2 then 'A'::team else 'B'::team end where match_id = $1 and team is null`, [sim.id, pid(0)])
   await raiz(`update matches set state = 'RESULT_SUBMISSION', map = 'Lotus', phase_deadline = now() + interval '1 hour', bot_move_at = null where id = $1`, [sim.id])
-  await raiz(`insert into match_results (match_id, captain_id, score_a, score_b) values ($1, $2, 13, 7)`, [sim.id, pid(0)])
+  await raiz(`insert into match_results (match_id, captain_id, vencedor) values ($1, $2, 'A')`, [sim.id, pid(0)])
   await falha(rpc(uids[5], 'resultados_pendentes'), 'equipa do Rangify', 'um jogador não vê os resultados por submeter')
   const pend = await rpc(uids[0], 'resultados_pendentes')
   ok(pend.some((p) => p.id === sim.id && p.submissoes.length === 1), 'a staff vê a partida à espera do resultado e quem já submeteu')
-  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 13 }), '', 'um resultado impossível é recusado')
-  await rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 7 })
+  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_vencedor: 'X' }), 'A ou B', 'uma equipa que não existe é recusada')
+  await rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_vencedor: 'A' })
   const depois = await raiz(`select state, score_a, score_b from matches where id = $1`, [sim.id])
   const subs = await raiz(`select captain_id from match_results where match_id = $1`, [sim.id])
-  ok(depois[0].state === 'PROCESSING_API' && subs.length === 2 && subs.some((x) => x.captain_id === capB), 'a staff submete pelo capitão que faltava e, como bate certo, segue para a API')
-  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_a: 13, p_b: 7 }), 'já não está à espera', 'não se submete duas vezes')
+  ok(depois[0].state === 'PROCESSING_API' && subs.length === 2 && subs.some((x) => x.captain_id === capB), 'a staff vota pelo capitão que faltava e a partida segue para a API')
+  ok(depois[0].score_a > depois[0].score_b, 'numa simulação o resultado inventado dá a vitória à equipa votada (A)')
+  await falha(rpc(uids[0], 'staff_submeter_resultado', { p_match: sim.id, p_vencedor: 'A' }), 'já não está à espera', 'não se vota duas vezes')
   await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [sim.id])
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0017_lados_sugestoes.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0017 outra vez não dá erro')
 // A 0017 repõe a versão antiga de _partida_json: a 0020 (que a estende) volta a correr por cima.
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 
 // ------------------------------------------------------------ margem de rondas
 console.log('\nMargem de rondas nos pontos')
@@ -852,6 +866,7 @@ console.log('\nFila no Discord (atualização do texto)')
   await raiz(`update config set discord_ping_message = null where id`)
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0020 outra vez não dá erro')
 
 // ------------------------------------------------------------ partidas ao vivo

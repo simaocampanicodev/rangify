@@ -124,8 +124,8 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
     if ((!ganhou && eu.pontos < alvo - 15 && rng() < 0.65) || (ganhou && eu.pontos > alvo + 25 && rng() < 0.55)) r = { a: r.b, b: r.a }
   }
   p.submissoes = [
-    { capitaoId: p.capitaoA!, a: r.a, b: r.b, em: fim },
-    { capitaoId: p.capitaoB!, a: r.a, b: r.b, em: fim },
+    { capitaoId: p.capitaoA!, vencedor: r.a > r.b ? 'A' : 'B', em: fim },
+    { capitaoId: p.capitaoB!, vencedor: r.a > r.b ? 'A' : 'B', em: fim },
   ]
   p.resultadoA = r.a
   p.resultadoB = r.b
@@ -188,8 +188,8 @@ export function gerarSemente(agora = Date.now()) {
   desfazer(disputa, perfis)
   disputa.estado = 'DISPUTE'
   disputa.submissoes = [
-    { capitaoId: disputa.capitaoA!, a: 13, b: 10, em: new Date(agora - 40 * 60_000).toISOString() },
-    { capitaoId: disputa.capitaoB!, a: 11, b: 13, em: new Date(agora - 38 * 60_000).toISOString() },
+    { capitaoId: disputa.capitaoA!, vencedor: 'A', em: new Date(agora - 40 * 60_000).toISOString() },
+    { capitaoId: disputa.capitaoB!, vencedor: 'B', em: new Date(agora - 38 * 60_000).toISOString() },
   ]
   disputa.atualizadaEm = new Date(agora - 38 * 60_000).toISOString()
   partidas.push(disputa)

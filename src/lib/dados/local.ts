@@ -37,7 +37,7 @@ import type {
 } from './tipos'
 
 // v6: novidades publicadas pela staff; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v7'
+const CHAVE = 'rangify:demo:v8'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -504,22 +504,33 @@ function abrirResultado(e: Estado, p: PartidaGuardada, agora: number) {
   toque(p, agora)
 }
 
-function submeter(e: Estado, p: PartidaGuardada, capitaoId: string, a: number, b: number, agora: number) {
-  p.submissoes.push({ capitaoId, a, b, em: iso(agora) })
+const MINUTOS_ATE_API = 3
+
+/**
+ * Os capitães confirmaram (ou o tempo acabou): segue para a "API". No demo não há API:
+ * o resultado é inventado, a favor da equipa que os capitães votaram.
+ */
+function seguirParaApi(e: Estado, p: PartidaGuardada, agora: number) {
+  const m = motor(e, p)
+  m.resultado ??= gerarResultado(Math.random, tiersDe(p, 'A'), tiersDe(p, 'B'))
+  const votosA = p.submissoes.filter((s) => s.vencedor === 'A').length
+  const votosB = p.submissoes.filter((s) => s.vencedor === 'B').length
+  const ganhaA = votosA !== votosB ? votosA > votosB : m.resultado.a > m.resultado.b
+  const r = (m.resultado.a > m.resultado.b) === ganhaA ? m.resultado : { a: m.resultado.b, b: m.resultado.a }
+  p.resultadoA = r.a
+  p.resultadoB = r.b
+  p.estado = 'PROCESSING_API'
+  p.inicioFase = iso(agora)
+  p.prazoFase = iso(agora + (p.automatica ? 1200 : 3500))
   toque(p, agora)
-  if (p.submissoes.length < 2) return
-  const [x, y] = p.submissoes
-  if (x.a === y.a && x.b === y.b) {
-    p.resultadoA = x.a
-    p.resultadoB = x.b
-    p.estado = 'PROCESSING_API'
-    p.inicioFase = iso(agora)
-    p.prazoFase = iso(agora + (p.automatica ? 1200 : 3500))
-  } else {
-    p.estado = 'DISPUTE'
-    p.prazoFase = null
-    delete e.motores[p.id]
-  }
+}
+
+function submeter(e: Estado, p: PartidaGuardada, capitaoId: string, vencedor: Equipa, agora: number) {
+  p.submissoes.push({ capitaoId, vencedor, em: iso(agora) })
+  toque(p, agora)
+  if (p.submissoes.length >= 2) { seguirParaApi(e, p, agora); return }
+  // Só um capitão votou: se o outro não votar, a API entra em ação 3 minutos depois.
+  p.prazoFase = iso(Math.min(ms(p.prazoFase), agora + MINUTOS_ATE_API * 60_000))
 }
 
 function terminar(e: Estado, p: PartidaGuardada, agora: number) {
@@ -586,37 +597,27 @@ function passoPartida(e: Estado, p: PartidaGuardada, agora: number): boolean {
       const capHumano = caps.find((c) => !auto(c))
       if (m.jogadaEm != null && agora >= m.jogadaEm) {
         if (!capHumano) {
-          // Dois capitães automáticos: inventam um resultado e submetem os dois.
+          // Dois capitães automáticos: inventam um resultado e votam os dois na equipa que ganhou.
           m.resultado ??= gerarResultado(Math.random, tiersDe(p, 'A'), tiersDe(p, 'B'))
           const falta = caps.find((c) => !p.submissoes.some((s) => s.capitaoId === c))
           if (falta) {
-            submeter(e, p, falta, m.resultado.a, m.resultado.b, agora)
+            submeter(e, p, falta, m.resultado.a > m.resultado.b ? 'A' : 'B', agora)
             if (e.motores[p.id]) e.motores[p.id].jogadaEm = agora + (p.automatica ? 400 : 1600)
             return true
           }
         } else {
-          // O outro capitão confirma o que o capitão humano submeteu.
+          // O outro capitão vota o mesmo que o capitão humano.
           const dele = p.submissoes.find((s) => s.capitaoId === capHumano)
           const outro = caps.find((c) => c !== capHumano)!
           if (dele && !p.submissoes.some((s) => s.capitaoId === outro)) {
-            submeter(e, p, outro, dele.a, dele.b, agora)
+            submeter(e, p, outro, dele.vencedor, agora)
             return true
           }
         }
       }
       if (agora >= ms(p.prazoFase)) {
-        // Prazo esgotado: vale a única submissão; sem nenhuma, vai para a staff.
-        const s = p.submissoes[0]
-        if (s && p.submissoes.length === 1) {
-          p.resultadoA = s.a
-          p.resultadoB = s.b
-          p.estado = 'PROCESSING_API'
-          p.prazoFase = iso(agora + 3500)
-        } else {
-          p.estado = 'DISPUTE'
-          p.prazoFase = null
-        }
-        toque(p, agora)
+        // 3 minutos depois do primeiro voto (ou 60 minutos sem votos): a "API" decide o resultado.
+        seguirParaApi(e, p, agora)
         return true
       }
       return false
@@ -1330,18 +1331,17 @@ export const dadosLocais: Dados = {
     avisarMudanca('partida')
   },
 
-  async submeterResultado(id, a, b) {
+  async submeterResultado(id, vencedor) {
     const e = await pronto()
     const p = obterPartida(e, id)
     const me = eu(e)
-    if (p.capitaoA !== me.id && p.capitaoB !== me.id) throw new Error('Só os capitães submetem o resultado.')
+    if (p.capitaoA !== me.id && p.capitaoB !== me.id) throw new Error('Só os capitães confirmam quem ganhou.')
     if (p.estado === 'IN_PROGRESS') throw new Error('O resultado só abre 15 minutos depois de partilhado o código.')
-    if (p.estado !== 'RESULT_SUBMISSION') throw new Error('Esta partida já não aceita resultados.')
-    if (p.submissoes.some((s) => s.capitaoId === me.id)) throw new Error('Já submeteste o resultado.')
-    const v = validarResultado(a, b)
-    if (!v.ok) throw new Error(v.titulo)
+    if (p.estado !== 'RESULT_SUBMISSION') throw new Error('Esta partida já não aceita votos.')
+    if (p.submissoes.some((s) => s.capitaoId === me.id)) throw new Error('Já votaste.')
+    if (vencedor !== 'A' && vencedor !== 'B') throw new Error('Escolhe a equipa que ganhou: A ou B.')
     const agora = Date.now()
-    submeter(e, p, me.id, a, b, agora)
+    submeter(e, p, me.id, vencedor, agora)
     if (e.motores[p.id]) e.motores[p.id].jogadaEm = agora + aleatorio(1800, 3200)
     guardar()
     avisarMudanca('partida')
@@ -1891,19 +1891,18 @@ export const dadosLocais: Dados = {
     return e.partidas.filter((p) => p.estado === 'IN_PROGRESS' || p.estado === 'RESULT_SUBMISSION').map((p) => publica(e, p))
   },
 
-  async submeterResultadoStaff(id, r) {
+  async submeterResultadoStaff(id, vencedor) {
     const e = await pronto()
     exigirStaff(e)
     const p = obterPartida(e, id)
     if (p.estado !== 'IN_PROGRESS' && p.estado !== 'RESULT_SUBMISSION') throw new Error('Esta partida já não está à espera do resultado.')
-    const v = validarResultado(r.a, r.b)
-    if (!v.ok) throw new Error(v.titulo)
+    if (vencedor !== 'A' && vencedor !== 'B') throw new Error('Escolhe a equipa que ganhou: A ou B.')
     const agora = Date.now()
     if (p.estado === 'IN_PROGRESS') abrirResultado(e, p, agora)
-    // Em nome de cada capitão que ainda não submeteu (se um já tinha submetido outro resultado, vai para disputa).
+    // Em nome de cada capitão que ainda não votou.
     for (const cap of [p.capitaoA, p.capitaoB]) {
       if (p.estado !== 'RESULT_SUBMISSION' || !cap) break
-      if (!p.submissoes.some((s) => s.capitaoId === cap)) submeter(e, p, cap, r.a, r.b, agora)
+      if (!p.submissoes.some((s) => s.capitaoId === cap)) submeter(e, p, cap, vencedor, agora)
     }
     guardar()
     avisarMudanca('staff')
