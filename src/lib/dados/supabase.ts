@@ -289,7 +289,7 @@ export const dadosSupabase: Dados = {
   async resolverDisputa(id, r) { await rpc('resolver_disputa', { p_match: id, p_a: r?.a ?? null, p_b: r?.b ?? null }) },
   resultadosPendentes: () => rpc<Partida[]>('resultados_pendentes'),
   async submeterResultadoStaff(id, r) { await rpc('staff_submeter_resultado', { p_match: id, p_a: r.a, p_b: r.b }) },
-  partidasEncravadas: () => rpc<Partida[]>('partidas_encravadas'),
+  partidasAoVivo: () => rpc<Partida[]>('partidas_ao_vivo'),
   async cancelarPartida(id) { await rpc('cancelar_partida', { p_match: id }) },
   async removerPartida(id) { await rpc('remover_partida', { p_match: id }) },
   async recarregarPartida(id, simulada) {

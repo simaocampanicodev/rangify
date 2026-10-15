@@ -1900,17 +1900,10 @@ export const dadosLocais: Dados = {
     avisarMudanca('partida')
   },
 
-  async partidasEncravadas() {
+  async partidasAoVivo() {
     const e = await pronto()
     exigirStaff(e)
-    const agora = Date.now()
-    return e.partidas
-      .filter((p) => {
-        if (!ativa(p.estado) || p.estado === 'DISPUTE') return false
-        const parada = agora - ms(p.atualizadaEm)
-        return p.estado === 'IN_PROGRESS' || p.estado === 'RESULT_SUBMISSION' ? parada > 3 * 3_600_000 : parada > 10 * 60_000
-      })
-      .map((p) => publica(e, p))
+    return e.partidas.filter((p) => p.estado !== 'COMPLETED' && p.estado !== 'CANCELLED').map((p) => publica(e, p))
   },
 
   async cancelarPartida(id) {

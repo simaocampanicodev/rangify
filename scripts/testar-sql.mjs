@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -853,6 +853,22 @@ console.log('\nFila no Discord (atualização do texto)')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0020 outra vez não dá erro')
+
+// ------------------------------------------------------------ partidas ao vivo
+console.log('\nPartidas ao vivo (staff)')
+{
+  const ids = uids.slice(0, 10).map((_, i) => pid(i))
+  const viva = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await falha(rpc(uids[10], 'partidas_ao_vivo'), 'equipa do Rangify', 'um jogador normal não vê as partidas ao vivo')
+  const lista = await rpc(uids[0], 'partidas_ao_vivo')
+  const minha = lista.find((p) => p.id === viva)
+  ok(!!minha && minha.jogadores.length === 10, 'a staff vê a partida a decorrer com os 10 jogadores')
+  ok(lista.every((p) => p.estado !== 'COMPLETED' && p.estado !== 'CANCELLED'), 'só aparecem partidas que ainda não acabaram')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [viva])
+  ok(!(await rpc(uids[0], 'partidas_ao_vivo')).some((p) => p.id === viva), 'depois de cancelada, a partida sai da lista')
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0021_partidas_ao_vivo.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0021 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

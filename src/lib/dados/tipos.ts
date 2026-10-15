@@ -547,7 +547,8 @@ export interface Dados {
   resultadosPendentes(): Promise<Partida[]>
   /** A staff submete o resultado pelos capitães que ainda não o fizeram. */
   submeterResultadoStaff(id: string, resultado: { a: number; b: number }): Promise<void>
-  partidasEncravadas(): Promise<Partida[]>
+  /** Staff: todas as partidas que ainda não acabaram, com os jogadores de cada uma. */
+  partidasAoVivo(): Promise<Partida[]>
   cancelarPartida(id: string): Promise<void>
   /** Owner e Dev: apaga uma partida terminada ou cancelada (os pontos dela são devolvidos). */
   removerPartida(id: string): Promise<void>
