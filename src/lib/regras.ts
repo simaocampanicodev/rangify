@@ -16,9 +16,15 @@ export const MINUTOS_COOLDOWN = 5
 /** Intervalo mínimo entre sincronizações do rank oficial (PRD, secção 4). */
 export const HORAS_CACHE_RANK = 6
 
-/** Ordem do draft: alternada, como no PRD (Capitão A, Capitão B, ...). */
+/**
+ * Ordem das 8 escolhas de jogadores depois dos dois capitães já colocados:
+ * A, B, B, A, A, B, B, A. O índice é 0-based e não conta os capitães.
+ * (Os bans de mapa continuam alternados à vez: A, B, A, B...)
+ */
+export const ORDEM_DRAFT = 'ABBABAAB'
+
 export function equipaDaEscolha(n: number): 'A' | 'B' {
-  return n % 2 === 0 ? 'A' : 'B'
+  return ORDEM_DRAFT[((n % ORDEM_DRAFT.length) + ORDEM_DRAFT.length) % ORDEM_DRAFT.length] as 'A' | 'B'
 }
 
 /** Os códigos de grupo do Valorant têm 6 letras ou números. */

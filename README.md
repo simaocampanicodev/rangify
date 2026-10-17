@@ -81,7 +81,7 @@ No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` ped
 ### A máquina de estados
 
 1. `READY_CHECK`: 20 s para aceitar. Quem recusa fica 5 min de castigo e os outros voltam à fila com o mesmo lugar.
-2. `DRAFT_PHASE`: os dois ranks oficiais mais altos são capitães. Escolhem à vez (A, B, A, B), 30 s por escolha.
+2. `DRAFT_PHASE`: os dois ranks oficiais mais altos são capitães. As 8 escolhas seguem a ordem A, B, B, A, A, B, B, A, 30 s por escolha.
 3. `MAP_BAN`: os 13 mapas do Valorant; 12 bans alternados de 20 s e o mapa que sobra é o da partida.
 4. `LOBBY_CREATION`: o Capitão A partilha o código do grupo (6 letras ou números).
 5. `IN_PROGRESS`: bloqueio de 15 minutos antes de se poder submeter o resultado.

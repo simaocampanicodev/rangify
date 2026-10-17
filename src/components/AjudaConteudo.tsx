@@ -41,7 +41,7 @@ function topicos(): Record<TopicoAjuda, Topico> {
       intro: l('Os capitães montam as equipas à vez, a partir dos 8 jogadores que sobram.', 'The captains build the teams in turns, from the 8 remaining players.'),
       passos: [
         { titulo: l('Dois capitães ao calhas', 'Two random captains'), texto: l('Os dois capitães são sorteados entre os 10, para o draft não ficar sempre com as mesmas pessoas.', 'The two captains are drawn at random from the 10, so the draft does not always go to the same people.') },
-        { titulo: l('Escolhas alternadas', 'Alternating picks'), texto: l('O Capitão A escolhe primeiro e depois alternam: A, B, A, B, até cada equipa ter 5 jogadores.', 'Captain A picks first and then they alternate: A, B, A, B, until each team has 5 players.') },
+        { titulo: l('Ordem das escolhas', 'Pick order'), texto: l('Depois dos dois capitães, as 8 escolhas seguem a ordem A, B, B, A, A, B, B, A, até cada equipa ter 5 jogadores.', 'After the two captains, the 8 picks follow A, B, B, A, A, B, B, A, until each team has 5 players.') },
         { titulo: l(`${SEGUNDOS_ESCOLHA} segundos por escolha`, `${SEGUNDOS_ESCOLHA} seconds per pick`), texto: l('Se o tempo acabar, o sistema escolhe pelo capitão o jogador disponível com o rank oficial mais alto.', 'If time runs out, the system picks the available player with the highest official rank for the captain.') },
         { titulo: l('Toda a gente vê', 'Everyone sees it'), texto: l('Os outros jogadores acompanham as escolhas em direto, com o rank e a função preferida de cada um.', 'The other players follow the picks live, with each player\'s rank and preferred role.') },
       ],
