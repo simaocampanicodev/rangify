@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -149,14 +149,20 @@ await raiz(`update matches set captain_a = $2, captain_b = $3 where id = $1`, [m
 // ------------------------------------------------------------ draft
 console.log('\nDraft')
 await falha(rpc(uids[1], 'escolher_jogador', { p_match: mid, p_jogador: pid(5) }), 'não é a tua vez', 'o Capitão B não escolhe primeiro')
+// A ordem das 8 escolhas é A, B, B, A, A, B, B, A.
+const ORDEM = 'ABBAABBA'
 for (let n = 0; n < 8; n++) {
   const p = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-  const capitao = n % 2 === 0 ? p.capitaoA : p.capitaoB
+  const capitao = ORDEM[n] === 'A' ? p.capitaoA : p.capitaoB
+  const outro = ORDEM[n] === 'A' ? p.capitaoB : p.capitaoA
   const livre = p.jogadores.find((j) => !j.equipa)
+  if (n === 1 || n === 2 || n === 4) await falha(rpc(uidDe(outro), 'escolher_jogador', { p_match: mid, p_jogador: livre.perfilId }), 'não é a tua vez', `na escolha ${n + 1} só escolhe o capitão ${ORDEM[n]}`)
   await rpc(uidDe(capitao), 'escolher_jogador', { p_match: mid, p_jogador: livre.perfilId })
+  const depois = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
+  if (n < 7) ok(depois.jogadores.find((j) => j.perfilId === livre.perfilId).equipa === ORDEM[n], `a escolha ${n + 1} vai para a equipa ${ORDEM[n]}`)
 }
 partida = await rpc(uids[0], 'partida_detalhe', { p_match: mid })
-ok(partida.estado === 'MAP_BAN', 'oito escolhas alternadas: MAP_BAN')
+ok(partida.estado === 'MAP_BAN', 'oito escolhas (A B B A A B B A): MAP_BAN')
 ok(partida.jogadores.filter((j) => j.equipa === 'A').length === 5 && partida.jogadores.filter((j) => j.equipa === 'B').length === 5, 'equipas de 5')
 
 // ------------------------------------------------------------ bans
@@ -799,6 +805,7 @@ ok(true, 'correr a 0017 outra vez não dá erro')
 // A 0017 repõe a versão antiga de _partida_json: a 0020 (que a estende) volta a correr por cima.
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 
 // ------------------------------------------------------------ margem de rondas
 console.log('\nMargem de rondas nos pontos')
@@ -867,6 +874,7 @@ console.log('\nFila no Discord (atualização do texto)')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0020 outra vez não dá erro')
 
 // ------------------------------------------------------------ partidas ao vivo

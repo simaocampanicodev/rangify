@@ -21,7 +21,7 @@ export const HORAS_CACHE_RANK = 6
  * A, B, B, A, A, B, B, A. O índice é 0-based e não conta os capitães.
  * (Os bans de mapa continuam alternados à vez: A, B, A, B...)
  */
-export const ORDEM_DRAFT = 'ABBABAAB'
+export const ORDEM_DRAFT = 'ABBAABBA'
 
 export function equipaDaEscolha(n: number): 'A' | 'B' {
   return ORDEM_DRAFT[((n % ORDEM_DRAFT.length) + ORDEM_DRAFT.length) % ORDEM_DRAFT.length] as 'A' | 'B'
