@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
+import { consultarExtensao, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
 import { acertarRelogio } from '@/lib/tempo'
 import { useVisivel } from '@/hooks/useVisivel'
 import { useAvisos } from './Avisos'
@@ -112,15 +113,27 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
 
   // Fechar o separador ou o browser tira-te da fila. Recarregar a página também a deixa, mas
   // ao abrir de novo voltas a entrar (é o mesmo separador), por isso quase não se nota.
+  const meuId = sessao && !sessao.incompleta ? sessao.perfilId : null
   useEffect(() => {
     if (!naFila) return
     const sair = () => {
+      // Com a extensão do browser viva nesta conta, fechar o site não tira ninguém da fila: é ela que dá o sinal de vida.
+      if (meuId && extensaoMantemAFila(meuId)) return
       try { sessionStorage.setItem(CHAVE_RECARGA, String(Date.now())) } catch { /* sem sessionStorage */ }
       dados.sairFilaAoFechar()
     }
     window.addEventListener('pagehide', sair)
     return () => window.removeEventListener('pagehide', sair)
-  }, [naFila])
+  }, [naFila, meuId])
+
+  // Enquanto estás na fila, vai perguntando à extensão se continua viva (o aviso de fecho acima usa a última resposta).
+  useEffect(() => {
+    if (!naFila || !meuId) return
+    const perguntar = () => { if (extensaoPresente()) consultarExtensao(meuId) }
+    perguntar()
+    const t = window.setInterval(perguntar, 30_000)
+    return () => window.clearInterval(t)
+  }, [naFila, meuId])
 
   // Sinal de vida: se o aviso de fecho não chegar (browser rebentou, portátil adormeceu), o servidor tira-te ao fim de 3 minutos.
   useEffect(() => {

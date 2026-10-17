@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { iniciarExtensao } from './lib/extensao'
 import { useIdioma } from './lib/idioma'
 import { iniciarFundo } from './lib/fundo'
 import { desbloquearSom } from './lib/som'
@@ -11,6 +12,9 @@ import '@fontsource-variable/jetbrains-mono'
 import '@fontsource/instrument-serif/400-italic.css'
 import './index.css'
 import './cosmeticos.css'
+
+// A extensão do browser, se estiver instalada, avisa que está lá (toca o som da partida no lugar do site).
+iniciarExtensao()
 
 // Painéis de vidro ou opacos, conforme o computador aguenta (ver lib/fundo.ts).
 iniciarFundo()

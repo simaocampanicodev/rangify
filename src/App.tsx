@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ProvedorAjuda } from './components/Ajuda'
+import { FilaPorLink } from './components/FilaPorLink'
 import { Layout } from './components/Layout'
 import { ProvedorAvisos } from './contexts/Avisos'
 import { ProvedorPartida } from './contexts/Partida'
@@ -29,6 +30,7 @@ export function App() {
         <ProvedorSessao>
           <ProvedorPartida>
             <ProvedorAjuda>
+              <FilaPorLink />
               <Routes>
                 <Route path="/entrar" element={<Entrar />} />
                 <Route path="/bem-vindo" element={<BemVindo />} />

@@ -1,10 +1,10 @@
-import { ArrowRight, LoaderCircle, LogOut, RefreshCw, Timer } from 'lucide-react'
+import { ArrowRight, Ban, LoaderCircle, LogOut, RefreshCw, Timer } from 'lucide-react'
 import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
 import { useDiscordFila } from '@/hooks/useDiscordFila'
 import { IconeDiscord } from '@/pages/Entrar'
 import { useFila } from '@/hooks/useFila'
-import { agoraCerto, relogio } from '@/lib/tempo'
+import { agoraCerto, relogio, textoDuracaoBan } from '@/lib/tempo'
 import { NomeRangify } from './Marca'
 import { l } from '@/lib/idioma'
 
@@ -13,25 +13,41 @@ export function useVistaFila() {
   const { fila, ocupado, alternar } = useFila()
   const { perfil } = useSessao()
   const naFila = !!fila?.naFila
-  // Só conta os segundos na fila ou durante um castigo; fora disso o painel não se redesenha.
-  const comCastigo = !!fila?.cooldownAte && new Date(fila.cooldownAte).getTime() > agoraCerto()
-  const agora = useAgora(1000, naFila || comCastigo)
+  // O ban da staff ganha ao castigo dos 5 minutos. Um ban com a data passada deixa de contar.
+  const ban = fila?.ban && (fila.ban.permanente || !fila.ban.ate || new Date(fila.ban.ate).getTime() > agoraCerto()) ? fila.ban : null
+  // Só conta os segundos na fila, durante um castigo ou até acabar um ban; fora disso o painel não se redesenha.
+  const comCastigo = !ban && !!fila?.cooldownAte && new Date(fila.cooldownAte).getTime() > agoraCerto()
+  const agora = useAgora(1000, naFila || comCastigo || (!!ban && !ban.permanente))
   return {
     naFila,
     ocupado,
     alternar,
+    ban,
     contagem: Math.min(10, fila?.contagem ?? 0),
     regiao: (fila?.regiao ?? perfil?.regiao ?? 'eu').toUpperCase(),
     espera: naFila && fila?.desde ? Math.max(0, (agora - new Date(fila.desde).getTime()) / 1000) : 0,
-    castigo: fila?.cooldownAte ? Math.max(0, (new Date(fila.cooldownAte).getTime() - agora) / 1000) : 0,
+    castigo: !ban && fila?.cooldownAte ? Math.max(0, (new Date(fila.cooldownAte).getTime() - agora) / 1000) : 0,
   }
 }
 
 /** Entrar, sair ou a contagem do castigo. */
 export function BotaoFila({ grande = false }: { grande?: boolean }) {
-  const { naFila, ocupado, alternar, castigo } = useVistaFila()
+  const { naFila, ocupado, alternar, castigo, ban } = useVistaFila()
   const discord = useDiscordFila()
   const tamanho = grande ? '!h-[50px] !rounded-xl !px-6 !text-[15px] !font-extrabold' : ''
+  // Banido pela staff: nada de entrar, e a razão à vista.
+  if (!naFila && ban) {
+    return (
+      <span className="flex min-w-0 flex-col items-start gap-1.5">
+        <button type="button" disabled className={`btn btn-fantasma ${grande ? '!h-[50px] !rounded-xl !px-5' : ''}`}>
+          <Ban size={16} className="text-derrota" aria-hidden />{l('Banido da fila', 'Banned from the queue')}
+        </button>
+        <span className="text-[12.5px] leading-snug text-mudo">
+          {textoDuracaoBan(ban)}{ban.mensagem ? ` · ${ban.mensagem}` : ''}
+        </span>
+      </span>
+    )
+  }
   // A staff exige o servidor de Discord e o bot não te encontrou lá: primeiro o convite.
   if (!naFila && discord.bloqueado) {
     return (

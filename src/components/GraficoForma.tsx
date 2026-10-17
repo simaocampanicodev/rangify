@@ -65,7 +65,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
           <span className="eyebrow">{l('FORMA', 'FORM')}</span>
           <h2 className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l(`Últimas ${dados.length} partidas`, `Last ${dados.length} matches`)}</h2>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-2">
           <span className="flex items-center gap-2 text-[12px] text-mudo"><span className="w-5 border-t border-dashed border-white/40" />{l('média', 'average')} {fmt(media)}</span>
           <Segmentado rotulo={l('Métrica do gráfico', 'Chart metric')} valor={modo} onChange={setModo} opcoes={[{ valor: 'pontos', texto: l('Pontos', 'Points') }, { valor: 'kda', texto: 'KDA' }, { valor: 'acs', texto: 'ACS' }, { valor: 'rs', texto: 'RS' }]} />
         </div>
@@ -78,7 +78,7 @@ export function GraficoForma({ dados }: { dados: PontoForma[] }) {
           aria-label={l(`${modo === 'pontos' ? 'Pontos' : modo === 'acs' ? 'ACS' : modo === 'rs' ? 'Rangify Score' : 'KDA'} nas últimas ${dados.length} partidas, média ${fmt(media)}`, `${modo === 'pontos' ? 'Points' : modo === 'acs' ? 'ACS' : modo === 'rs' ? 'Rangify Score' : 'KDA'} in the last ${dados.length} matches, average ${fmt(media)}`)}
           onPointerMove={mover}
           onPointerLeave={() => setHover(null)}
-          className="block touch-none"
+          className="block touch-pan-y"
         >
           <defs>
             <linearGradient id="rgFormaArea" x1="0" y1="0" x2="0" y2="1">

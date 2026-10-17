@@ -136,3 +136,12 @@ Auditoria no viewport ~390×844 das rotas `/`, `/jogar` (fila, ready, draft, ban
 - App Firefox-only.
 - Painel para o jogador ver histórico antigo de warnings (o popup do não-lido chega; a staff vê o histórico no cartão do jogador).
 - Traduzir as mensagens Discord do canal de fila (hoje o ping já é PT).
+
+## Notas de implementação (onde a construção se afastou do que estava decidido)
+
+- **Extensão: sessão própria, sem copiar o JWT do site.** O desenho previa um handshake que copiava o token Supabase do site para a extensão. Dois sítios a renovar a mesma sessão deitam-na abaixo (o refresh token só serve uma vez, e o Supabase revoga a sessão ao detetar reutilização). A extensão entra por si (Discord via `chrome.identity` ou utilizador e palavra-passe pela função `entrar`) e só o service worker renova o token. O script de ponte no site só troca duas coisas: "a extensão está viva nesta conta?" e "a partida foi encontrada". Custo: juntar `https://<id>.chromiumapp.org/` às Redirect URLs do Supabase, uma vez (o `npm run extensao` mostra o URL; o ID é fixo por causa da `key` do manifesto).
+- **Sinal de vida da fila**: com a extensão viva, fechar o separador do site já não tira ninguém da fila (o `pagehide` não chama `sair_fila`); é a extensão que dá o `fila_batimento`.
+- **Botão da mensagem de chamada (canal de ping)**: em vez de sair, o "Entrar na fila" passa a apontar para `/jogar?fila=1`, por isso também entra na fila sozinho.
+- **Ranks pós-jogo**: a atualização corre em segundo plano (`EdgeRuntime.waitUntil`, uns 20 s a 2,1 s por jogador) e um rank 0 devolvido pela API não apaga um rank que a pessoa já tinha. O `recarregar-partida` não a faz (o "Recarregar todas" da staff rebentava o limite de pedidos).
+- **Publicar a mensagem da fila** é sempre pela Staff › Discord (sem publicação automática na primeira atualização), à semelhança do ping.
+- **Disputas**: as partidas `DISPUTE` aparecem no topo de Staff › Resultados só quando existem; o cartão e o separador Disputas saíram.

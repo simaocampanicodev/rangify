@@ -35,7 +35,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` e `0024_capitaes_votam_vencedor.sql` e `0025_ordem_draft.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql` e `0027_discord_canal_fila.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
@@ -46,8 +46,8 @@ O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em 
    ```
 4. Publica as Edge Functions:
    ```bash
-   supabase functions deploy sincronizar-rank processar-partida entrar testar-api verificar-discord recarregar-partida
-   supabase functions deploy discord-partida --no-verify-jwt   # canais de Discord, ver DISCORD.md
+   supabase functions deploy sincronizar-rank processar-partida entrar testar-api verificar-discord recarregar-partida discord-ping
+   supabase functions deploy discord-partida discord-interacoes --no-verify-jwt   # canais de Discord, ver DISCORD.md
    ```
 5. Cria o `.env` a partir do `.env.example` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 6. Entra uma vez com o Discord e torna-te Owner:
@@ -70,13 +70,16 @@ No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` ped
 - `supabase/migrations/0001_schema.sql`: tabelas, RLS e a máquina de estados.
   - Os clientes só leem; tudo o que muda dados passa por RPCs `security definer`.
   - O código do grupo só é visível aos 10 jogadores da partida.
+- **Avisos e bans (Staff › Jogadores › Moderar)**: a staff avisa um jogador ou bane-o da fila (1 hora, 24 horas, 7 dias, 30 dias, permanente ou as horas que quiser), sempre com uma mensagem. O ban tira a pessoa da fila e impede-a de voltar a entrar, mas não cancela uma partida a decorrer nem mexe em pontos ou histórico. O jogador recebe uma mensagem privada do bot e um popup no site que tem de confirmar. Cada um só pune quem tem uma função abaixo da sua. Migração `0026`.
 - `supabase/functions/`: as Edge Functions.
   - `sincronizar-rank`: liga o Riot ID e lê o rank oficial, no máximo de 6 em 6 horas.
-  - `processar-partida`: procura a partida personalizada na Henrik Dev API (no máximo uma consulta por minuto por partida) e tira o resultado, KDA, ACS, first bloods, trades, HS% e KAST.
+  - `processar-partida`: procura a partida personalizada na Henrik Dev API (no máximo uma consulta por minuto por partida) e tira o resultado, KDA, ACS, first bloods, trades, HS% e KAST. Depois de fechar a partida, volta a ler o **rank oficial dos dez jogadores** (mesmo que tenham descido, por exemplo com a reposição de um ato), sem esperar que alguém sincronize no perfil.
   - `verificar-discord`: pergunta ao bot se o jogador está no servidor de Discord, quando a Staff torna o Discord obrigatório para a fila.
   - `recarregar-partida`: só Owner e Dev; volta a ler na API o jogo de uma partida terminada e refaz o RS, o MVP e os pontos (a diferença vai para cada jogador).
   - `testar-api`: só Owner e Dev; lê o último jogo personalizado da própria conta e mostra na Staff o que seria gravado, sem gravar nada.
   - `entrar`: login por utilizador e palavra-passe, sem expor emails.
+  - `discord-partida`, `discord-ping` e `discord-interacoes`: o bot do Discord (canais da partida, mensagem da fila, botão de chamar e mensagens privadas dos avisos). Ver [DISCORD.md](DISCORD.md).
+- `extensao/`: a extensão do browser (Chrome, Edge e Brave) com a roda da fila e o aviso de partida encontrada. `npm run extensao` prepara-a; ver [extensao/LEIA-ME.md](extensao/LEIA-ME.md).
 
 ### A máquina de estados
 

@@ -7,6 +7,7 @@ import { useFila } from '@/hooks/useFila'
 import { useSessao } from '@/contexts/Sessao'
 import { NOMES_ESTADO } from '@/lib/regras'
 import { relogio } from '@/lib/tempo'
+import { AvisoStaffPopup } from './AvisoStaff'
 import { Fundo } from './Fundo'
 import { Confirmar } from './partida/Confirmar'
 import { Rodape } from './Rodape'
@@ -90,6 +91,7 @@ export function Layout() {
         </div>
       </div>
       <Confirmar />
+      <AvisoStaffPopup />
       <TourSoQuandoPreciso />
     </div>
   )

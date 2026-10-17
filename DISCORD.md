@@ -3,9 +3,9 @@
 Quando as equipas de uma partida ficam fechadas (a partida entra nos bans de mapas), o Rangify cria no servidor de Discord:
 
 - **3 cargos**: `RG-1234`, `RG-1234 · Team A` e `RG-1234 · Team B`, dados aos jogadores da partida;
-- **uma categoria `RG-1234`** com:
-  - `「💬」rg-1234`, um chat que só os 10 jogadores veem;
-  - `「🔊」Team A` e `「🔊」Team B`, duas calls: toda a partida as vê, mas só a própria equipa entra em cada uma.
+- **uma categoria `✦ RG-1234`** com:
+  - `💬╺╸RG-1234`, um chat que só os 10 jogadores veem;
+  - `🔊╺╸Team A` e `🔊╺╸Team B`, duas calls: toda a partida as vê, mas só a própria equipa entra em cada uma.
 
 Quando a partida termina, é cancelada ou removida, o Rangify apaga os canais e os cargos (apagar um cargo tira-o a toda a gente). No site, durante a partida, aparecem os botões **Chat da partida** e **Call da equipa** na barra das fases.
 
@@ -119,10 +119,11 @@ O link `discord://` abre a versão do Discord que o Windows tem associada (a úl
 
 ## Botão "Chamar para a fila" (canal de ping)
 
-No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor).
+No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor). A mensagem da chamada leva um botão **Entrar na fila**, que abre o site e **entra na fila sozinho** (ver a secção seguinte).
 
 - Só pode haver **uma chamada de 5 em 5 minutos para o servidor todo**. Quem carrega antes disso vê, só para si, quem chamou e quando fica livre outra vez.
 - O bot publica a chamada e **apaga a anterior**, por isso no canal fica sempre só a mensagem do botão e a última chamada. Apagar mensagens do próprio bot não precisa de permissões a mais.
+- Este canal **já não mostra quantas pessoas estão na fila**: isso é do canal da fila.
 
 Os IDs do canal e do cargo estão em `supabase/functions/_shared/discord-ping.ts`.
 
@@ -144,18 +145,33 @@ Uma mensagem de webhook (como as regras, feitas no Discohook) não pode ter bot�
 
 4. Ainda em **General Information**, em **Interactions Endpoint URL**, põe `https://ftswhbbazdzvwedpqqam.supabase.co/functions/v1/discord-interacoes` e carrega em **Save Changes**. O Discord testa o endereço nessa hora: se der erro, confirma o passo 2 e o 3.
 5. Permissões do bot no canal de ping (botão direito no canal › **Editar canal** › **Permissões** › cargo do bot): **Ver canal**, **Enviar mensagens** e **Inserir links**. Para o ping chegar a toda a gente, o bot também precisa de **Mencionar @everyone, @here e todos os cargos**, ou então o cargo de ping tem de estar marcado como **Permitir que qualquer pessoa @mencione este cargo**.
-6. O `SITE_URL` (secret) pode ter ou não a barra no fim: as funções tiram-na, e o link do botão fica sempre `https://o-teu-site/jogar`.
-7. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a mensagem**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra.
-
-**A fila no embed.** Por baixo do embed e acima dos botões há uma linha pequena com quantas pessoas estão na fila ("4/10 na fila: faltam 6", e "falta só 1" quando está quase). Atualiza-se sozinha quando alguém entra ou sai da fila, com uns segundos de espera para várias entradas seguidas darem uma só edição. Precisa da `0020` e da função `discord-partida` publicada outra vez:
-
-```bash
-npx supabase functions deploy discord-partida --no-verify-jwt
-npx supabase functions deploy discord-ping
-npx supabase functions deploy discord-interacoes --no-verify-jwt
-```
+6. O `SITE_URL` (secret) pode ter ou não a barra no fim: as funções tiram-na, e os links dos botões ficam sempre `https://o-teu-site/jogar` (ou `/jogar?fila=1`, o que entra na fila).
+7. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar o ping**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra. **Se já tinhas a mensagem do ping publicada, carrega neste botão uma vez** para ela deixar de mostrar a contagem da fila.
 
 Convém que só o bot possa escrever no canal (tira **Enviar mensagens** a @everyone), para a mensagem com o botão ficar sempre visível.
+
+## O canal da fila (contagem e "Entrar na fila")
+
+Um canal só para ver quantas pessoas estão na fila (ID `1561038822274367599`, em `_shared/discord-ping.ts`; o secret `DISCORD_FILA_CANAL` troca-o sem mexer no código). A mensagem do bot tem:
+
+- **n/10 na fila**, com os dez lugares desenhados e a região. Atualiza-se sozinha quando alguém entra ou sai da fila (com uns segundos de espera, para várias entradas seguidas darem uma só edição);
+- **Entrar na fila**: um botão de link para `https://o-teu-site/jogar?fila=1`. O Discord não corre código num botão, por isso é o **site** que, ao abrir com `?fila=1`, entra na fila uma só vez e tira o `?fila=1` do endereço. Sem sessão, a pessoa entra com o Discord e a entrada na fila acontece logo a seguir (o pedido fica guardado 15 minutos). Quem está banido, de castigo, sem Riot ID ou fora do servidor vê o mesmo erro do botão do site. Como a pessoa chegou por um link e ainda não tocou na página, o site avisa-a para tocar em qualquer sítio para o som de partida encontrada funcionar (com a extensão instalada isto não é preciso);
+- **Abrir o site**: só abre o site em `/jogar`, sem entrar na fila.
+
+1. Corre `supabase/migrations/0027_discord_canal_fila.sql` no **SQL Editor**.
+2. Publica as funções (a `discord-partida` atualiza o texto, a `discord-ping` publica a mensagem):
+
+   ```bash
+   npx supabase functions deploy discord-partida --no-verify-jwt
+   npx supabase functions deploy discord-ping
+   ```
+
+3. Permissões do bot nesse canal: **Ver canal**, **Enviar mensagens**, **Inserir links** e **Incorporar links**. Convém tirar **Enviar mensagens** a @everyone.
+4. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a fila**. Enquanto não a publicares, entrar e sair da fila não toca no Discord.
+
+## Avisos e bans: mensagem privada
+
+Quando a staff avisa ou bane um jogador (**Staff › Jogadores › Moderar**), o bot manda-lhe uma **mensagem privada** com o texto da staff (e, num ban, a duração). Usa a função `discord-partida` (tipo `aviso`), por isso não precisa de mais nada além das funções publicadas e de `discord_config` (passos 6 e 7 de cima) e da migração `0026`. Se o jogador tiver as mensagens privadas do servidor fechadas, ou não tiver a conta de Discord ligada, o aviso continua a valer no site (popup que tem de confirmar) e o cartão do jogador na Staff mostra "DM falhou" ou "Sem Discord ligado".
 
 ## Se não aparecer nada
 

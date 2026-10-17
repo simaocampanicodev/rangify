@@ -220,7 +220,7 @@ export function Sidebar() {
       </div>
       {aberto && (
         <div className="fixed inset-0 z-50 lg:hidden" onMouseDown={(e) => { if (e.target === e.currentTarget) setAberto(false) }} style={{ background: 'rgba(5,5,7,0.6)' }}>
-          <aside className="entra flex h-full w-[min(300px,86vw)] flex-col gap-[22px] overflow-y-auto border-r border-white/6 bg-[rgba(12,12,14,0.97)] px-3.5 pt-5 pb-4">
+          <aside onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setAberto(false) }} className="entra flex h-full w-[min(300px,86vw)] flex-col gap-[22px] overflow-y-auto border-r border-white/6 bg-[rgba(12,12,14,0.97)] px-3.5 pt-5 pb-4">
             {conteudo(true)}
           </aside>
         </div>

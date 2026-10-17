@@ -102,8 +102,29 @@ const EN: Record<string, string> = {
   'O bot do Discord ainda não está configurado. Fala com a staff.': 'The Discord bot is not set up yet. Talk to the staff.',
   'Não foi possível confirmar no Discord. Tenta outra vez daqui a pouco.': 'Could not check on Discord. Try again in a bit.',
   'Guarda primeiro com "Obrigatório" ligado: a verificação só corre quando a fila exige o Discord.': 'Save with "Required" on first: the check only runs when the queue requires Discord.',
+  'Escreve o aviso (pelo menos 3 caracteres).': 'Write the warning (at least 3 characters).',
+  'O aviso pode ter no máximo 500 caracteres.': 'The warning can be at most 500 characters.',
+  'Escreve o motivo do ban (pelo menos 3 caracteres).': 'Write the ban reason (at least 3 characters).',
+  'O motivo pode ter no máximo 500 caracteres.': 'The reason can be at most 500 characters.',
+  'A duração do ban é de 1 hora até 1 ano (ou para sempre).': 'A ban lasts from 1 hour to 1 year (or permanently).',
+  'Só podes avisar ou banir jogadores com uma função abaixo da tua.': 'You can only warn or ban players with a role below yours.',
+  'Não podes aplicar isto a ti próprio.': 'You cannot do this to yourself.',
+  'Este jogador não está banido da fila.': 'This player is not banned from the queue.',
 }
 
+/** Mensagens com partes variáveis (datas, motivos): o início é fixo e traduz-se por padrão. */
+const PADROES_EN: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^Estás banido da fila para sempre\. Motivo: ([\s\S]*)$/, (m) => `You are permanently banned from the queue. Reason: ${m[1]}`],
+  [/^Estás banido da fila até (.+?)\. Motivo: ([\s\S]*)$/, (m) => `You are banned from the queue until ${m[1]}. Reason: ${m[2]}`],
+]
+
 export function traduzirErro(mensagem: string): string {
-  return emIngles() ? (EN[mensagem.trim()] ?? mensagem) : mensagem
+  if (!emIngles()) return mensagem
+  const t = mensagem.trim()
+  if (EN[t]) return EN[t]
+  for (const [re, f] of PADROES_EN) {
+    const m = t.match(re)
+    if (m) return f(m)
+  }
+  return mensagem
 }

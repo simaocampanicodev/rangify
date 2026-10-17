@@ -1,5 +1,5 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
@@ -11,7 +11,7 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
 import { useAvisos } from '@/contexts/Avisos'
-import { relogio } from '@/lib/tempo'
+import { relogio, textoDuracaoBan } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
 
@@ -95,13 +95,21 @@ function LinksDiscord({ p }: { p: Partida }) {
 function Progresso({ p }: { p: Partida }) {
   const FASES = fases()
   const atual = FASES.findIndex((f) => f.estados.includes(p.estado))
+  const lista = useRef<HTMLOListElement>(null)
+  // Centra a fase atual na linha das fases (só mexe na própria linha, nunca na página).
+  useEffect(() => {
+    const ol = lista.current
+    const li = ol?.querySelector<HTMLElement>('[aria-current=step]')
+    if (ol && li) ol.scrollLeft = li.offsetLeft - (ol.clientWidth - li.offsetWidth) / 2
+  }, [atual])
   return (
     <nav aria-label={l('Fases da partida', 'Match phases')} className="painel flex flex-wrap items-center gap-x-4 gap-y-3 !rounded-2xl px-4 py-3">
       <span className="flex items-center gap-2 font-mono text-[12px] font-semibold text-pessego">
         <span className="ao-vivo size-2 rounded-full bg-laranja" />{p.codigo}
       </span>
       {p.simulada && <Chip tom="laranja">{p.automatica ? l('Simulação automática', 'Automatic simulation') : l('Simulada', 'Simulated')}</Chip>}
-      <ol className="m-0 flex flex-1 list-none flex-wrap items-center gap-1.5 p-0">
+      {/* No telemóvel as fases ficam numa linha que se arrasta (a atual centrada), em vez de uma coluna de seis linhas. */}
+      <ol ref={lista} className="relative m-0 flex basis-full list-none flex-nowrap items-center gap-1.5 overflow-x-auto p-0 [scrollbar-width:none] sm:flex-1 sm:basis-auto sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
         {FASES.map((f, i) => {
           const feita = i < atual || p.estado === 'COMPLETED'
           const agora = i === atual && p.estado !== 'COMPLETED'
@@ -157,23 +165,25 @@ function ComoFunciona() {
 
 /** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
 function PainelFila() {
-  const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
+  const { naFila, contagem, regiao, espera, castigo, ban } = useVistaFila()
   const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const faltam = 10 - contagem
   const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
   return (
-    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-10 gap-y-6 px-[34px] py-[30px]">
+    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-10 gap-y-6 px-5 py-6 sm:px-[34px] sm:py-[30px]">
       <AnelFila
         tamanho={196}
         contagem={contagem}
         naFila={naFila}
-        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
+        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : ban ? l('BANIDO', 'BANNED') : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
       />
-      <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
+      <div className="flex min-w-[min(280px,100%)] flex-1 flex-col gap-3.5">
         <span className="eyebrow">RANGIFY HUB · {regiao.toUpperCase()}</span>
         <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? l('À procura de jogadores…', 'Looking for players…') : l('Pronto para a próxima?', 'Ready for the next one?')}</h2>
         <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
-          {castigo > 0
+          {ban
+            ? l(`Estás banido da fila ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Motivo: ${ban.mensagem}` : ''}`, `You are banned from the queue ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Reason: ${ban.mensagem}` : ''}`)
+            : castigo > 0
             ? l(`Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`, `You did not accept the last match. You can queue again in ${relogio(castigo)}.`)
             : naFila
               ? l(`Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`, `${faltam} ${faltam === 1 ? 'player' : 'players'} from your region to go. You can browse the site: when the lobby fills, you hear a sound and the accept alert shows up.`)

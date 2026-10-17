@@ -6,11 +6,13 @@ import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
+import { useTelemovelPequeno } from '@/hooks/useMedia'
 import { dados } from '@/lib/dados'
 import { nomeJogador } from '@/lib/partida'
 import { DESEMPENHO_MAX, RESULTADO_MAX } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { SEGUNDOS_CONFIRMAR } from '@/lib/regras'
+import { extensaoAvisarPartida, extensaoTocaOSom } from '@/lib/extensao'
 import { tocarPartidaEncontrada } from '@/lib/som'
 import { emFalta } from '@/lib/tempo'
 import { NomeRangify } from '../Marca'
@@ -29,6 +31,7 @@ export function Confirmar() {
   const navegar = useNavigate()
   const agora = useAgora(200)
   const [aEnviar, setAEnviar] = useState(false)
+  const pequeno = useTelemovelPequeno()
 
   // Som e título do separador a piscar enquanto não aceitas: lembra-te de voltar ao site.
   const pendente = !!partida && !!perfil && partida.estado === 'READY_CHECK' && !partida.automatica
@@ -37,15 +40,23 @@ export function Confirmar() {
   const segundos = idPendente ? emFalta(partida!.prazoConfirmacao, agora) : 0
   const tocou = useRef<string | null>(null)
   const lembrou = useRef<string | null>(null)
+  // Com a extensão instalada e viva nesta conta, é ela que toca (e se ouve com outro separador à frente): o site cala-se.
+  const naExtensao = useRef(false)
+  const perfilId = perfil?.id
   useEffect(() => {
-    if (!idPendente || tocou.current === idPendente) return
+    if (!idPendente || !perfilId || tocou.current === idPendente) return
     tocou.current = idPendente
-    tocarPartidaEncontrada()
-  }, [idPendente])
+    naExtensao.current = false
+    extensaoTocaOSom(perfilId).then((ext) => {
+      naExtensao.current = ext
+      if (ext) extensaoAvisarPartida()
+      else tocarPartidaEncontrada()
+    })
+  }, [idPendente, perfilId])
   useEffect(() => {
     if (!idPendente || lembrou.current === idPendente || segundos > 8 || segundos <= 0) return
     lembrou.current = idPendente
-    tocarPartidaEncontrada(true)
+    if (!naExtensao.current) tocarPartidaEncontrada(true)
   }, [idPendente, segundos])
   useEffect(() => {
     if (!idPendente) return
@@ -81,7 +92,7 @@ export function Confirmar() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="rg-conf-titulo"
-        className="entra relative my-6 flex w-full max-w-[780px] flex-col items-center gap-6 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.94)] p-[clamp(22px,4vw,36px)] text-center backdrop-blur-[20px]"
+        className="entra relative my-3 flex w-full max-w-[780px] flex-col items-center gap-4 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.94)] p-[clamp(16px,4vw,36px)] text-center backdrop-blur-[20px] sm:my-6 sm:gap-6"
         style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 40px 120px -40px rgba(255,91,31,0.6)' }}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[26px]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,91,31,0.12), rgba(0,0,0,0) 70%)' }} />
@@ -93,25 +104,26 @@ export function Confirmar() {
           <span className="text-[12.5px] text-[#a6a19a]"><NomeRangify className="text-marfim" /> Hub · {partida.regiao.toUpperCase()}{partida.simulada ? ` · ${l('Simulação', 'Simulation')}` : ''}</span>
         </div>
 
-        <Relogio restante={restante} total={SEGUNDOS_CONFIRMAR} tamanho={176} espessura={8} legenda={eu.aceitou ? l('à espera', 'waiting') : l('para aceitar', 'to accept')} />
+        <Relogio restante={restante} total={SEGUNDOS_CONFIRMAR} tamanho={pequeno ? 120 : 176} espessura={pequeno ? 6 : 8} legenda={eu.aceitou ? l('à espera', 'waiting') : l('para aceitar', 'to accept')} />
 
         <div className="relative flex max-w-[520px] flex-col gap-2">
-          <h1 id="rg-conf-titulo" className="m-0 text-[clamp(28px,3.4vw,36px)] leading-[1.05] font-extrabold tracking-[-0.04em]">
+          <h1 id="rg-conf-titulo" className="m-0 text-[clamp(24px,3.4vw,36px)] leading-[1.05] font-extrabold tracking-[-0.04em]">
             {eu.aceitou ? l('Aceitaste. Falta pouco.', 'Accepted. Almost there.') : l('A tua partida está pronta', 'Your match is ready')}
           </h1>
-          <p className="m-0 text-[14.5px] leading-[1.55] text-suave">
+          <p className="m-0 text-[13.5px] leading-[1.5] text-suave sm:text-[14.5px] sm:leading-[1.55]">
             {eu.aceitou
               ? l(`À espera de ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'}. Se alguém não aceitar, voltas à fila com o mesmo lugar.`, `Waiting for ${faltam} ${faltam === 1 ? 'player' : 'players'}. If someone does not accept, you go back to the queue with the same spot.`)
               : l('Dez jogadores encontrados. Aceita para seguir para o draft dos capitães. Se recusares, ficas 5 minutos sem poder entrar na fila.', 'Ten players found. Accept to go to the captains\' draft. If you decline, you cannot queue for 5 minutes.')}
           </p>
         </div>
 
-        <div role="list" aria-label={l('Jogadores da partida', 'Match players')} className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2">
+        <div role="list" aria-label={l('Jogadores da partida', 'Match players')} className="relative grid w-full grid-cols-5 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(120px,1fr))]">
           {partida.jogadores.map((j) => (
             <div
               key={j.perfilId}
               role="listitem"
-              className={`flex min-h-[52px] items-center gap-2.5 rounded-xl border px-2.5 text-left transition-colors duration-300 ${j.aceitou ? 'border-laranja/40 bg-laranja/10' : 'border-dashed border-white/12 bg-white/[0.02]'}`}
+              title={j.perfilId === perfil.id ? l('Tu', 'You') : nomeJogador(j)}
+              className={`flex min-h-[44px] items-center justify-center gap-2.5 rounded-xl border px-1.5 text-left transition-colors duration-300 sm:min-h-[52px] sm:justify-start sm:px-2.5 ${j.aceitou ? 'border-laranja/40 bg-laranja/10' : 'border-dashed border-white/12 bg-white/[0.02]'}`}
             >
               <span className="relative grid size-[30px] shrink-0 place-items-center rounded-lg text-[11px] font-extrabold text-[#fff3ec]" style={{ background: j.aceitou ? 'linear-gradient(135deg,#5b2a17,#b0461c)' : '#25252a' }}>
                 {j.avatarUrl
@@ -121,7 +133,7 @@ export function Confirmar() {
                   {j.aceitou ? <Check size={9} strokeWidth={3} /> : <Hourglass size={8} />}
                 </span>
               </span>
-              <span className="flex min-w-0 flex-col gap-px">
+              <span className="hidden min-w-0 flex-col gap-px sm:flex">
                 <span className="truncate text-[13px] font-semibold">{j.perfilId === perfil.id ? l('Tu', 'You') : nomeJogador(j)}</span>
                 <span className={`text-[11px] ${j.aceitou ? 'text-pessego' : 'text-mudo'}`}>{j.aceitou ? l('Aceitou', 'Accepted') : l('A decidir', 'Deciding')}</span>
               </span>
@@ -145,7 +157,7 @@ export function Confirmar() {
           </div>
         )}
 
-        <div className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 border-t border-white/7 pt-[18px]">
+        <div className="relative hidden w-full grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 border-t border-white/7 pt-[18px] sm:grid">
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Média da sala', 'Lobby average')}</span><span className="text-[14px] font-semibold">{nomeRank(tierMedio(partida.jogadores.map((j) => j.tier)))}</span></div>
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Aceitaram', 'Accepted')}</span><span className="font-mono text-[14px] font-semibold">{aceites}/10</span></div>
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Pontos em jogo', 'Points at stake')}</span><span className="font-mono text-[14px] font-semibold text-pessego">{l('até', 'up to')} +{RESULTADO_MAX + DESEMPENHO_MAX}</span></div>

@@ -10,7 +10,7 @@ import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
-  Amizade, Dados, Denuncia, EstadoDiscord, EstadoLoja, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
+  Amizade, AvisoStaff, Dados, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
 /**
@@ -295,7 +295,8 @@ export const dadosSupabase: Dados = {
     return { ...base, membro: r.membro, verificadoEm: new Date().toISOString() }
   },
   definirDiscordFila: (obrigatorio, convite) => rpc<EstadoDiscord>('definir_discord_fila', { p_obrigatorio: obrigatorio, p_convite: convite }),
-  publicarPingDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', {}),
+  publicarPingDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'ping' }),
+  publicarFilaDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'fila' }),
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),
 
@@ -328,8 +329,23 @@ export const dadosSupabase: Dados = {
   async definirPontos(perfilId, pontos) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos }) },
   denuncias: () => rpc<Denuncia[]>('denuncias'),
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
-  pesquisarJogadores: (q) => rpc<Perfil[]>('pesquisar_jogadores', { p_q: q }),
+  pesquisarJogadores: (q) => rpc<JogadorStaff[]>('pesquisar_jogadores', { p_q: q }),
   async definirFuncao(perfilId, f) { await rpc('definir_funcao', { p_perfil: perfilId, p_funcao: f }) },
+  contarJogadores: () => rpc<number>('contar_jogadores'),
+  avisarJogador: (perfilId, mensagem) => rpc<AvisoStaff>('avisar_jogador', { p_perfil: perfilId, p_mensagem: mensagem }),
+  banirDaFila: (perfilId, mensagem, horas) => rpc<AvisoStaff>('banir_da_fila', { p_perfil: perfilId, p_mensagem: mensagem, p_horas: horas }),
+  async levantarBan(perfilId) { await rpc('levantar_ban', { p_perfil: perfilId }) },
+  avisosDoJogador: (perfilId) => rpc<AvisoStaff[]>('avisos_do_jogador', { p_perfil: perfilId }),
+
+  // Sem a migração 0026 não há avisos: o site segue sem popups em vez de dar erro.
+  avisoPendente: () => rpc<AvisoStaff | null>('aviso_pendente').catch(() => null),
+  async confirmarAviso(id) { await rpc('confirmar_aviso', { p_id: id }) },
+  aoMudarAvisos(perfilId, cb) {
+    const canal = cliente().channel(`avisos-${perfilId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_avisos', filter: `target_id=eq.${perfilId}` }, cb)
+      .subscribe()
+    return () => { cliente().removeChannel(canal) }
+  },
 }
 
 /**
@@ -347,6 +363,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],
   criarSugestao: ['sugestoes'], votar: ['sugestoes'], definirEstadoSugestao: ['sugestoes', 'staff'], apagarSugestao: ['sugestoes', 'staff'], denunciar: ['staff'],
   criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], definirDiscordFila: ['staff'], resetarMissoes: ['staff'],
+  avisarJogador: ['staff'], banirDaFila: ['staff', 'fila'], levantarBan: ['staff'], confirmarAviso: ['perfil'],
   resolverDisputa: ['staff', 'partida'], submeterResultadoStaff: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'], recarregarPartida: ['partida', 'perfil', 'staff'],
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
   comprarItem: ['loja'], equiparItem: ['loja'], desequiparItem: ['loja'], definirAvatarGif: ['loja'], definirLojaPublica: ['loja', 'staff'],

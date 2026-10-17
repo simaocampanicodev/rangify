@@ -136,7 +136,7 @@ export function Dashboard() {
           <AnelFila
             contagem={ativa ? 10 : fila.contagem}
             naFila={fila.naFila}
-            legenda={ativa ? l('AO VIVO', 'LIVE') : fila.naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(fila.espera)}` : fila.castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(fila.castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
+            legenda={ativa ? l('AO VIVO', 'LIVE') : fila.naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(fila.espera)}` : fila.ban ? l('BANIDO', 'BANNED') : fila.castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(fila.castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
           />
           <div className="flex min-w-[260px] flex-1 flex-col gap-3.5">
             <span className="eyebrow">{ativa ? l('PARTIDA A DECORRER', 'MATCH IN PROGRESS') : l('A TUA PRÓXIMA PARTIDA', 'YOUR NEXT MATCH')}</span>
