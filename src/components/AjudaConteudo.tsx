@@ -111,7 +111,7 @@ function topicos(): Record<TopicoAjuda, Topico> {
       passos: [
         { titulo: 'Owner', texto: l('Tudo. É o único que atribui ou retira as funções Owner e Dev.', 'Everything. The only one who gives or removes the Owner and Dev roles.') },
         { titulo: 'Dev', texto: l('Área de staff e ferramentas de teste: simular fila cheia e simular partidas. As partidas de teste contam como as outras; remover uma partida devolve os pontos e tira as estatísticas.', 'Staff area and test tools: simulate a full queue and simulate matches. Test matches count like any other; removing a match returns the points and removes the stats.') },
-        { titulo: 'Mod', texto: l('Resolve disputas, cancela partidas encravadas e trata denúncias.', 'Resolves disputes, cancels stuck matches and handles reports.') },
+        { titulo: 'Mod', texto: l('Avisa jogadores e bane-os da fila (com uma mensagem e a duração à escolha), cancela partidas encravadas, trata denúncias e sugestões e decide as partidas que a API não encontra.', 'Warns players and bans them from the queue (with a message and a length of their choice), cancels stuck matches, handles reports and suggestions and decides the matches the API cannot find.') },
         { titulo: l('Verificado e Jogador', 'Verified and Player'), texto: l('Jogam, sugerem e votam. O Verificado tem um selo no perfil.', 'They play, suggest and vote. Verified players have a badge on their profile.') },
       ],
     },
