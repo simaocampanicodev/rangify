@@ -11,6 +11,7 @@ import { nomeJogador } from '@/lib/partida'
 import { DESEMPENHO_MAX, RESULTADO_MAX } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { SEGUNDOS_CONFIRMAR } from '@/lib/regras'
+import { extensaoAvisarPartida, extensaoTocaOSom } from '@/lib/extensao'
 import { tocarPartidaEncontrada } from '@/lib/som'
 import { emFalta } from '@/lib/tempo'
 import { NomeRangify } from '../Marca'
@@ -37,15 +38,23 @@ export function Confirmar() {
   const segundos = idPendente ? emFalta(partida!.prazoConfirmacao, agora) : 0
   const tocou = useRef<string | null>(null)
   const lembrou = useRef<string | null>(null)
+  // Com a extensão instalada e viva nesta conta, é ela que toca (e se ouve com outro separador à frente): o site cala-se.
+  const naExtensao = useRef(false)
+  const perfilId = perfil?.id
   useEffect(() => {
-    if (!idPendente || tocou.current === idPendente) return
+    if (!idPendente || !perfilId || tocou.current === idPendente) return
     tocou.current = idPendente
-    tocarPartidaEncontrada()
-  }, [idPendente])
+    naExtensao.current = false
+    extensaoTocaOSom(perfilId).then((ext) => {
+      naExtensao.current = ext
+      if (ext) extensaoAvisarPartida()
+      else tocarPartidaEncontrada()
+    })
+  }, [idPendente, perfilId])
   useEffect(() => {
     if (!idPendente || lembrou.current === idPendente || segundos > 8 || segundos <= 0) return
     lembrou.current = idPendente
-    tocarPartidaEncontrada(true)
+    if (!naExtensao.current) tocarPartidaEncontrada(true)
   }, [idPendente, segundos])
   useEffect(() => {
     if (!idPendente) return

@@ -1,13 +1,14 @@
-import { Ban, Check, Flag, Gavel, Radio, RotateCcw, Scale, Search, ShieldCheck } from 'lucide-react'
+import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { DiscordStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { Moderacao } from '@/components/StaffModeracao'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { dados, type Funcao, type Partida, type Perfil } from '@/lib/dados'
+import { aoMudarDados, dados, type Denuncia, type Funcao, type JogadorStaff, type Partida, type Perfil } from '@/lib/dados'
 import { MAPAS, ROTACAO_PADRAO } from '@/lib/mapas'
 import { caminhoPerfil, capitao, equipa, nomeJogador, tagJogador } from '@/lib/partida'
 import { NOMES_ESTADO, validarResultado } from '@/lib/regras'
@@ -261,19 +262,66 @@ function Rotacao() {
   )
 }
 
-function Jogadores() {
+/** Uma linha da lista: quem é, pontos, função e o cartão de moderação (avisar, banir da fila, histórico). */
+function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; aMudou: () => void }) {
   const acao = useAcao()
+  const [aberto, setAberto] = useState(false)
+  const mudar = async (f: Funcao) => {
+    await acao(() => dados.definirFuncao(p.id, f), tx('Função atualizada.', 'Role updated.'))
+    aMudou()
+  }
+  const podeAcertar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-white/6 py-3">
+      <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
+      <span className="flex min-w-0 flex-1 basis-[160px] flex-col">
+        <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
+        <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
+      </span>
+      {p.ban && <Chip tom="derrota"><Ban size={11} aria-hidden />&nbsp;{tx('Banido', 'Banned')}</Chip>}
+      <RankBadge tier={p.tier} pequeno />
+      <div className="flex flex-wrap items-center gap-2.5">
+        {podeAcertar
+          ? <CampoPontos p={p} onGuardado={aMudou} />
+          : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts</span>}
+        <select
+          aria-label={`${tx('Função de', 'Role of')} ${p.utilizador}`}
+          className="campo !h-9 !w-auto !text-[13px]"
+          value={p.funcao}
+          disabled={p.id === eu?.id || eu?.funcao === 'mod'}
+          onChange={(e) => mudar(e.target.value as Funcao)}
+        >
+          {FUNCOES.map((f) => <option key={f.valor} value={f.valor}>{f.nome}</option>)}
+        </select>
+        <button
+          type="button"
+          aria-expanded={aberto}
+          className={`btn !min-h-9 !px-3 !text-[12.5px] ${aberto ? 'btn-suave' : 'btn-fantasma'}`}
+          onClick={() => setAberto((v) => !v)}
+        >
+          <Gavel size={14} className="text-laranja" aria-hidden />{tx('Moderar', 'Moderate')}
+          <ChevronDown size={14} aria-hidden className={`transition-transform ${aberto ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {aberto && <Moderacao jogador={p} eu={eu} onMudou={aMudou} />}
+    </li>
+  )
+}
+
+function Jogadores() {
   const { perfil: eu } = useSessao()
   const [q, setQ] = useState('')
-  const [lista, setLista] = useState<Perfil[]>([])
+  const [lista, setLista] = useState<JogadorStaff[]>([])
+  const recarregar = () => { dados.pesquisarJogadores(q).then(setLista).catch(() => {}) }
   useEffect(() => {
-    const t = window.setTimeout(() => { dados.pesquisarJogadores(q).then(setLista).catch(() => {}) }, 200)
+    const t = window.setTimeout(recarregar, 200)
     return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
-  const mudar = async (id: string, f: Funcao) => {
-    await acao(() => dados.definirFuncao(id, f), tx('Função atualizada.', 'Role updated.'))
-    dados.pesquisarJogadores(q).then(setLista).catch(() => {})
-  }
+  // Um aviso ou ban (o histórico e o "Banido" mudam) e uma partida a terminar também atualizam a lista.
+  useEffect(() => aoMudarDados((o) => { if (o === 'staff') recarregar() }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [q])
   return (
     <div className="flex flex-col gap-3">
       <label className="relative block">
@@ -282,60 +330,70 @@ function Jogadores() {
         <input className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx('Utilizador ou Riot ID', 'Username or Riot ID')} />
       </label>
       <ul className="m-0 flex list-none flex-col p-0">
-        {lista.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-3 border-t border-white/6 py-2.5">
-            <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
-              <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
-            </span>
-            <RankBadge tier={p.tier} pequeno />
-            {(eu?.funcao === 'owner' || eu?.funcao === 'dev')
-              ? <CampoPontos p={p} onGuardado={() => dados.pesquisarJogadores(q).then(setLista).catch(() => {})} />
-              : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts</span>}
-            <select
-              aria-label={`${tx('Função de', 'Role of')} ${p.utilizador}`}
-              className="campo !h-9 !w-auto !text-[13px]"
-              value={p.funcao}
-              disabled={p.id === eu?.id || eu?.funcao === 'mod'}
-              onChange={(e) => mudar(p.id, e.target.value as Funcao)}
-            >
-              {FUNCOES.map((f) => <option key={f.valor} value={f.valor}>{f.nome}</option>)}
-            </select>
-          </li>
-        ))}
+        {lista.map((p) => <LinhaJogador key={p.id} p={p} eu={eu} aMudou={recarregar} />)}
       </ul>
     </div>
   )
 }
 
+/** As denúncias da comunidade, abertas primeiro. */
+function Denuncias({ lista }: { lista: Denuncia[] }) {
+  const acao = useAcao()
+  if (!lista.length) return <Vazio icone={<Flag size={22} />} titulo={tx('Sem denúncias', 'No reports')} />
+  return (
+    <>
+      {lista.map((d) => (
+        <article key={d.id} className={`flex flex-col gap-2 rounded-[14px] border p-4 ${d.estado === 'aberta' ? 'border-laranja/30 bg-laranja/5' : 'border-white/7 bg-white/[0.02] opacity-70'}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip tom={d.estado === 'aberta' ? 'laranja' : 'neutro'}>{d.motivo}</Chip>
+            <span className="text-[13.5px] font-semibold">{d.alvo.riotId}</span>
+            <span className="text-[12px] text-mudo">{tx('por', 'by')} {d.denunciante} · {haQuanto(d.criadaEm)}</span>
+          </div>
+          <p className="m-0 text-[13.5px] leading-normal text-suave">{d.detalhes}</p>
+          {d.estado === 'aberta' ? (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn btn-suave !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'resolvida'), tx('Denúncia resolvida.', 'Report resolved.'))}><ShieldCheck size={15} aria-hidden />{tx('Resolver', 'Resolve')}</button>
+              <button type="button" className="btn btn-fantasma !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'arquivada'), tx('Denúncia arquivada.', 'Report archived.'))}>{tx('Arquivar', 'Archive')}</button>
+            </div>
+          ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? tx('Resolvida', 'Resolved') : tx('Arquivada', 'Archived')}</span>}
+        </article>
+      ))}
+    </>
+  )
+}
+
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja'
+
 export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
-  const acao = useAcao()
-  const [aba, setAba] = useState<'disputas' | 'resultados' | 'partidas' | 'denuncias' | 'sugestoes' | 'mapas' | 'novidades' | 'api' | 'discord' | 'loja' | 'jogadores'>('disputas')
+  const [aba, setAba] = useState<Aba>('resultados')
+  const [inbox, setInbox] = useState<'denuncias' | 'sugestoes'>('denuncias')
+  // As disputas já quase não acontecem (a API fecha a partida sozinha): só aparecem se houver alguma.
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const pendentes = useCarregar(() => (eStaff ? dados.resultadosPendentes() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const aoVivo = useCarregar(() => (eStaff ? dados.partidasAoVivo() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   // O que se passa agora: pergunta outra vez de pouco em pouco, enquanto o separador está à frente.
   useIntervalo(aoVivo.recarregar, eStaff ? 15000 : null)
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
+  const jogadores = useCarregar(() => (eStaff ? dados.contarJogadores() : Promise.resolve(0)), [eStaff], ['staff', 'perfil'])
   if (carregando) return <Carregando />
   if (!eStaff) return <Navigate to="/" replace />
   const abertas = (denuncias.valor ?? []).filter((d) => d.estado === 'aberta')
+  const comDisputa = disputas.valor ?? []
 
   return (
     <>
       <Cabecalho
         migalhas={[tx('Conta', 'Account'), 'Staff']}
         titulo={tx('Área de staff', 'Staff area')}
-        descricao={tx('Disputas de resultado, partidas ao vivo, denúncias, sugestões, rotação de mapas, novidades e funções dos jogadores.', 'Result disputes, live matches, reports, suggestions, map rotation, news and player roles.')}
+        descricao={tx('Resultados, partidas ao vivo, denúncias e sugestões, rotação de mapas, novidades e jogadores (avisos, bans e funções).', 'Results, live matches, reports and suggestions, map rotation, news and players (warnings, bans and roles).')}
         acoes={<BotaoAjuda topico="funcoes">{tx('Funções no Rangify', 'Roles on Rangify')}</BotaoAjuda>}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
         {[
-          [<Scale size={18} key="d" />, tx('Disputas', 'Disputes'), disputas.valor?.length ?? 0],
-          [<Gavel size={18} key="p" />, tx('À espera do resultado', 'Awaiting result'), pendentes.valor?.filter((p) => p.estado === 'RESULT_SUBMISSION').length ?? 0],
+          [<Users size={18} key="j" />, tx('Jogadores', 'Players'), jogadores.valor ?? 0],
+          [<Gavel size={18} key="p" />, tx('À espera do resultado', 'Awaiting result'), (pendentes.valor?.filter((p) => p.estado === 'RESULT_SUBMISSION').length ?? 0) + comDisputa.length],
           [<Radio size={18} key="e" />, tx('Partidas ao vivo', 'Live matches'), aoVivo.valor?.length ?? 0],
           [<Flag size={18} key="r" />, tx('Denúncias abertas', 'Open reports'), abertas.length],
         ].map(([icone, nome, n]) => (
@@ -350,22 +408,40 @@ export function Admin() {
           rotulo={tx('Secção', 'Section')}
           valor={aba}
           onChange={setAba}
-          opcoes={[{ valor: 'disputas', texto: tx('Disputas', 'Disputes') }, { valor: 'resultados', texto: tx('Resultados', 'Results') }, { valor: 'partidas', texto: tx('Ao vivo', 'Live') }, { valor: 'denuncias', texto: tx('Denúncias', 'Reports') }, { valor: 'sugestoes', texto: tx('Sugestões', 'Suggestions') }, { valor: 'mapas', texto: tx('Mapas', 'Maps') }, { valor: 'novidades', texto: tx('Novidades', 'News') }, ...(ownerDev ? [{ valor: 'api' as const, texto: 'API' }, { valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []), { valor: 'jogadores', texto: tx('Jogadores', 'Players') }]}
+          opcoes={[
+            { valor: 'resultados', texto: tx('Resultados', 'Results') },
+            { valor: 'partidas', texto: tx('Ao vivo', 'Live') },
+            { valor: 'inbox', texto: <>Inbox{abertas.length > 0 && <span className="ml-1.5 rounded-full bg-laranja/20 px-1.5 font-mono text-[11px] text-pessego">{abertas.length}</span>}</> },
+            { valor: 'mapas', texto: tx('Mapas', 'Maps') },
+            { valor: 'novidades', texto: tx('Novidades', 'News') },
+            { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
+            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []),
+          ]}
         />
-        {aba === 'disputas' && (
-          <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow={tx('DISPUTAS', 'DISPUTES')} titulo={tx('Resultados que não coincidem', 'Results that do not match')} />
-            {disputas.valor?.length ? disputas.valor.map((p) => <Disputa key={p.id} p={p} />) : <Vazio icone={<Scale size={22} />} titulo={tx('Sem disputas', 'No disputes')} texto={tx('Quando os capitães submeterem resultados diferentes, aparecem aqui.', 'When captains submit different results, they show up here.')} />}
-          </div>
-        )}
         {aba === 'resultados' && (
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('RESULTADOS', 'RESULTS')} titulo={tx('Partidas à espera do resultado', 'Matches awaiting the result')} />
+            {comDisputa.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-[14px] border border-derrota/25 bg-derrota/[0.03] p-3.5">
+                <p className="m-0 text-[13px] text-suave">{tx('A API não encontrou estas partidas: tens de decidir o resultado.', 'The API could not find these matches: you have to decide the result.')}</p>
+                {comDisputa.map((p) => <Disputa key={p.id} p={p} />)}
+              </div>
+            )}
             {pendentes.valor?.length
               ? [...pendentes.valor].sort((x, y) => (x.estado === 'RESULT_SUBMISSION' ? 0 : 1) - (y.estado === 'RESULT_SUBMISSION' ? 0 : 1)).map((p) => <ResultadoPendente key={p.id} p={p} />)
               : pendentes.erro
                 ? <Vazio icone={<Gavel size={22} />} titulo={tx('Não foi possível carregar os resultados', 'Could not load the results')} texto={pendentes.erro} />
-                : <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
+                : comDisputa.length === 0 && <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
+            {ownerDev && (
+              <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
+                <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
+                <TesteApiStaff />
+                <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
+                  <TituloPainel eyebrow={tx('PARTIDAS JOGADAS', 'PLAYED MATCHES')} titulo={tx('Recarregar os dados de uma partida', 'Reload match data')} />
+                  <RecarregarStaff />
+                </div>
+              </div>
+            )}
           </div>
         )}
         {aba === 'partidas' && (
@@ -378,47 +454,31 @@ export function Admin() {
             {!aoVivo.valor ? <Carregando /> : aoVivo.valor.length ? aoVivo.valor.map((p) => <PartidaAoVivo key={p.id} p={p} />) : <Vazio icone={<Radio size={22} />} titulo={tx('Nenhuma partida a decorrer', 'No match in progress')} texto={tx('Quando houver partidas a jogar, aparecem aqui com os jogadores de cada uma.', 'When matches are being played, they show up here with each one\'s players.')} />}
           </div>
         )}
-        {aba === 'denuncias' && (
+        {aba === 'inbox' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow={tx('DENÚNCIAS', 'REPORTS')} titulo={tx('Reportadas pela comunidade', 'Reported by the community')} />
-            {denuncias.valor?.length ? denuncias.valor.map((d) => (
-              <article key={d.id} className={`flex flex-col gap-2 rounded-[14px] border p-4 ${d.estado === 'aberta' ? 'border-laranja/30 bg-laranja/5' : 'border-white/7 bg-white/[0.02] opacity-70'}`}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Chip tom={d.estado === 'aberta' ? 'laranja' : 'neutro'}>{d.motivo}</Chip>
-                  <span className="text-[13.5px] font-semibold">{d.alvo.riotId}</span>
-                  <span className="text-[12px] text-mudo">{tx('por', 'by')} {d.denunciante} · {haQuanto(d.criadaEm)}</span>
-                </div>
-                <p className="m-0 text-[13.5px] leading-normal text-suave">{d.detalhes}</p>
-                {d.estado === 'aberta' ? (
-                  <div className="flex gap-2">
-                    <button type="button" className="btn btn-suave !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'resolvida'), tx('Denúncia resolvida.', 'Report resolved.'))}><ShieldCheck size={15} aria-hidden />{tx('Resolver', 'Resolve')}</button>
-                    <button type="button" className="btn btn-fantasma !min-h-9 !text-[13px]" onClick={() => acao(() => dados.tratarDenuncia(d.id, 'arquivada'), tx('Denúncia arquivada.', 'Report archived.'))}>{tx('Arquivar', 'Archive')}</button>
-                  </div>
-                ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? tx('Resolvida', 'Resolved') : tx('Arquivada', 'Archived')}</span>}
-              </article>
-            )) : <Vazio icone={<Flag size={22} />} titulo={tx('Sem denúncias', 'No reports')} />}
-          </div>
-        )}
-        {aba === 'sugestoes' && (
-          <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow={tx('SUGESTÕES', 'SUGGESTIONS')} titulo={tx('Ideias da comunidade', 'Community ideas')} />
-            <SugestoesStaff />
+            <TituloPainel
+              eyebrow="INBOX"
+              titulo={inbox === 'denuncias' ? tx('Reportadas pela comunidade', 'Reported by the community') : tx('Ideias da comunidade', 'Community ideas')}
+              direita={(
+                <Segmentado
+                  pequeno
+                  rotulo={tx('Inbox', 'Inbox')}
+                  valor={inbox}
+                  onChange={setInbox}
+                  opcoes={[
+                    { valor: 'denuncias', texto: <><Flag size={13} className="mr-1.5 inline" aria-hidden />{tx('Denúncias', 'Reports')}{abertas.length > 0 && ` (${abertas.length})`}</> },
+                    { valor: 'sugestoes', texto: <><Inbox size={13} className="mr-1.5 inline" aria-hidden />{tx('Sugestões', 'Suggestions')}</> },
+                  ]}
+                />
+              )}
+            />
+            {inbox === 'denuncias' ? <Denuncias lista={denuncias.valor ?? []} /> : <SugestoesStaff />}
           </div>
         )}
         {aba === 'novidades' && (
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('NOVIDADES', 'NEWS')} titulo={tx('O que aparece no Painel', 'What shows on the Dashboard')} />
             <NovidadesStaff podeEditar={ownerDev} />
-          </div>
-        )}
-        {aba === 'api' && ownerDev && (
-          <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
-            <TesteApiStaff />
-            <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
-              <TituloPainel eyebrow={tx('PARTIDAS JOGADAS', 'PLAYED MATCHES')} titulo={tx('Recarregar os dados de uma partida', 'Reload match data')} />
-              <RecarregarStaff />
-            </div>
           </div>
         )}
         {aba === 'discord' && ownerDev && (
@@ -441,8 +501,8 @@ export function Admin() {
         )}
         {aba === 'jogadores' && (
           <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow={tx('JOGADORES', 'PLAYERS')} titulo={tx('Funções', 'Roles')} />
-            <p className="m-0 text-[13px] text-mudo">{tx('Só o Owner atribui Owner e Dev. Owner e Dev atribuem Mod, Verificado e Jogador, e podem acertar os pontos de cada jogador.', 'Only the Owner gives Owner and Dev. Owner and Dev give Mod, Verified and Player, and can set each player\'s points.')}</p>
+            <TituloPainel eyebrow={tx('JOGADORES', 'PLAYERS')} titulo={tx('Avisos, bans e funções', 'Warnings, bans and roles')} />
+            <p className="m-0 text-[13px] text-mudo">{tx('Carrega em Moderar para avisar um jogador ou o banir da fila (com a duração à escolha e uma mensagem). Só o Owner atribui Owner e Dev; Owner e Dev atribuem Mod, Verificado e Jogador e podem acertar os pontos de cada jogador.', 'Press Moderate to warn a player or ban them from the queue (with a length of your choice and a message). Only the Owner gives Owner and Dev; Owner and Dev give Mod, Verified and Player and can set each player\'s points.')}</p>
             <Jogadores />
           </div>
         )}

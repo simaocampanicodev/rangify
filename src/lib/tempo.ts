@@ -64,10 +64,11 @@ export function emFalta(iso: string | null | undefined, agora = agoraCerto()): n
 }
 
 export function duracaoAte(iso: string, agora = agoraCerto()): string {
-  const s = Math.max(0, Math.round((new Date(iso).getTime() - agora) / 1000))
-  const d = Math.floor(s / 86400)
-  const h = Math.floor((s % 86400) / 3600)
-  const m = Math.round((s % 3600) / 60)
+  // Em minutos inteiros desde o início, para nunca sair "23 h 60 min".
+  const total = Math.max(0, Math.round((new Date(iso).getTime() - agora) / 60000))
+  const d = Math.floor(total / 1440)
+  const h = Math.floor((total % 1440) / 60)
+  const m = total % 60
   if (d > 0) return `${d} d ${h} h`
   if (h > 0) return `${h} h ${m} min`
   return `${m} min`
@@ -96,4 +97,10 @@ export function fimDaSemana(d = new Date()): Date {
   const ini = new Date(periodoSemana(d) + 'T00:00:00Z')
   ini.setUTCDate(ini.getUTCDate() + 7)
   return ini
+}
+
+/** Até quando vale um ban da fila, em palavras: "até 25 Out, 14:32 (23 h 59 min)" ou "para sempre". */
+export function textoDuracaoBan(b: { ate: string | null; permanente: boolean }): string {
+  if (b.permanente || !b.ate) return l('para sempre', 'permanently')
+  return `${l('até', 'until')} ${dataHora(b.ate)} (${duracaoAte(b.ate)})`
 }

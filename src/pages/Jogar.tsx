@@ -11,7 +11,7 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
 import { useAvisos } from '@/contexts/Avisos'
-import { relogio } from '@/lib/tempo'
+import { relogio, textoDuracaoBan } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
 
@@ -157,7 +157,7 @@ function ComoFunciona() {
 
 /** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
 function PainelFila() {
-  const { naFila, contagem, regiao, espera, castigo } = useVistaFila()
+  const { naFila, contagem, regiao, espera, castigo, ban } = useVistaFila()
   const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const faltam = 10 - contagem
   const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
@@ -167,13 +167,15 @@ function PainelFila() {
         tamanho={196}
         contagem={contagem}
         naFila={naFila}
-        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
+        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : ban ? l('BANIDO', 'BANNED') : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
       />
       <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
         <span className="eyebrow">RANGIFY HUB · {regiao.toUpperCase()}</span>
         <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? l('À procura de jogadores…', 'Looking for players…') : l('Pronto para a próxima?', 'Ready for the next one?')}</h2>
         <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
-          {castigo > 0
+          {ban
+            ? l(`Estás banido da fila ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Motivo: ${ban.mensagem}` : ''}`, `You are banned from the queue ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Reason: ${ban.mensagem}` : ''}`)
+            : castigo > 0
             ? l(`Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`, `You did not accept the last match. You can queue again in ${relogio(castigo)}.`)
             : naFila
               ? l(`Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`, `${faltam} ${faltam === 1 ? 'player' : 'players'} from your region to go. You can browse the site: when the lobby fills, you hear a sound and the accept alert shows up.`)

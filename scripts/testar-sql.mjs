@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -804,6 +804,8 @@ await db.exec(readFileSync(new URL('../supabase/migrations/0017_lados_sugestoes.
 ok(true, 'correr a 0017 outra vez não dá erro')
 // A 0017 repõe a versão antiga de _partida_json: a 0020 (que a estende) volta a correr por cima.
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+// A 0027 refaz o gatilho da fila do Discord que a 0020 define: volta a aplicá-la depois de cada repetição.
+await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 
@@ -865,14 +867,26 @@ console.log('\nFila no Discord (atualização do texto)')
   await raiz(`update discord_ping_estado set fila_pendente = true, fila_pendente_desde = now() - interval '40 seconds'`)
   ok((await servico(`select public._discord_fila_reservar() as v`))[0].v === true, 'um pedido preso há mais de 30 segundos não bloqueia os seguintes')
   await servico(`select public._discord_fila_libertar()`)
-  // Mexer na fila com a mensagem publicada não pode dar erro (sem discord_config, não chama nada).
+  // Um _discord de teste regista os pedidos em vez de falar com o Discord.
+  await raiz(`create table if not exists _chamadas (tipo text)`)
+  await raiz(`create or replace function public._discord(p_tipo text, p_match uuid) returns void language plpgsql as $f$ begin insert into _chamadas values (p_tipo); end $f$`)
+  const chamadas = async () => (await raiz(`select count(*)::int as n from _chamadas where tipo = 'fila'`))[0].n
+  const mexerNaFila = async () => { await rpc(uids[4], 'entrar_fila'); await rpc(uids[4], 'sair_fila') }
+  await raiz(`update config set discord_ping_message = null, discord_fila_message = null where id`)
+  await mexerNaFila()
+  ok((await chamadas()) === 0, 'sem a mensagem da fila publicada, mexer na fila não pede nada ao Discord')
   await raiz(`update config set discord_ping_message = '123' where id`)
-  await rpc(uids[4], 'entrar_fila')
-  await rpc(uids[4], 'sair_fila')
-  ok(true, 'entrar e sair da fila com a mensagem do ping publicada corre sem erros')
-  await raiz(`update config set discord_ping_message = null where id`)
+  await mexerNaFila()
+  ok((await chamadas()) === 0, 'a mensagem do ping já não pede atualizações da fila')
+  await raiz(`update config set discord_fila_message = '456' where id`)
+  await mexerNaFila()
+  ok((await chamadas()) >= 2, 'com a mensagem da fila publicada, entrar e sair pedem a atualização do texto')
+  await raiz(`update config set discord_ping_message = null, discord_fila_message = null where id`)
+  await db.exec(readFileSync(new URL('../supabase/migrations/0011_discord.sql', import.meta.url), 'utf8'))
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
+// A 0027 refaz o gatilho da fila do Discord que a 0020 define: volta a aplicá-la depois de cada repetição.
+await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0020 outra vez não dá erro')
@@ -948,6 +962,116 @@ console.log(String.fromCharCode(10) + 'Fila e sinal de vida')
 }
 await db.exec(readFileSync(new URL('../supabase/migrations/0023_fila_presenca.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0023 outra vez não dá erro')
+
+// ------------------------------------------------------------ avisos e bans da fila
+console.log(String.fromCharCode(10) + 'Avisos e bans da fila')
+{
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+  // uids[0] é Owner. uids[1] passa a Mod, uids[2] a Dev, os outros são jogadores.
+  await raiz(`update profiles set role = 'mod' where id = $1`, [pid(1)])
+  await raiz(`update profiles set role = 'dev' where id = $1`, [pid(2)])
+  const alvo = pid(3)
+
+  await falha(rpc(uids[4], 'avisar_jogador', { p_perfil: alvo, p_mensagem: 'Tenta portar-te bem' }), 'equipa do Rangify', 'um jogador normal não avisa ninguém')
+  await falha(rpc(uids[4], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Tenta portar-te bem', p_horas: 1 }), 'equipa do Rangify', 'um jogador normal não bane ninguém')
+  await falha(rpc(uids[1], 'avisar_jogador', { p_perfil: alvo, p_mensagem: 'ok' }), 'pelo menos 3', 'o aviso precisa de texto')
+  await falha(rpc(uids[1], 'avisar_jogador', { p_perfil: pid(2), p_mensagem: 'Aviso a um Dev' }), 'função abaixo da tua', 'um Mod não avisa um Dev')
+  await falha(rpc(uids[1], 'banir_da_fila', { p_perfil: pid(0), p_mensagem: 'Ban ao Owner', p_horas: 1 }), 'função abaixo da tua', 'um Mod não bane o Owner')
+  await falha(rpc(uids[2], 'banir_da_fila', { p_perfil: pid(0), p_mensagem: 'Ban ao Owner', p_horas: 1 }), 'função abaixo da tua', 'um Dev não bane o Owner')
+  await falha(rpc(uids[0], 'banir_da_fila', { p_perfil: pid(0), p_mensagem: 'Ban a mim', p_horas: 1 }), 'a ti próprio', 'ninguém se bane a si próprio')
+
+  // Aviso simples: o jogador vê o popup, sem saber quem da staff o escreveu.
+  const aviso = await rpc(uids[1], 'avisar_jogador', { p_perfil: alvo, p_mensagem: '  Linguagem no chat da partida.  ' })
+  ok(aviso.tipo === 'aviso' && aviso.mensagem === 'Linguagem no chat da partida.', 'o aviso guarda a mensagem sem espaços nas pontas')
+  const pendente = await rpc(uids[3], 'aviso_pendente')
+  ok(pendente?.id === aviso.id && pendente.tipo === 'aviso' && !('autor' in pendente) && !('dm' in pendente), 'o jogador vê o aviso pendente, sem o nome da staff')
+  ok((await rpc(uids[4], 'aviso_pendente')) === null, 'os outros jogadores não vêem avisos que não são deles')
+  await rpc(uids[4], 'confirmar_aviso', { p_id: aviso.id })
+  ok((await rpc(uids[3], 'aviso_pendente'))?.id === aviso.id, 'ninguém confirma o aviso de outra pessoa')
+
+  // Vários avisos: um de cada vez, do mais antigo para o mais recente.
+  const segundo = await rpc(uids[2], 'avisar_jogador', { p_perfil: alvo, p_mensagem: 'Segundo aviso' })
+  await rpc(uids[3], 'confirmar_aviso', { p_id: aviso.id })
+  ok((await rpc(uids[3], 'aviso_pendente'))?.id === segundo.id, 'confirmado o primeiro, aparece o seguinte')
+  await rpc(uids[3], 'confirmar_aviso', { p_id: segundo.id })
+  ok((await rpc(uids[3], 'aviso_pendente')) === null, 'confirmados todos, não há mais popups')
+
+  // Ban de 1 hora: tira da fila já e impede de voltar.
+  await rpc(uids[3], 'entrar_fila')
+  ok((await rpc(uids[3], 'estado_fila')).naFila === true, 'o jogador estava na fila')
+  await falha(rpc(uids[1], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Sem motivo', p_horas: 0 }), '1 hora até 1 ano', 'um ban de 0 horas não existe')
+  await falha(rpc(uids[1], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Sem motivo', p_horas: 24 * 365 + 1 }), '1 hora até 1 ano', 'um ban de mais de um ano pede "para sempre"')
+  const ban = await rpc(uids[1], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Saiu de duas partidas seguidas', p_horas: 1 })
+  ok(ban.tipo === 'ban' && ban.permanente === false && ban.banAte, 'o ban de 1 hora tem data de fim')
+  let fila3 = await rpc(uids[3], 'estado_fila')
+  ok(fila3.naFila === false, 'o ban tira o jogador da fila')
+  ok(fila3.ban?.permanente === false && fila3.ban?.mensagem === 'Saiu de duas partidas seguidas' && fila3.ban?.ate, 'o estado da fila diz até quando e porquê')
+  await falha(rpc(uids[3], 'entrar_fila'), 'banido da fila até', 'banido não entra na fila')
+  await raiz(`update profiles set cooldown_until = now() + interval '5 minutes' where id = $1`, [alvo])
+  await falha(rpc(uids[3], 'entrar_fila'), 'banido da fila', 'o ban ganha ao castigo de 5 minutos')
+  await raiz(`update profiles set cooldown_until = null where id = $1`, [alvo])
+  const situacaoBan = await rpc(uids[3], 'situacao')
+  ok(situacaoBan.fila.ban?.permanente === false, 'a situação do site traz o ban')
+  ok((await rpc(uids[4], 'estado_fila')).ban === null, 'quem não está banido não tem ban')
+  const popupBan = await rpc(uids[3], 'aviso_pendente')
+  ok(popupBan?.id === ban.id && popupBan.tipo === 'ban', 'o ban também aparece como popup')
+
+  // A staff vê o ban na lista de jogadores e o histórico no cartão.
+  const lista = await rpc(uids[1], 'pesquisar_jogadores', { p_q: 'morfeu' })
+  ok(lista.length === 1 && lista[0].ban?.mensagem === 'Saiu de duas partidas seguidas', 'a lista da staff mostra o ban de cada jogador')
+  const historico = await rpc(uids[1], 'avisos_do_jogador', { p_perfil: alvo })
+  ok(historico.length === 3 && historico[0].tipo === 'ban' && historico[0].autor === 'Lince', 'o histórico traz os 3 avisos, o mais recente primeiro, com o autor')
+  await falha(rpc(uids[4], 'avisos_do_jogador', { p_perfil: alvo }), 'equipa do Rangify', 'o histórico é só da staff')
+
+  // RLS: cada um só lê os seus avisos.
+  ok((await como(uids[3], `select count(*)::int as n from staff_avisos`))[0].n === 3, 'o jogador lê os seus avisos')
+  ok((await como(uids[4], `select count(*)::int as n from staff_avisos`))[0].n === 0, 'e não lê os dos outros')
+
+  // Um novo ban para sempre substitui o anterior.
+  const eterno = await rpc(uids[2], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Reincidente', p_horas: null })
+  ok(eterno.permanente === true && eterno.banAte === null, 'sem horas, o ban é para sempre')
+  fila3 = await rpc(uids[3], 'estado_fila')
+  ok(fila3.ban?.permanente === true && fila3.ban?.ate === null && fila3.ban?.mensagem === 'Reincidente', 'o ban para sempre não tem data')
+  await falha(rpc(uids[3], 'entrar_fila'), 'para sempre', 'o ban para sempre diz que é para sempre')
+
+  // Levantar o ban.
+  await falha(rpc(uids[4], 'levantar_ban', { p_perfil: alvo }), 'equipa do Rangify', 'um jogador normal não levanta bans')
+  await rpc(uids[1], 'levantar_ban', { p_perfil: alvo })
+  ok((await rpc(uids[3], 'estado_fila')).ban === null, 'levantado o ban, já não há ban')
+  ok((await rpc(uids[3], 'aviso_pendente')) === null, 'e os popups de bans levantados desaparecem')
+  await rpc(uids[3], 'entrar_fila')
+  ok((await rpc(uids[3], 'estado_fila')).naFila === true, 'depois de levantado, o jogador entra na fila')
+  await rpc(uids[3], 'sair_fila')
+  await falha(rpc(uids[1], 'levantar_ban', { p_perfil: alvo }), 'não está banido', 'não se levanta um ban que não existe')
+
+  // Um ban que já passou da data deixa de valer sozinho.
+  await rpc(uids[1], 'banir_da_fila', { p_perfil: alvo, p_mensagem: 'Ban curto', p_horas: 1 })
+  await raiz(`update profiles set queue_banned_until = now() - interval '1 minute' where id = $1`, [alvo])
+  ok((await rpc(uids[3], 'estado_fila')).ban === null, 'um ban com a data passada deixa de aparecer')
+  await rpc(uids[3], 'entrar_fila')
+  ok((await rpc(uids[3], 'estado_fila')).naFila === true, 'e deixa de impedir a fila')
+  await raiz(`delete from queue_entries`)
+
+  // O ban não cancela uma partida a decorrer.
+  const ids = uids.slice(0, 10).map((_, i) => pid(i))
+  const viva = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await rpc(uids[0], 'banir_da_fila', { p_perfil: pid(5), p_mensagem: 'Teste durante a partida', p_horas: 1 })
+  ok((await raiz(`select state from matches where id = $1`, [viva]))[0].state === 'READY_CHECK', 'um ban a meio de uma partida não a cancela')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [viva])
+
+  // Contagem de jogadores.
+  await falha(rpc(uids[4], 'contar_jogadores'), 'equipa do Rangify', 'a contagem de jogadores é só da staff')
+  ok((await rpc(uids[1], 'contar_jogadores')) === 11, 'a staff vê quantas contas humanas há no site')
+
+  // Limpeza para não afetar outros testes.
+  await raiz(`update profiles set role = 'user' where id in ($1, $2)`, [pid(1), pid(2)])
+  await raiz(`update profiles set queue_banned = false, queue_banned_until = null`)
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0026_avisos_bans.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0026 outra vez não dá erro')
+await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0027 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

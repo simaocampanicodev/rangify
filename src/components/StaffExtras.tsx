@@ -272,31 +272,60 @@ export function DiscordStaff() {
         {eu != null && <Chip tom={eu ? 'vitoria' : 'derrota'}>{eu ? l('O bot encontrou-te no servidor', 'The bot found you in the server') : l('O bot não te encontrou no servidor', 'The bot did not find you in the server')}</Chip>}
         <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver DISCORD.md).', 'Needs the verificar-discord Edge Function deployed (see DISCORD.md).')}</span>
       </div>
-      <MensagemPing />
+      <MensagensDiscord />
     </div>
   )
 }
 
-/** A mensagem do canal de ping, com o botão "Chamar para a fila" (uma chamada de 5 em 5 minutos para o servidor todo). */
-function MensagemPing() {
+/**
+ * Uma mensagem fixa do bot num canal: carregar no botão publica-a ou atualiza a que lá está
+ * (não cria outra).
+ */
+function MensagemDiscord({ titulo, descricao, requisitos, botao, publicar, feito }: {
+  titulo: string; descricao: string; requisitos: string; botao: string; publicar: () => Promise<unknown>; feito: string
+}) {
   const acao = useAcao()
   const [aPublicar, setAPublicar] = useState(false)
-  const publicar = async () => {
+  const correr = async () => {
     setAPublicar(true)
-    await acao(() => dados.publicarPingDiscord(), l('Mensagem do ping publicada no Discord.', 'Ping message posted on Discord.'))
+    await acao(publicar, feito)
     setAPublicar(false)
   }
   return (
     <div className="flex flex-col gap-3 border-t border-white/6 pt-4">
       <span className="flex flex-col gap-1">
-        <span className="text-[14px] font-bold">{l('Botão "Chamar para a fila"', '"Call to the queue" button')}</span>
-        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping. Só pode haver uma chamada de 5 em 5 minutos para o servidor todo, e cada chamada nova apaga a anterior. Carregar aqui outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role. Only one call every 5 minutes for the whole server, and each new call deletes the previous one. Clicking here again updates the same message instead of creating a new one.')}</span>
+        <span className="text-[14px] font-bold">{titulo}</span>
+        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{descricao}</span>
       </span>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-suave" disabled={aPublicar} onClick={publicar}><Megaphone size={15} aria-hidden />{aPublicar ? l('A publicar…', 'Posting…') : l('Publicar ou atualizar a mensagem', 'Post or update the message')}</button>
-        <span className="text-[12.5px] text-mudo">{l('Precisa das funções discord-ping e discord-interacoes (ver DISCORD.md).', 'Needs the discord-ping and discord-interacoes functions (see DISCORD.md).')}</span>
+        <button type="button" className="btn btn-suave" disabled={aPublicar} onClick={correr}><Megaphone size={15} aria-hidden />{aPublicar ? l('A publicar…', 'Posting…') : botao}</button>
+        <span className="text-[12.5px] text-mudo">{requisitos}</span>
       </div>
     </div>
+  )
+}
+
+/** As duas mensagens do bot: o botão de chamar (canal de ping) e a fila com os botões de entrar (canal da fila). */
+function MensagensDiscord() {
+  return (
+    <>
+      <MensagemDiscord
+        titulo={l('Canal de ping: botão "Chamar para a fila"', 'Ping channel: "Call to the queue" button')}
+        descricao={l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping. Só pode haver uma chamada de 5 em 5 minutos para o servidor todo, e cada chamada nova apaga a anterior. Já não mostra quantas pessoas estão na fila (isso é do canal da fila). Carregar aqui outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role. Only one call every 5 minutes for the whole server, and each new call deletes the previous one. It no longer shows how many people are in the queue (that is the queue channel\'s job). Clicking here again updates the same message instead of creating a new one.')}
+        requisitos={l('Precisa das funções discord-ping e discord-interacoes (ver DISCORD.md).', 'Needs the discord-ping and discord-interacoes functions (see DISCORD.md).')}
+        botao={l('Publicar ou atualizar o ping', 'Post or update the ping')}
+        publicar={() => dados.publicarPingDiscord()}
+        feito={l('Mensagem do ping publicada no Discord.', 'Ping message posted on Discord.')}
+      />
+      <MensagemDiscord
+        titulo={l('Canal da fila: quantas pessoas estão na fila', 'Queue channel: how many people are in the queue')}
+        descricao={l('Publica no canal da fila a contagem (n/10) com os botões "Entrar na fila" e "Abrir o site". "Entrar na fila" abre o site e a pessoa entra na fila sozinha, sem carregar no botão do site. A contagem atualiza-se sozinha quando alguém entra ou sai da fila.', 'Posts the queue count (n/10) in the queue channel with the "Join the queue" and "Open the site" buttons. "Join the queue" opens the site and the person joins the queue on their own, without pressing the site\'s button. The count updates by itself when someone joins or leaves the queue.')}
+        requisitos={l('Precisa das funções discord-ping e discord-partida e da migração 0027 (ver DISCORD.md).', 'Needs the discord-ping and discord-partida functions and migration 0027 (see DISCORD.md).')}
+        botao={l('Publicar ou atualizar a fila', 'Post or update the queue')}
+        publicar={() => dados.publicarFilaDiscord()}
+        feito={l('Mensagem da fila publicada no Discord.', 'Queue message posted on Discord.')}
+      />
+    </>
   )
 }
 

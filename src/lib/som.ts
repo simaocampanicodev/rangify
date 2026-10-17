@@ -40,6 +40,15 @@ export function desbloquearSom() {
   } catch { /* sem áudio neste browser */ }
 }
 
+/**
+ * O browser ainda não deixou tocar som (falta o primeiro clique ou toque na página)? Acontece quando
+ * se chega por um link, como o botão "Entrar na fila" do Discord, e a pessoa ainda não mexeu no site.
+ */
+export function somBloqueado(): boolean {
+  desbloquearSom()
+  return !!contexto && contexto.state !== 'running'
+}
+
 function nota(ctx: AudioContext, freq: number, inicio: number, duracao: number, volume: number) {
   const osc = ctx.createOscillator()
   const ganho = ctx.createGain()

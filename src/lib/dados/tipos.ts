@@ -128,6 +128,13 @@ export interface Partida {
   cancelamento: Cancelamento | null
 }
 
+/** O ban da fila de agora, dado pela staff. Sem data, é para sempre. */
+export interface BanFila {
+  ate: string | null
+  permanente: boolean
+  mensagem: string | null
+}
+
 export interface EstadoFila {
   naFila: boolean
   desde: string | null
@@ -136,6 +143,29 @@ export interface EstadoFila {
   cooldownAte: string | null
   /** Hora do servidor, para acertar as contagens com o relógio dele. */
   agora?: string | null
+  /** Banido da fila pela staff: mostra-se em vez do castigo de 5 minutos. */
+  ban?: BanFila | null
+}
+
+/** Um jogador na lista da staff: o perfil e o ban da fila de agora. */
+export interface JogadorStaff extends Perfil {
+  ban: BanFila | null
+}
+
+/** Um aviso ou ban dado pela staff (o popup do jogador e o histórico no cartão dele). */
+export interface AvisoStaff {
+  id: string
+  tipo: 'aviso' | 'ban'
+  mensagem: string
+  /** Só nos bans: quando acaba. */
+  banAte: string | null
+  permanente: boolean
+  criadoEm: string
+  lidoEm: string | null
+  levantadoEm: string | null
+  /** Só para a staff: quem escreveu e como correu a mensagem privada no Discord. */
+  autor?: string | null
+  dm?: 'enviada' | 'falhou' | 'sem_discord' | null
 }
 
 export interface LinhaRanking {
@@ -524,6 +554,8 @@ export interface Dados {
   definirDiscordFila(obrigatorio: boolean, convite: string): Promise<EstadoDiscord>
   /** Owner e Dev: publica no canal de ping a mensagem com o botão "Chamar para a fila" (ou atualiza a que lá está). */
   publicarPingDiscord(): Promise<{ mensagem: string; editada: boolean }>
+  /** Owner e Dev: publica no canal da fila a mensagem com a contagem e os botões "Entrar na fila" e "Abrir o site" (ou atualiza a que lá está). */
+  publicarFilaDiscord(): Promise<{ mensagem: string; editada: boolean }>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
   /** Muda-te para a call da tua equipa, se já estiveres numa call do servidor (o Discord não deixa de outra forma). */
@@ -570,6 +602,22 @@ export interface Dados {
   definirPontos(perfilId: string, pontos: number): Promise<void>
   denuncias(): Promise<Denuncia[]>
   tratarDenuncia(id: string, estado: 'resolvida' | 'arquivada'): Promise<void>
-  pesquisarJogadores(q: string): Promise<Perfil[]>
+  pesquisarJogadores(q: string): Promise<JogadorStaff[]>
   definirFuncao(perfilId: string, funcao: Funcao): Promise<void>
+  /** Quantas contas humanas há no site. */
+  contarJogadores(): Promise<number>
+  /** Escreve um aviso a um jogador (popup no site e mensagem privada no Discord). */
+  avisarJogador(perfilId: string, mensagem: string): Promise<AvisoStaff>
+  /** Bane o jogador da fila: horas null é para sempre. Tira-o da fila já; não cancela uma partida a decorrer. */
+  banirDaFila(perfilId: string, mensagem: string, horas: number | null): Promise<AvisoStaff>
+  levantarBan(perfilId: string): Promise<void>
+  /** Os avisos e bans de um jogador, do mais recente para o mais antigo. */
+  avisosDoJogador(perfilId: string): Promise<AvisoStaff[]>
+
+  // Avisos recebidos
+  /** O aviso mais antigo que ainda não confirmaste (um de cada vez), ou null. */
+  avisoPendente(): Promise<AvisoStaff | null>
+  confirmarAviso(id: string): Promise<void>
+  /** Chama cb quando a staff te dá um aviso ou um ban (no site real, pelo Realtime). */
+  aoMudarAvisos(perfilId: string, cb: () => void): () => void
 }

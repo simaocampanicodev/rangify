@@ -1,0 +1,28 @@
+body { width: 340px; min-height: 420px; }
+#raiz { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.topo { display: flex; align-items: center; gap: 10px; }
+.topo img { width: 28px; height: 28px; border-radius: 8px; }
+.topo .nome { font-weight: 800; font-size: 17px; letter-spacing: -.03em; }
+.topo .grow { flex: 1; min-width: 0; }
+.chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 8px; border: 1px solid rgb(255 91 31 / 0.32); background: rgb(255 91 31 / 0.12); color: var(--pessego-claro); font: 600 11px/1 ui-monospace, monospace; }
+.link { background: none; border: 0; color: var(--mudo); cursor: pointer; font-size: 12px; padding: 4px 2px; }
+.link:hover { color: var(--texto); }
+.roda { display: grid; place-items: center; padding: 6px 0 2px; }
+.roda .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.roda .numero { font: 600 38px/1 ui-monospace, 'JetBrains Mono', monospace; letter-spacing: -.05em; }
+.roda .numero small { font-size: 16px; color: var(--mudo); }
+.roda .legenda { font: 600 11px/1 ui-monospace, monospace; letter-spacing: .1em; color: var(--mudo); }
+.roda .legenda.viva { color: var(--pessego); }
+.roda .caixa { position: relative; }
+.texto { margin: 0; text-align: center; color: var(--suave); font-size: 13px; }
+.texto b { color: var(--texto); }
+.acoes { display: flex; flex-direction: column; gap: 8px; }
+.acoes .linha { display: flex; gap: 8px; }
+.acoes .linha > * { flex: 1; }
+.som { display: flex; align-items: center; gap: 10px; border-top: 1px solid rgb(255 255 255 / 0.07); padding-top: 12px; font-size: 12.5px; color: var(--suave); }
+.som input[type=range] { flex: 1; accent-color: var(--laranja); min-width: 0; }
+.som label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.som input[type=checkbox] { accent-color: var(--laranja); width: 15px; height: 15px; }
+.form { display: flex; flex-direction: column; gap: 8px; }
+.titulo { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+details summary { cursor: pointer; color: var(--suave); font-size: 12.5px; padding: 4px 0; }

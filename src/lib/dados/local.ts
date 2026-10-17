@@ -22,7 +22,7 @@ import {
   type CategoriaLoja, type Cosmeticos, type Raridade,
 } from '../loja'
 import { periodoSemana } from '../tempo'
-import { avisarMudanca } from './eventos'
+import { aoMudarDados, avisarMudanca } from './eventos'
 import {
   aplicarResultado, baralhar, calcularRangifyScore, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
   melhorDisponivel, novoJogador, type JogadorGuardado, type PartidaGuardada,
@@ -32,7 +32,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, Dados, Denuncia, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, Dados, Denuncia, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -68,7 +68,11 @@ interface Estado {
   discord?: { obrigatorio: boolean; convite: string | null; membro: boolean }
   /** A loja de Rangify Coins (só aparece a Owner e Dev até ser pública). */
   loja?: LojaDemo
+  /** Avisos e bans da staff. */
+  avisos?: AvisoGuardado[]
 }
+
+interface AvisoGuardado extends AvisoStaff { alvoId: string; autorId: string }
 
 interface RotacaoLoja { dia: string; diarios: string[]; semanais: string[]; destaque: string | null; semana: string; bloco: number }
 interface LojaDemo {
@@ -207,6 +211,28 @@ function exigirStaff(e: Estado) {
   if (!['owner', 'dev', 'mod'].includes(p.funcao)) throw new Error('Esta área é só para a equipa do Rangify.')
   return p
 }
+
+const NIVEL_FUNCAO: Record<Funcao, number> = { owner: 4, dev: 3, mod: 2, verified: 1, user: 0 }
+
+/** Só pune quem tem uma função acima da do alvo (e ninguém se pune a si próprio). */
+function exigirPodePunir(e: Estado, perfilId: string) {
+  const me = exigirStaff(e)
+  const alvo = e.perfis[perfilId]
+  if (!alvo || alvo.bot) throw new Error('Jogador não encontrado.')
+  if (alvo.id === me.id) throw new Error('Não podes aplicar isto a ti próprio.')
+  if (NIVEL_FUNCAO[alvo.funcao] >= NIVEL_FUNCAO[me.funcao]) throw new Error('Só podes avisar ou banir jogadores com uma função abaixo da tua.')
+  return { me, alvo }
+}
+
+/** O ban da fila que está a valer agora (um ban com a data passada já não conta). */
+function banAtivo(e: Estado, perfilId: string): (BanFila & { aviso: AvisoGuardado }) | null {
+  const a = (e.avisos ?? [])
+    .filter((x) => x.alvoId === perfilId && x.tipo === 'ban' && !x.levantadoEm && (x.permanente || ms(x.banAte) > Date.now()))
+    .sort((x, y) => ms(y.criadoEm) - ms(x.criadoEm))[0]
+  return a ? { ate: a.banAte, permanente: a.permanente, mensagem: a.mensagem, aviso: a } : null
+}
+
+const banPublico = (b: ReturnType<typeof banAtivo>): BanFila | null => (b ? { ate: b.ate, permanente: b.permanente, mensagem: b.mensagem } : null)
 
 /** Sem Riot ID a conta não joga; a palavra-passe pode ficar para depois. */
 function incompleta(p: Perfil) {
@@ -1160,12 +1186,17 @@ export const dadosLocais: Dados = {
     return {
       naFila: !!minha, desde: minha?.desde ?? null, contagem: e.fila.length, regiao: p?.regiao ?? 'eu',
       cooldownAte: p?.cooldownAte && ms(p.cooldownAte) > Date.now() ? p.cooldownAte : null,
+      ban: id ? banPublico(banAtivo(e, id)) : null,
     }
   },
 
   async entrarFila() {
     const e = await pronto()
     const p = eu(e)
+    const ban = banAtivo(e, p.id)
+    if (ban) {
+      throw new Error(`Estás banido da fila ${ban.permanente ? 'para sempre' : 'até ' + new Date(ban.ate!).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Motivo: ${ban.mensagem}`)
+    }
     if (!p.riotId) throw new Error('Liga o teu Riot ID antes de entrar na fila.')
     if (p.cooldownAte && ms(p.cooldownAte) > Date.now()) throw new Error('Ainda estás de castigo por não aceitares uma partida.')
     if (noJogo(e, p.id)) throw new Error('Já tens uma partida a decorrer.')
@@ -1826,6 +1857,10 @@ export const dadosLocais: Dados = {
     throw new Error('A mensagem do ping só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
   },
 
+  async publicarFilaDiscord() {
+    throw new Error('A mensagem da fila só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
   async definirDiscordFila(obrigatorio, convite) {
     const e = await carregar()
     const me = eu(e)
@@ -2033,7 +2068,7 @@ export const dadosLocais: Dados = {
       .filter((p) => !t || p.utilizador.includes(t) || p.riotId?.toLowerCase().includes(t))
       .sort((x, y) => x.utilizador.localeCompare(y.utilizador))
       .slice(0, 25)
-      .map((p) => ({ ...p }))
+      .map((p) => ({ ...p, ban: banPublico(banAtivo(e, p.id)) }))
   },
 
   async definirFuncao(perfilId, funcao: Funcao) {
@@ -2049,5 +2084,92 @@ export const dadosLocais: Dados = {
     alvo.funcao = funcao
     guardar()
     avisarMudanca('staff')
+  },
+  async contarJogadores() {
+    const e = await carregar()
+    exigirStaff(e)
+    return Object.values(e.perfis).filter((p) => !p.bot).length
+  },
+
+  async avisarJogador(perfilId, mensagem) {
+    const e = await carregar()
+    const { me, alvo } = exigirPodePunir(e, perfilId)
+    const msg = mensagem.trim()
+    if (msg.length < 3) throw new Error('Escreve o aviso (pelo menos 3 caracteres).')
+    if (msg.length > 500) throw new Error('O aviso pode ter no máximo 500 caracteres.')
+    const a: AvisoGuardado = {
+      id: novoId(), tipo: 'aviso', mensagem: msg, banAte: null, permanente: false, criadoEm: iso(Date.now()), lidoEm: null, levantadoEm: null,
+      autor: nomeCurto(me), dm: null, alvoId: alvo.id, autorId: me.id,
+    }
+    ;(e.avisos ??= []).push(a)
+    guardar()
+    avisarMudanca('staff')
+    return a
+  },
+
+  async banirDaFila(perfilId, mensagem, horas) {
+    const e = await carregar()
+    const { me, alvo } = exigirPodePunir(e, perfilId)
+    const msg = mensagem.trim()
+    if (msg.length < 3) throw new Error('Escreve o motivo do ban (pelo menos 3 caracteres).')
+    if (msg.length > 500) throw new Error('O motivo pode ter no máximo 500 caracteres.')
+    if (horas != null && (!Number.isInteger(horas) || horas < 1 || horas > 24 * 365)) throw new Error('A duração do ban é de 1 hora até 1 ano (ou para sempre).')
+    const a: AvisoGuardado = {
+      id: novoId(), tipo: 'ban', mensagem: msg, banAte: horas == null ? null : iso(Date.now() + horas * 3_600_000), permanente: horas == null,
+      criadoEm: iso(Date.now()), lidoEm: null, levantadoEm: null, autor: nomeCurto(me), dm: null, alvoId: alvo.id, autorId: me.id,
+    }
+    ;(e.avisos ??= []).push(a)
+    e.fila = e.fila.filter((f) => f.perfilId !== alvo.id)
+    guardar()
+    avisarMudanca('staff')
+    avisarMudanca('fila')
+    return a
+  },
+
+  async levantarBan(perfilId) {
+    const e = await carregar()
+    const { alvo } = exigirPodePunir(e, perfilId)
+    if (!banAtivo(e, alvo.id)) throw new Error('Este jogador não está banido da fila.')
+    for (const a of e.avisos ?? []) {
+      if (a.alvoId === alvo.id && a.tipo === 'ban' && !a.levantadoEm) { a.levantadoEm = iso(Date.now()); a.lidoEm ??= a.levantadoEm }
+    }
+    guardar()
+    avisarMudanca('staff')
+    avisarMudanca('fila')
+  },
+
+  async avisosDoJogador(perfilId) {
+    const e = await carregar()
+    exigirStaff(e)
+    return (e.avisos ?? [])
+      .filter((a) => a.alvoId === perfilId)
+      .sort((x, y) => ms(y.criadoEm) - ms(x.criadoEm))
+      .slice(0, 30)
+      .map(({ alvoId: _a, autorId: _b, ...a }) => a)
+  },
+
+  async avisoPendente() {
+    const e = await carregar()
+    const id = e.sessao?.perfilId
+    if (!id) return null
+    const a = (e.avisos ?? [])
+      .filter((x) => x.alvoId === id && !x.lidoEm && !x.levantadoEm)
+      .sort((x, y) => ms(x.criadoEm) - ms(y.criadoEm))[0]
+    if (!a) return null
+    // O jogador não vê quem foi da staff nem como correu a mensagem privada.
+    const { alvoId: _a, autorId: _b, autor: _c, dm: _d, ...publico } = a
+    return publico
+  },
+
+  async confirmarAviso(id) {
+    const e = await carregar()
+    const me = eu(e)
+    const a = (e.avisos ?? []).find((x) => x.id === id && x.alvoId === me.id)
+    if (a && !a.lidoEm) { a.lidoEm = iso(Date.now()); guardar() }
+  },
+
+  aoMudarAvisos(_perfilId, cb) {
+    // No demo, quem dá o aviso e quem o recebe usam o mesmo browser.
+    return aoMudarDados((o) => { if (o === 'staff') cb() })
   },
 }

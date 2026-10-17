@@ -4,8 +4,11 @@
 //                      está numa call do servidor é logo mudado para a da sua equipa.
 // { tipo: 'limpar' } : apaga os canais e os cargos (o Discord tira-os a toda a gente).
 // { tipo: 'fila' }   : sem partida. Alguém entrou ou saiu da fila: atualiza o texto da fila
-//                      na mensagem do canal de ping (com uma espera, para várias entradas
+//                      na mensagem do canal da fila (com uma espera, para várias entradas
 //                      seguidas darem uma só edição).
+// { tipo: 'aviso', avisoId } : a staff deu um aviso ou um ban da fila. Manda ao jogador uma
+//                      mensagem privada do bot e guarda em staff_avisos.dm como correu (o aviso
+//                      continua a valer no site se as mensagens privadas estiverem fechadas).
 // O que foi criado fica em match_discord, para a limpeza saber o que apagar.
 import { SITE, admin, erro, resposta } from '../_shared/comum.ts'
 import { atualizarMensagemFila } from '../_shared/discord-ping.ts'
@@ -94,7 +97,6 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
     .select('team, profile_id, profiles(auth_id, riot_id, username, is_bot)')
     .eq('match_id', matchId)
   const codigo: string = m.code
-  const nomeCanal = codigo.toLowerCase()
   const eu = await discord<{ id: string }>('GET', '/users/@me')
 
   const cargo = (await discord<{ id: string }>('POST', `/guilds/${guild}/roles`, { name: codigo, color: LARANJA, permissions: '0', mentionable: false }))!.id
@@ -128,12 +130,12 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
   // Cada ID é guardado logo que existe: se algo falhar a meio, a limpeza apaga o que ficou.
   const guardar = (campos: Record<string, string>) => db.from('match_discord').update(campos).eq('match_id', matchId)
   const categoria = (await discord<{ id: string }>('POST', `/guilds/${guild}/channels`, {
-    name: codigo, type: 4,
+    name: `✦ ${codigo}`, type: 4,
     permission_overwrites: [...base, { id: cargo, type: 0, allow: p(VER, ESCREVER, HISTORICO), deny: '0' }],
   }))!.id
   await guardar({ categoria_id: categoria })
   const texto = (await discord<{ id: string }>('POST', `/guilds/${guild}/channels`, {
-    name: `「💬」${nomeCanal}`, type: 0, parent_id: categoria,
+    name: `💬╺╸${codigo}`, type: 0, parent_id: categoria,
     topic: `Chat da partida ${codigo} no Rangify. Desaparece quando a partida acabar.`,
     permission_overwrites: [...base, { id: cargo, type: 0, allow: p(VER, ESCREVER, HISTORICO), deny: '0' }],
   }))!.id
@@ -147,9 +149,9 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
       { id: cargoEquipa, type: 0, allow: p(VER, LIGAR, FALAR, VOZ_AUTO), deny: '0' },
     ],
   }))!.id
-  const vozA = await voz('「🔊」Team A', cargoA)
+  const vozA = await voz('🔊╺╸Team A', cargoA)
   await guardar({ voz_a_id: vozA })
-  const vozB = await voz('「🔊」Team B', cargoB)
+  const vozB = await voz('🔊╺╸Team B', cargoB)
   await guardar({ voz_b_id: vozB, estado: 'criado' })
 
   // Quem já está numa call do servidor (por exemplo, à espera) passa logo para a da equipa.
@@ -178,6 +180,40 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** A mensagem privada de um aviso ou ban. Nunca lança por DMs fechadas: regista-o e segue. */
+async function enviarAviso(db: ReturnType<typeof admin>, avisoId: string) {
+  const { data: a } = await db.from('staff_avisos').select('id, kind, message, ban_until, target_id').eq('id', avisoId).maybeSingle()
+  if (!a) return { enviado: false }
+  const guardar = (dm: 'enviada' | 'falhou' | 'sem_discord') => db.from('staff_avisos').update({ dm }).eq('id', avisoId)
+  const { data: alvo } = await db.from('profiles').select('auth_id, is_bot').eq('id', a.target_id).maybeSingle()
+  const discordId = alvo?.auth_id && !alvo.is_bot ? await idDiscord(db, alvo.auth_id) : null
+  if (!discordId) { await guardar('sem_discord'); return { enviado: false, motivo: 'sem_discord' } }
+
+  const ban = a.kind === 'ban'
+  const quando = a.ban_until ? Math.floor(Date.parse(a.ban_until) / 1000) : null
+  const embed = {
+    title: ban ? '⛔ Foste banido da fila do Rangify' : '⚠️ Aviso da staff do Rangify',
+    description: ban ? 'Não podes entrar na fila durante este tempo. Uma partida que já esteja a decorrer não é afetada.' : 'A staff do Rangify deixou-te um aviso.',
+    color: ban ? 0xe5484d : LARANJA,
+    fields: [
+      { name: ban ? 'Motivo' : 'Aviso', value: String(a.message).slice(0, 1000) },
+      ...(ban ? [{ name: 'Duração', value: quando ? `Até <t:${quando}:f> (<t:${quando}:R>)` : 'Permanente' }] : []),
+    ],
+    footer: { text: SITE ? `Rangify · ${SITE.replace(/^https?:\/\//, '')}` : 'Rangify' },
+  }
+  try {
+    const canal = await discord<{ id: string }>('POST', '/users/@me/channels', { recipient_id: discordId })
+    await discord('POST', `/channels/${canal!.id}/messages`, { embeds: [embed], allowed_mentions: { parse: [] } })
+    await guardar('enviada')
+    return { enviado: true }
+  } catch (e) {
+    // 403 / 50007: o jogador tem as mensagens privadas do servidor fechadas.
+    console.error('aviso', e instanceof Error ? e.message : e)
+    await guardar('falhou')
+    return { enviado: false, motivo: 'falhou' }
+  }
+}
+
 /**
  * Só um pedido espera de cada vez (reservar); os que chegam entretanto deixam a contagem para ele,
  * que a lê depois da espera. O Discord só deixa editar uma mensagem umas vezes por segundo.
@@ -194,8 +230,12 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return erro('Só POST.', 405)
   const segredo = Deno.env.get('DISCORD_SEGREDO')
   if (!segredo || req.headers.get('x-rangify-segredo') !== segredo) return erro('Sem autorização.', 401)
-  const { tipo, matchId } = await req.json().catch(() => ({})) as { tipo?: string; matchId?: string }
+  const { tipo, matchId, avisoId } = await req.json().catch(() => ({})) as { tipo?: string; matchId?: string; avisoId?: string }
   const db = admin()
+  if (tipo === 'aviso') {
+    if (!avisoId || !/^[0-9a-f-]{36}$/i.test(avisoId)) return erro('Pedido inválido.')
+    try { return resposta(await enviarAviso(db, avisoId)) } catch (e) { console.error(e); return erro('Não foi possível enviar o aviso.', 500) }
+  }
   if (tipo === 'fila') {
     try { return resposta(await atualizarFila(db)) } catch (e) { console.error(e); return erro('Não foi possível atualizar a fila.', 500) }
   }

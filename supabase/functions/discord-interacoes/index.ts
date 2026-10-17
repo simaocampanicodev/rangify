@@ -8,8 +8,8 @@
 // O Discord assina cada pedido; sem a assinatura certa (chave pública da aplicação,
 // secret DISCORD_PUBLIC_KEY) a resposta é 401, como o Discord exige.
 import nacl from 'npm:tweetnacl@1.0.3'
-import { SITE, admin } from '../_shared/comum.ts'
-import { BOTAO_PING, CANAL_PING, CARGO_PING, SEGUNDOS_ENTRE_PINGS } from '../_shared/discord-ping.ts'
+import { admin } from '../_shared/comum.ts'
+import { BOTAO_PING, CANAL_PING, CARGO_PING, LINK_ENTRAR_NA_FILA, SEGUNDOS_ENTRE_PINGS } from '../_shared/discord-ping.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -72,7 +72,8 @@ async function chamar(quem: string) {
     content: `<@&${CARGO_PING}> <@${quem}> está a chamar para a fila! Entra no hub e bora jogar.`,
     // Só o cargo é pingado; quem chamou aparece, mas não recebe notificação.
     allowed_mentions: { roles: [CARGO_PING] },
-    components: SITE ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila', url: `${SITE}/jogar` }] }] : [],
+    // O botão abre o site e entra na fila sozinho (o site trata do ?fila=1).
+    components: LINK_ENTRAR_NA_FILA ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila', emoji: { name: '⚡' }, url: LINK_ENTRAR_NA_FILA }] }] : [],
   })
   if (!publicada.ok) {
     console.error('Discord', publicada.status, await publicada.text())

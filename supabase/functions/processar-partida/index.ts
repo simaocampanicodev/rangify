@@ -1,11 +1,15 @@
 // Estado 8 do PRD (PROCESSING_API): procura a partida personalizada no
 // histórico do Capitão A na Henrik Dev API, reconhece-a pelo mapa, pela hora e
 // pelos jogadores, tira o resultado e as estatísticas de cada jogador (KDA, ACS,
-// first bloods, trades, HS% e KAST) e fecha a partida com aplicar_resultado.
+// first bloods, trades, HS% e KAST) e fecha a partida com aplicar_resultado. Depois de
+// fechar, volta a ler o rank oficial dos dez jogadores (ver _shared/ranks.ts).
 // Se ainda não aparecer, devolve { pendente: true } e o site volta a pedir; ao
-// fim de 30 minutos a partida vai para a staff (Disputas), que decide o resultado.
+// fim de 30 minutos a partida vai para a staff (Resultados), que decide o resultado.
 import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
 import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
+import { atualizarRanksDaPartida } from '../_shared/ranks.ts'
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
 /** Cada consulta à API gasta pedidos da chave: no máximo uma por minuto por partida, venha de quem vier. */
 const SEGUNDOS_ENTRE_CONSULTAS = 60
@@ -50,6 +54,10 @@ Deno.serve(async (req) => {
       // É esta. O resultado e quem ganhou vêm da API (os capitães só votaram na equipa vencedora).
       const { error } = await db.rpc('aplicar_resultado', { p_match: matchId, p_a: achada.a, p_b: achada.b, p_stats: achada.stats })
       if (error) return erro(error.message)
+      // Os ranks oficiais dos dez jogadores atualizam-se em segundo plano (são uns 20 s de pedidos à API):
+      // quem chama não espera, e uma falha aqui nunca desfaz uma partida já fechada.
+      const ranks = atualizarRanksDaPartida(db, matchId).catch((e) => console.error('ranks', e))
+      if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(ranks)
       return resposta({ estado: 'COMPLETED' })
     }
     return resposta({ pendente: true })
