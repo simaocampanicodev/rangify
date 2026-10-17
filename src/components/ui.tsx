@@ -118,7 +118,7 @@ export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo, 
   opcoes: { valor: T; texto: ReactNode }[]; valor: T; onChange: (v: T) => void; rotulo: string; pequeno?: boolean
 }) {
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex shrink-0 gap-1 rounded-xl border border-white/7 bg-white/[0.035] p-1">
+    <div role="group" aria-label={rotulo} className="inline-flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-xl border border-white/7 bg-white/[0.035] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {opcoes.map((o) => {
         const ativo = o.valor === valor
         return (
@@ -127,7 +127,7 @@ export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo, 
             type="button"
             aria-pressed={ativo}
             onClick={() => onChange(o.valor)}
-            className={`${pequeno ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13px]'} cursor-pointer rounded-lg border font-semibold transition-colors ${ativo ? 'border-laranja/32 bg-laranja/14 text-pessego-claro' : 'border-transparent bg-transparent text-suave hover:text-texto'}`}
+            className={`${pequeno ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13px]'} shrink-0 cursor-pointer whitespace-nowrap rounded-lg border font-semibold transition-colors ${ativo ? 'border-laranja/32 bg-laranja/14 text-pessego-claro' : 'border-transparent bg-transparent text-suave hover:text-texto'}`}
           >
             {o.texto}
           </button>

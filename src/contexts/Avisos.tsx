@@ -22,7 +22,7 @@ export function ProvedorAvisos({ children }: { children: ReactNode }) {
   return (
     <Contexto.Provider value={avisar}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed right-4 bottom-4 z-[80] flex w-[min(380px,calc(100vw-32px))] flex-col gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-4 top-3 z-[80] flex flex-col gap-2 sm:inset-x-auto sm:top-auto sm:right-4 sm:bottom-4 sm:w-[380px]">
         {lista.map((a) => (
           <div key={a.id} role={a.tipo === 'erro' ? 'alert' : 'status'} className="painel entra pointer-events-auto flex items-start gap-3 !rounded-xl px-4 py-3 text-[13.5px] shadow-2xl">
             {a.tipo === 'erro'

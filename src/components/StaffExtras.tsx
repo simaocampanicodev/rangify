@@ -408,7 +408,7 @@ function RecarregarTodas() {
   return (
     <div className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.025] p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-1 basis-[200px] flex-col gap-0.5">
           <span className="text-[14px] font-bold">{l('Recarregar todas as partidas', 'Reload all matches')}</span>
           <span className="text-[12.5px] text-mudo">{l('Percorre todas as partidas terminadas, uma a uma. Cada jogador só recebe a diferença nos pontos.', 'Goes through every finished match, one by one. Each player only gets the points difference.')}</span>
         </span>
@@ -473,7 +473,7 @@ export function RecarregarStaff() {
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {linhas.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-[13px] border border-white/7 bg-white/[0.025] px-4 py-3">
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex min-w-0 flex-1 basis-[200px] flex-col gap-0.5">
                 <span className="font-mono text-[13px] font-semibold text-pessego">{m.codigo} · {m.mapa ?? '-'} · {m.resultadoA}-{m.resultadoB}</span>
                 <span className="text-[12.5px] text-mudo">{l('Equipa', 'Team')} {m.capitaoA} vs {l('Equipa', 'Team')} {m.capitaoB} · {haQuanto(m.terminouEm)}</span>
               </span>

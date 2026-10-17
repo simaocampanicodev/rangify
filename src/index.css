@@ -220,6 +220,8 @@ html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; backgrou
 .ban-cartao .ban-aberto > button { align-self: stretch; }
 .ban-banido .ban-fundo { filter: grayscale(1) brightness(0.45); }
 .ban-decisivo { border-color: #ff5b1f; box-shadow: 0 30px 80px -30px rgb(255 91 31 / 0.8); }
+.so-hover { display: none; }
+@media (hover: hover) and (min-width: 1000px) { .so-hover { display: inline; } }
 @media (hover: hover) and (min-width: 1000px) {
   .ban-linha { display: flex; gap: 8px; height: clamp(440px, 62vh, 580px); }
   .ban-cartao { flex: 1 1 0; min-width: 52px; height: auto; }

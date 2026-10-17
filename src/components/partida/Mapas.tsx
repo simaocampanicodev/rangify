@@ -199,7 +199,7 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
       <p className="m-0 text-[13px] text-mudo">
         {ladoAgora
           ? l('Se o tempo acabar, vale o lado mais sugerido pela equipa, ou um ao calhas.', 'If time runs out, the side most suggested by the team goes, or a random one.')
-          : <>{souCapitao || possoSugerir ? l('Para o rato num mapa para o abrir. ', 'Hover a map to open it. ') : ''}{l('Os mapas banidos ficam a cinzento; o que sobrar é o da partida.', 'Banned maps turn grey; the one left over is the match map.')}</>}
+          : <>{(souCapitao || possoSugerir) && <span className="so-hover">{l('Para o rato num mapa para o abrir. ', 'Hover a map to open it. ')}</span>}{l('Os mapas banidos ficam a cinzento; o que sobrar é o da partida.', 'Banned maps turn grey; the one left over is the match map.')}</>}
       </p>
     </div>
   )

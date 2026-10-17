@@ -60,13 +60,13 @@ function CancelarPartida({ p }: { p: Partida }) {
   return (
     <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
       <span className="grid size-11 place-items-center rounded-xl border border-derrota/30 bg-derrota/10 text-derrota"><UserX size={19} aria-hidden /></span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 basis-[200px] flex-col gap-0.5">
         <span className="text-[14px] font-bold">{l('Alguém caiu ou não pode jogar?', 'Did someone drop or can they not play?')}</span>
         <span className="text-[12.5px] text-mudo">
           {l(`Se ${c.necessarios} jogadores votarem, a partida é cancelada, sem pontos nem castigos, e ninguém fica preso.`, `If ${c.necessarios} players vote, the match is cancelled with no points and no penalties, and nobody is stuck.`)}
         </span>
       </span>
-      <span className="flex items-center gap-3">
+      <span className="flex flex-wrap items-center gap-3">
         <span className="flex flex-col items-end gap-1" role="status" aria-live="polite">
           <span className="font-mono text-[15px] font-bold">{c.votos}/{c.necessarios}</span>
           <span className="block h-1.5 w-24 overflow-hidden rounded-full bg-white/8"><span className="block h-full rounded-full bg-derrota transition-[width] duration-300" style={{ width: `${Math.min(100, (c.votos / c.necessarios) * 100)}%` }} /></span>
@@ -177,7 +177,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               {emCurso && (
                 <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <span className="grid size-11 place-items-center rounded-xl border border-laranja/32 bg-laranja/12 text-laranja"><Lock size={19} aria-hidden /></span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex min-w-0 flex-1 basis-[160px] flex-col gap-0.5">
                     <span className="text-[14px] font-bold">{l('Resultado bloqueado', 'Result locked')}</span>
                     <span className="text-[12.5px] text-mudo">{l('Abre automaticamente quando o tempo acabar.', 'Opens automatically when the timer ends.')}</span>
                   </span>
