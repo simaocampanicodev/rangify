@@ -44,8 +44,25 @@ function parar(mensagem) {
 
 if (!siteArg) parar('Diz-me onde está o site: npm run extensao -- https://o-teu-site.onrender.com (ou --dev para o localhost:5175).')
 if (!supabaseUrl || !supabaseKey) parar('Faltam VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env: a extensão só funciona com o Supabase ligado (o modo demo vive no browser do site).')
-let siteOrigem
-try { siteOrigem = new URL(siteArg).origin } catch { parar(`"${siteArg}" não é um endereço válido.`) }
+/**
+ * O endereço do site como o browser o entende. Sem "https://" (por exemplo "rangify.onrender.com") acrescenta-o;
+ * "localhost" e os endereços de rede local usam "http://". Um "localhost:5175" sem esquema seria lido como
+ * esquema "localhost:" e deixava o manifesto inválido ("Missing scheme separator").
+ */
+function origemDoSite(texto) {
+  const t = texto.trim()
+  const comEsquema = /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `${/^(localhost|127\.|192\.168\.|10\.)/i.test(t) ? 'http' : 'https'}://${t}`
+  try {
+    const u = new URL(comEsquema)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+    return u.origin
+  } catch {
+    return null
+  }
+}
+
+const siteOrigem = origemDoSite(siteArg)
+if (!siteOrigem) parar(`"${siteArg}" não é um endereço de site válido. Usa algo como https://o-teu-site.onrender.com`)
 
 const origens = [siteOrigem, ...(dev && siteOrigem !== 'http://localhost:5175' ? ['http://localhost:5175'] : [])]
 
