@@ -282,9 +282,18 @@ html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; backgrou
  */
 html.overlay-obs, html.overlay-obs body { background: transparent !important; overflow: hidden; }
 @keyframes rg-ov-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
-@keyframes rg-ov-pulsa { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
-@keyframes rg-ov-brilho { from { background-position: 200% 0 } to { background-position: -100% 0 } }
-@keyframes rg-ov-raio { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 var(--ov)) } 50% { transform: scale(1.12); filter: drop-shadow(0 0 7px var(--ov)) } }
-@keyframes rg-ov-seta { 0%, 100% { transform: translate(0, 0) } 50% { transform: translate(3px, -3px) } }
-@keyframes rg-ov-flutua { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@keyframes rg-ov-pulsa { 0%, 100% { opacity: 1 } 50% { opacity: .4 } }
+/* O aviso de fim de partida: entra, fica e sai (dura os 9 s que o componente espera). */
+@keyframes rg-ov-banner { 0% { opacity: 0; transform: translateY(-14px) } 5% { opacity: 1; transform: none } 90% { opacity: 1; transform: none } 100% { opacity: 0; transform: translateY(-6px) } }
+@keyframes rg-ov-varre { from { transform: translateX(-100%) } to { transform: translateX(560%) } }
+/* A marca animada: um ciclo de 7,2 s com três mensagens de 2,4 s. Tudo volta ao ponto de partida no fim (o GIF fecha sem saltos). */
+/* Cada mensagem entra, fica e sai um pouco por cima da seguinte (as duas trocam-se sem um ecrã vazio no meio). */
+@keyframes rg-ov-c-slide { 0% { opacity: 0; transform: translateY(14px) } 5% { opacity: 1; transform: none } 31% { opacity: 1; transform: none } 38% { opacity: 0; transform: translateY(-14px) } 100% { opacity: 0; transform: translateY(-14px) } }
+@keyframes rg-ov-c-prog { 0% { transform: scaleX(0) } 33% { transform: scaleX(1) } 33.3%, 100% { transform: scaleX(0) } }
+@keyframes rg-ov-c-tile {
+  0%, 33.3%, 66.6%, 100% { transform: scale(1) rotate(0) }
+  3%, 36.3%, 69.6% { transform: scale(1.14) rotate(-6deg) }
+  9%, 42.3%, 75.6% { transform: scale(1) rotate(0) }
+}
+@keyframes rg-ov-c-varre { 0%, 50% { transform: translateX(-130%) } 80%, 100% { transform: translateX(560%) } }
 @media (prefers-reduced-motion: reduce) { .rg-ov-anim { animation: none !important } }

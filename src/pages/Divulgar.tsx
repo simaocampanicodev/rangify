@@ -1,5 +1,5 @@
 import { Check, Copy, Download, ExternalLink, Gift, Link2, Megaphone, MonitorPlay, RefreshCw, Sparkles, Unlink } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconeTwitch } from '@/components/AoVivo'
 import { BotaoSegurar, Cabecalho, Carregando, Chip, Painel, Segmentado, TituloPainel } from '@/components/ui'
@@ -28,6 +28,7 @@ const CAMPOS: { id: string; nome: [string, string] }[] = [
   { id: 'hoje', nome: ['O dia (V, D, pontos)', 'Today (W, L, points)'] },
   { id: 'estado', nome: ['Fila ou partida', 'Queue or match'] },
   { id: 'ultima', nome: ['Última partida', 'Last match'] },
+  { id: 'fim', nome: ['Aviso de fim de partida', 'Match-end banner'] },
 ]
 
 interface Preferencias { estilo: 'cartao' | 'barra'; cor: string; campos: string[]; escala: number }
@@ -44,6 +45,26 @@ function lerPreferencias(): Preferencias {
 
 /** Um quadriculado para se ver o fundo transparente do overlay. */
 const XADREZ = { backgroundImage: 'conic-gradient(#1a1a1f 25%, #111115 0 50%, #1a1a1f 0 75%, #111115 0)', backgroundSize: '20px 20px' }
+
+/** Mostra uma página do overlay no tamanho que ela tem no OBS, encolhida para caber na largura do painel. */
+function Previsao({ src, titulo, largura, altura }: { src: string; titulo: string; largura: number; altura: number }) {
+  const caixa = useRef<HTMLDivElement>(null)
+  const [k, setK] = useState(1)
+  useLayoutEffect(() => {
+    const el = caixa.current
+    if (!el) return
+    const medir = () => setK(Math.min(1, el.clientWidth / largura))
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [largura])
+  return (
+    <div ref={caixa} className="overflow-hidden rounded-xl border border-white/10" style={{ ...XADREZ, height: altura * k }}>
+      <iframe key={src} src={src} title={titulo} style={{ width: largura, height: altura, transform: `scale(${k})`, transformOrigin: 'top left', border: 0, display: 'block' }} />
+    </div>
+  )
+}
 
 function useCopiar() {
   const avisar = useAvisos()
@@ -84,7 +105,9 @@ function PainelOverlay() {
   if (prefs.escala !== 100) q.set('escala', String(prefs.escala))
   const resto = q.toString() ? `?${q}` : ''
   const url = `${window.location.origin}/overlay/${k}${resto}`
-  const tamanho = prefs.estilo === 'barra' ? [980, 90] : [360, 260]
+  // Com o aviso de fim de partida ligado, o overlay reserva uns 66 px por cima para ele aparecer.
+  const comAviso = prefs.campos.includes('fim')
+  const tamanho = prefs.estilo === 'barra' ? [1050, 104 + (comAviso ? 66 : 0)] : [360, 304 + (comAviso ? 66 : 0)]
   const largura = Math.round((tamanho[0] * prefs.escala) / 100)
   const altura = Math.round((tamanho[1] * prefs.escala) / 100)
   const alternar = (id: string) => setPrefs((p) => ({ ...p, campos: p.campos.includes(id) ? (p.campos.length > 1 ? p.campos.filter((c) => c !== id) : p.campos) : CAMPOS.map((c) => c.id).filter((c) => c === id || p.campos.includes(c)) }))
@@ -126,9 +149,7 @@ function PainelOverlay() {
           ))}
         </div>
       </fieldset>
-      <div className="overflow-hidden rounded-xl border border-white/10" style={XADREZ}>
-        <iframe key={url} src={url} title={l('Pré-visualização do overlay', 'Overlay preview')} className="block h-[270px] w-full border-0" />
-      </div>
+      <Previsao src={url} titulo={l('Pré-visualização do overlay', 'Overlay preview')} largura={largura} altura={altura} />
       <CampoLink valor={url} rotulo={l('Link do overlay', 'Overlay link')} aoCopiar={() => copiar(url, l('Link do overlay copiado.', 'Overlay link copied.'))} />
       <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[13px] leading-normal text-suave">
         <li>{l('No OBS, em Fontes carrega em +, escolhe', 'In OBS, under Sources press +, choose')} <b className="text-texto">{l('Navegador', 'Browser')}</b>.</li>
@@ -158,12 +179,12 @@ function PainelMarca() {
     <Painel aria-labelledby="rg-div-marca" className="flex min-w-0 flex-[1_1_420px] flex-col gap-4 p-[22px]">
       <TituloPainel eyebrow={l('PARA UM CANTINHO', 'FOR A CORNER')} titulo={l('Marca animada', 'Animated badge')} id="rg-div-marca" direita={<Sparkles size={20} className="text-laranja" aria-hidden />} />
       <p className="m-0 text-[13px] leading-normal text-mudo">
-        {l('Um pequeno cartão animado com o Rangify e o endereço do site, para pores num canto da live. Duas formas: o GIF pronto (qualquer programa aceita) ou a versão para o OBS com o teu link de convite.', 'A small animated card with Rangify and the site address, to put in a corner of your stream. Two ways: the ready-made GIF (any program takes it) or the OBS version with your invite link.')}
+        {l('Um pequeno cartão animado para pores num canto da live: três mensagens que se trocam (o Rangify, o endereço do site e um convite). Duas formas: o GIF pronto (qualquer programa aceita) ou a versão para o OBS com o teu link de convite inteiro.', 'A small animated card with Rangify and the site address, to put in a corner of your stream. Two ways: the ready-made GIF (any program takes it) or the OBS version with your invite link.')}
       </p>
       <div className="flex flex-col gap-2.5 rounded-xl border border-white/8 bg-white/[0.025] p-3.5">
         <span className="text-[13.5px] font-bold">{l('GIF animado', 'Animated GIF')}</span>
         <div className="flex justify-center rounded-lg border border-white/10 p-3" style={XADREZ}>
-          <img src={CAMINHO_GIF} alt={l('Marca animada do Rangify com o endereço do site', 'Animated Rangify badge with the site address')} className="h-auto w-auto max-w-full min-w-0" />
+          <img src={CAMINHO_GIF} alt={l('Marca animada do Rangify com o endereço do site', 'Animated Rangify badge with the site address')} width={440} height={116} className="h-auto w-auto max-w-full min-w-0" />
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <a href={CAMINHO_GIF} download="rangify-canto.gif" className="btn btn-primario no-underline"><Download size={16} aria-hidden />{l('Descarregar o GIF', 'Download the GIF')}</a>
@@ -179,11 +200,9 @@ function PainelMarca() {
         </div>
         {url && (
           <>
-            <div className="overflow-hidden rounded-lg border border-white/10" style={XADREZ}>
-              <iframe key={url} src={url} title={l('Pré-visualização da marca', 'Badge preview')} className="block h-[150px] w-full border-0" />
-            </div>
+            <Previsao src={url} titulo={l('Pré-visualização da marca', 'Badge preview')} largura={460} altura={140} />
             <CampoLink valor={url} rotulo={l('Link da marca', 'Badge link')} aoCopiar={() => copiar(url, l('Link da marca copiado.', 'Badge link copied.'))} />
-            <span className="text-[12px] text-mudo">{l('OBS: fonte Navegador, 440 × 135. Mostra o teu link de convite, por isso quem vê a live pode registar-se por ti.', 'OBS: Browser source, 440 × 135. It shows your invite link, so viewers can sign up through you.')}</span>
+            <span className="text-[12px] text-mudo">{l('OBS: fonte Navegador, 460 × 140. Mostra o teu link de convite inteiro e o bónus que quem se regista recebe.', 'OBS: Browser source, 460 × 140. It shows your full invite link and the bonus new players get.')}</span>
           </>
         )}
       </div>
