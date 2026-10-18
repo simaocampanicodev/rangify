@@ -521,7 +521,23 @@ const miss1 = await rpc(uids[0], 'missoes')
 ok(miss1.find((m) => m.id === 'd-jogar').concluida, 'e a missão aparece concluída')
 ok((await raiz('select count(*)::int as n from quest_completions c join profiles p on p.id = c.profile_id where p.is_bot'))[0].n === 0, 'os bots não ganham XP')
 const rn = await rpc(uids[4], 'ranking_nivel', { p_limite: 10 })
-ok(rn[0].perfil.id === pid(0) && rn[0].xp === exp1.xp && rn[0].nivel === exp1.nivel && exp1.posicao === 1, 'o ranking de nível ordena por XP')
+// Os outros jogadores já têm XP das partidas anteriores: a rotação diária inicial é sorteada (vitória, capitão...)
+// e abrange o dia todo, por isso quem lidera muda de execução para execução. A ordem esperada sai dos dados,
+// com o desempate do ranking: XP, depois pontos, depois utilizador.
+const xpPorJogador = await raiz(`
+  select p.id, coalesce(sum(c.xp), 0)::int as xp
+  from profiles p left join quest_completions c on c.profile_id = p.id
+  where _na_tabela(p)
+  group by p.id
+  order by xp desc, p.points desc, p.username`)
+const topNivel = xpPorJogador.slice(0, 10)
+ok(rn.length === topNivel.length && topNivel.length > 1
+  && rn.map((l) => l.perfil.id).join() === topNivel.map((l) => l.id).join()
+  && rn.map((l) => l.xp).join() === topNivel.map((l) => l.xp).join()
+  && rn.every((l, i) => l.posicao === i + 1), 'o ranking de nível ordena por XP')
+const rnEu = rn.find((l) => l.perfil.id === pid(0))
+ok(rnEu?.xp === exp1.xp && rnEu.nivel === exp1.nivel, 'e traz o XP e o nível de quem acabou de ganhar XP')
+ok(exp1.posicao === 1 + xpPorJogador.filter((l) => l.xp > exp1.xp).length, 'o lugar na experiência conta quem tem mais XP')
 ok(exp1.total === 10 && exp1.xpSemana >= 100, 'experiência com o total de jogadores e o XP da semana')
 await rpc(uids[0], 'remover_partida', { p_match: xpm.id })
 ok((await rpc(uids[0], 'experiencia')).xp === xpAntesReset, 'remover a partida tira o XP das missões que ela completou')
