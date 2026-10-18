@@ -282,7 +282,7 @@ function publica(e: Estado, p: PartidaGuardada): Partida {
 
 const MINUTOS_CANCELAR = 10
 
-/** Só as pessoas votam: a maioria delas cancela a partida. No demo, os outros jogadores são simulados, por isso a única pessoa és tu. */
+/** Só as pessoas votam: 70% delas (7 de 10) cancelam a partida. No demo, os outros jogadores são simulados, por isso a única pessoa és tu. */
 function pessoasDa(e: Estado, p: PartidaGuardada) {
   const eu = e.sessao?.perfilId
   return p.jogadores.filter((j) => j.equipa && j.perfilId === eu).map((j) => j.perfilId)
@@ -295,7 +295,7 @@ function estadoCancelamento(e: Estado, p: PartidaGuardada) {
   const votos = (p.votosCancelar ?? []).filter((id) => pessoas.includes(id))
   return {
     votos: votos.length,
-    necessarios: Math.max(1, Math.floor(pessoas.length / 2) + 1),
+    necessarios: Math.max(1, Math.ceil(pessoas.length * 0.7)),
     euVotei: votos.includes(eu),
     aberto: p.estado === 'LOBBY_CREATION' || (!!p.comecouEm && Date.now() - ms(p.comecouEm) < MINUTOS_CANCELAR * 60_000),
   }
@@ -1354,7 +1354,7 @@ export const dadosLocais: Dados = {
     const p = obterPartida(e, id)
     const me = eu(e)
     if (p.estado !== 'LOBBY_CREATION') throw new Error('O código já foi partilhado.')
-    if (p.capitaoA !== me.id) throw new Error('Só o capitão da Equipa A cria o grupo.')
+    if (p.capitaoA !== me.id && p.capitaoB !== me.id) throw new Error('Só os capitães criam o grupo.')
     const c = codigo.trim().toUpperCase()
     if (!PADRAO_CODIGO.test(c)) throw new Error('O código tem 6 letras ou números.')
     comecar(p, c, Date.now())

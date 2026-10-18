@@ -44,7 +44,7 @@ function DefinicoesLobby() {
   )
 }
 
-/** Alguém caiu ou não pode jogar: com a maioria dos votos a partida é cancelada, sem pontos nem castigos. */
+/** Alguém caiu ou não pode jogar: com 7 votos de 10 a partida é cancelada, sem pontos nem castigos. */
 function CancelarPartida({ p }: { p: Partida }) {
   const acao = useAcao()
   const { atualizar } = usePartida()
@@ -79,7 +79,7 @@ function CancelarPartida({ p }: { p: Partida }) {
   )
 }
 
-/** LOBBY_CREATION e IN_PROGRESS: o Capitão A partilha o código e começa o bloqueio de 15 minutos. */
+/** LOBBY_CREATION e IN_PROGRESS: um dos capitães (A ou B) partilha o código e começa o bloqueio de 15 minutos. */
 export function Codigo({ p, eu }: { p: Partida; eu: string }) {
   const acao = useAcao()
   const avisar = useAvisos()
@@ -88,7 +88,10 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
   const [codigo, setCodigo] = useState('')
   const [aGuardar, setAGuardar] = useState(false)
   const capA = capitao(p, 'A')
-  const souHost = p.capitaoA === eu && !p.automatica
+  const capB = capitao(p, 'B')
+  // Qualquer um dos dois capitães partilha o código: o primeiro a guardar vale, para a partida não cair se um se esquecer.
+  const souCapitao = (p.capitaoA === eu || p.capitaoB === eu) && !p.automatica
+  const nomesCapitaes = [capA, capB].filter((c) => !!c).map((c) => nomeJogador(c!)).join(l(' ou ', ' or '))
   const emCurso = p.estado === 'IN_PROGRESS'
   const valido = PADRAO_CODIGO.test(codigo)
   const minha = p.jogadores.find((j) => j.perfilId === eu)
@@ -137,7 +140,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               </span>
             )}
             <h1 id="rg-cod-titulo" className="m-0 text-[clamp(30px,3.6vw,42px)] leading-[1.04] font-black tracking-[-0.04em]">
-              {emCurso ? l('Boa partida. O resultado abre daqui a pouco.', 'Good game. The result opens shortly.') : souHost ? l('Cria o grupo e partilha o código', 'Create the party and share the code') : l(`${capA ? nomeJogador(capA) : 'O Capitão A'} está a criar o grupo`, `${capA ? nomeJogador(capA) : 'Captain A'} is creating the party`)}
+              {emCurso ? l('Boa partida. O resultado abre daqui a pouco.', 'Good game. The result opens shortly.') : souCapitao ? l('Cria o grupo e partilha o código', 'Create the party and share the code') : l('Um dos capitães está a criar o grupo', 'One of the captains is creating the party')}
             </h1>
             <span className="text-[14px] leading-normal text-[#d0cbc4]">
               {emCurso
@@ -162,7 +165,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               <div className="flex flex-col gap-1.5">
                 <span className="eyebrow">{l('CÓDIGO DO GRUPO', 'PARTY CODE')}</span>
                 <h2 id="rg-cod-caixa" className="m-0 text-[22px] font-extrabold tracking-[-0.03em]">{l('Entra no grupo com este código', 'Join the party with this code')}</h2>
-                <span className="text-[13px] text-[#a6a19a]">{l('Partilhado por', 'Shared by')} {capA ? nomeJogador(capA) : l('o Capitão A', 'Captain A')} ({l('Capitão A', 'Captain A')}).</span>
+                <span className="text-[13px] text-[#a6a19a]">{l('Partilhado por um dos capitães', 'Shared by one of the captains')}{nomesCapitaes ? ` (${nomesCapitaes})` : ''}.</span>
               </div>
               <div role="img" aria-label={`${l('Código', 'Code')} ${p.codigoGrupo.split('').join(' ')}`} className="flex flex-wrap gap-2.5">
                 {p.codigoGrupo.split('').map((c, i) => (
@@ -185,11 +188,12 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
                 </div>
               )}
             </>
-          ) : souHost ? (
+          ) : souCapitao ? (
             <>
               <div className="flex flex-col gap-1.5">
                 <span className="eyebrow">{l('CRIAR O GRUPO', 'CREATE THE PARTY')}</span>
                 <h2 id="rg-cod-caixa" className="m-0 text-[22px] font-extrabold tracking-[-0.03em]">{l('Três passos e está feito', 'Three steps and you are done')}</h2>
+                <span className="text-[13px] text-[#a6a19a]">{l('Tu ou o outro capitão: o primeiro a guardar o código partilha-o com todos.', 'You or the other captain: whoever saves the code first shares it with everyone.')}</span>
               </div>
               <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5 p-0">
                 {passos.map((t, i) => (
@@ -228,13 +232,13 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
           ) : (
             <div className="flex flex-col items-start gap-3.5 py-2.5">
               <span className="eyebrow">{l('À ESPERA', 'WAITING')}</span>
-              <h2 id="rg-cod-caixa" className="m-0 text-[22px] font-extrabold tracking-[-0.03em]">{l('O Capitão A está a criar o grupo', 'Captain A is creating the party')}</h2>
+              <h2 id="rg-cod-caixa" className="m-0 text-[22px] font-extrabold tracking-[-0.03em]">{l('Um dos capitães está a criar o grupo', 'One of the captains is creating the party')}</h2>
               <div className="flex gap-2.5" aria-hidden>
                 {Array.from({ length: 6 }, (_, i) => (
                   <span key={i} className="ao-vivo h-20 w-16 rounded-[14px] border border-dashed border-white/16 bg-white/[0.02]" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
-              <span className="text-[13px] text-[#a6a19a]">{l('Assim que o código for guardado, aparece aqui com um botão para copiar.', 'As soon as the code is saved, it shows up here with a copy button.')}</span>
+              <span className="text-[13px] text-[#a6a19a]">{l('Os dois capitães podem partilhar o código. Assim que um o guardar, aparece aqui com um botão para copiar.', 'Either captain can share the code. As soon as one saves it, it shows up here with a copy button.')}</span>
             </div>
           )}
           {minha && <CancelarPartida p={p} />}

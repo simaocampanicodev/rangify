@@ -137,7 +137,7 @@ function ComoFunciona() {
     { icone: <Users size={18} />, titulo: l('Fila e confirmação', 'Queue and ready check'), texto: l(`10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, `10 players, ${SEGUNDOS_CONFIRMAR} s to accept.`), topico: 'fila' as const },
     { icone: <Crown size={18} />, titulo: 'Draft', texto: l(`2 capitães escolhem à vez, ${SEGUNDOS_ESCOLHA} s por escolha.`, `2 captains pick in turns, ${SEGUNDOS_ESCOLHA} s per pick.`), topico: 'draft' as const },
     { icone: <Ban size={18} />, titulo: l('Ban de mapas', 'Map ban'), texto: l(`${bans} bans de ${SEGUNDOS_BAN} s, sobra o decisivo.`, `${bans} bans of ${SEGUNDOS_BAN} s, the decider is left.`), topico: 'mapas' as const },
-    { icone: <ClipboardPaste size={18} />, titulo: l('Código do grupo', 'Party code'), texto: l(`O Capitão A partilha, bloqueio de ${MINUTOS_BLOQUEIO} min.`, `Captain A shares it, ${MINUTOS_BLOQUEIO}-min lock.`), topico: 'codigo' as const },
+    { icone: <ClipboardPaste size={18} />, titulo: l('Código do grupo', 'Party code'), texto: l(`Um dos capitães partilha, bloqueio de ${MINUTOS_BLOQUEIO} min.`, `One of the captains shares it, ${MINUTOS_BLOQUEIO}-min lock.`), topico: 'codigo' as const },
     { icone: <Flag size={18} />, titulo: l('Resultado', 'Result'), texto: l('Os capitães confirmam quem ganhou e a API diz o resultado.', 'The captains confirm who won and the API gives the score.'), topico: 'resultado' as const },
   ]
   return (

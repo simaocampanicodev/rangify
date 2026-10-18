@@ -87,7 +87,7 @@ export type Lado = 'ataque' | 'defesa'
 export interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
 /**
  * A votação para cancelar a partida (alguém caiu ou não pode jogar). Aberta enquanto o grupo
- * é criado e nos primeiros 10 minutos de jogo; com a maioria dos jogadores, a partida cai.
+ * é criado e nos primeiros 10 minutos de jogo; com 7 jogadores de 10, a partida cai.
  */
 export interface Cancelamento { votos: number; necessarios: number; euVotei: boolean; aberto: boolean }
 /** O que os colegas do capitão sugerem na vez atual (um mapa a banir, ou o lado). */
@@ -487,7 +487,7 @@ export interface Dados {
   escolherLado(id: string, lado: Lado): Promise<void>
   /** Um colega do capitão sugere o mapa a banir (ou o lado). Sugerir outra vez o mesmo tira a sugestão. */
   sugerirMapa(id: string, valor: string): Promise<void>
-  /** Vota (ou retira o voto) para cancelar a partida, se alguém caiu ou não pode jogar. A maioria cancela-a, sem pontos nem castigos. */
+  /** Vota (ou retira o voto) para cancelar a partida, se alguém caiu ou não pode jogar. Com 7 votos de 10 cancela-a, sem pontos nem castigos. */
   votarCancelar(id: string, voto: boolean): Promise<void>
   definirCodigo(id: string, codigo: string): Promise<void>
   /** Um capitão confirma que o jogo acabou e diz que equipa ganhou. A API define o resultado e quem ganhou a sério. */
