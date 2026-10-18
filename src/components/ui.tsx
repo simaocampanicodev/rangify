@@ -17,29 +17,48 @@ export function rgba(hex: string, a: number) {
 
 /**
  * O cabeçalho das páginas. Por defeito as ações ficam à direita, ou por baixo se não couberem: o sítio muda com o
- * tamanho do texto da descrição. `acoesSobTitulo` põe-nas sempre logo por baixo do título e `descricaoReservada`
- * guarda duas linhas para a descrição, para uma página com vários separadores (como a Tabela) não mexer ao trocar de um para outro.
+ * tamanho do texto da descrição. Com `estavel` ficam sempre no canto superior direito quando o cabeçalho tem largura
+ * para isso (e logo por baixo do título quando não tem), seja qual for a descrição, e a descrição guarda duas linhas:
+ * assim uma página com vários separadores (como a Tabela) não mexe nada ao trocar de um para outro.
  */
-export function Cabecalho({ migalhas, titulo, descricao, acoes, acoesSobTitulo = false, descricaoReservada = false }: {
-  migalhas: string[]; titulo: ReactNode; descricao?: ReactNode; acoes?: ReactNode; acoesSobTitulo?: boolean; descricaoReservada?: boolean
+export function Cabecalho({ migalhas, titulo, descricao, acoes, estavel = false }: {
+  migalhas: string[]; titulo: ReactNode; descricao?: ReactNode; acoes?: ReactNode; estavel?: boolean
 }) {
   const barra = acoes && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{acoes}</div>
+  const nav = (
+    <nav aria-label={l('Localização', 'Breadcrumb')} className="flex items-center gap-2 text-[13px] text-mudo">
+      {migalhas.map((m, i) => (
+        <span key={m} className="flex items-center gap-2">
+          {i > 0 && <ChevronRight size={14} aria-hidden />}
+          <span className={i === migalhas.length - 1 ? 'font-semibold text-texto' : ''}>{m}</span>
+        </span>
+      ))}
+    </nav>
+  )
+  const h1 = <h1 className="m-0 text-[clamp(32px,4vw,46px)] leading-[1.02] font-extrabold tracking-[-0.045em]">{titulo}</h1>
+
+  if (estavel) {
+    // Uma grelha em vez de uma coluna e uma barra lado a lado: a barra ocupa a 2.ª coluna, ao lado de tudo o resto, e
+    // nunca depende do texto. Abaixo de ~1060px de largura passa para a coluna da esquerda, a seguir ao título.
+    return (
+      <header className="@container grid grid-cols-1 gap-x-[18px] gap-y-2.5 @min-[1060px]:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0 @min-[1060px]:col-start-1">{nav}</div>
+        <div className="min-w-0 @min-[1060px]:col-start-1">{h1}</div>
+        {barra && (
+          <div className={`min-w-0 @min-[1060px]:col-start-2 @min-[1060px]:row-start-1 @min-[1060px]:self-start @min-[1060px]:justify-self-end ${descricao ? '@min-[1060px]:row-span-3' : '@min-[1060px]:row-span-2'}`}>{barra}</div>
+        )}
+        {descricao && <p className="m-0 min-h-[46.5px] max-w-[600px] min-w-0 text-[15px] leading-[1.55] text-suave @min-[1060px]:col-start-1">{descricao}</p>}
+      </header>
+    )
+  }
   return (
     <header className="flex flex-wrap items-start justify-between gap-[18px]">
       <div className="flex min-w-0 flex-col gap-2.5">
-        <nav aria-label={l('Localização', 'Breadcrumb')} className="flex items-center gap-2 text-[13px] text-mudo">
-          {migalhas.map((m, i) => (
-            <span key={m} className="flex items-center gap-2">
-              {i > 0 && <ChevronRight size={14} aria-hidden />}
-              <span className={i === migalhas.length - 1 ? 'font-semibold text-texto' : ''}>{m}</span>
-            </span>
-          ))}
-        </nav>
-        <h1 className="m-0 text-[clamp(32px,4vw,46px)] leading-[1.02] font-extrabold tracking-[-0.045em]">{titulo}</h1>
-        {acoesSobTitulo && barra}
-        {descricao && <p className={`m-0 max-w-[600px] text-[15px] leading-[1.55] text-suave ${descricaoReservada ? 'min-h-[46.5px]' : ''}`}>{descricao}</p>}
+        {nav}
+        {h1}
+        {descricao && <p className="m-0 max-w-[600px] text-[15px] leading-[1.55] text-suave">{descricao}</p>}
       </div>
-      {!acoesSobTitulo && barra}
+      {barra}
     </header>
   )
 }

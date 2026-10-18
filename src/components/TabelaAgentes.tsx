@@ -31,6 +31,12 @@ function CartaoAgente({ nome, funcao, jogadores, eu, minimo }: { nome: string; f
           <h3 className="m-0 truncate text-[16px] font-extrabold tracking-[-0.02em]">{nome}</h3>
           {funcao && <span className="inline-flex items-center gap-1.5 text-[11.5px] text-mudo"><span className="text-laranja">{ICONE_FUNCAO[funcao]}</span>{nomeFuncaoJogo(funcao)}</span>}
         </span>
+        {/* Na linha de cima e não por baixo: um cartão com este aviso não fica mais alto do que os outros. */}
+        {minha && minha.posicao > 1 && (
+          <span title={`${l('Tu', 'You')}: #${minha.posicao} · RS ${Math.round(minha.media)}`} className="ml-auto shrink-0 rounded-full border border-laranja/30 bg-laranja/10 px-2 py-0.5 font-mono text-[10.5px] text-pessego">
+            {l('Tu', 'You')} #{minha.posicao} · {Math.round(minha.media)}
+          </span>
+        )}
       </header>
       {melhor ? (
         <>
@@ -52,7 +58,7 @@ function CartaoAgente({ nome, funcao, jogadores, eu, minimo }: { nome: string; f
             <EmDireto perfilId={melhor.perfil.id} compacto />
           </div>
           {resto.length > 0 && (
-            <details className="group">
+            <details className="group mt-auto">
               <summary className="cursor-pointer list-none text-[12px] font-semibold text-suave marker:hidden hover:text-texto">
                 <span className="group-open:hidden">{l(`Ver os seguintes (${resto.length})`, `Show the next ones (${resto.length})`)}</span>
                 <span className="hidden group-open:inline">{l('Esconder', 'Hide')}</span>
@@ -69,7 +75,6 @@ function CartaoAgente({ nome, funcao, jogadores, eu, minimo }: { nome: string; f
               </ol>
             </details>
           )}
-          {minha && minha.posicao > 1 && <p className="m-0 border-t border-white/7 pt-2 font-mono text-[11.5px] text-suave">{l('Tu', 'You')}: #{minha.posicao} · RS {Math.round(minha.media)}</p>}
         </>
       ) : (
         <p className="m-0 text-[12.5px] leading-normal text-mudo">{minimo > 1 ? l(`Ninguém tem ${minimo} partidas ou mais com ${nome} (ainda).`, `Nobody has ${minimo} or more matches with ${nome} (yet).`) : l(`Ninguém jogou com ${nome} ainda.`, `Nobody has played ${nome} yet.`)}</p>
@@ -131,7 +136,7 @@ export function TabelaAgentes({ perfil }: { perfil: Perfil | null }) {
       ) : (
         <>
           <p role="status" className="m-0 font-mono text-[11.5px] text-mudo">{l(`${comCampeao} agentes com campeão`, `${comCampeao} agents with a champion`)}</p>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] items-start gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
             {ordenados.map((c) => <CartaoAgente key={c.nome} nome={c.nome} funcao={c.funcao} jogadores={c.jogadores} eu={perfil?.id} minimo={minimo} />)}
           </div>
         </>
