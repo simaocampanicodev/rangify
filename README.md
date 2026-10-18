@@ -35,7 +35,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql` e `0027_discord_canal_fila.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql`, `0027_discord_canal_fila.sql` e `0028_codigo_dois_capitaes_cancelar_7.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
@@ -86,7 +86,7 @@ No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` ped
 1. `READY_CHECK`: 20 s para aceitar. Quem recusa fica 5 min de castigo e os outros voltam à fila com o mesmo lugar.
 2. `DRAFT_PHASE`: os dois ranks oficiais mais altos são capitães. As 8 escolhas seguem a ordem A, B, B, A, A, B, B, A, 30 s por escolha.
 3. `MAP_BAN`: os 13 mapas do Valorant; 12 bans alternados de 20 s e o mapa que sobra é o da partida.
-4. `LOBBY_CREATION`: o Capitão A partilha o código do grupo (6 letras ou números).
+4. `LOBBY_CREATION`: um dos dois capitães (A ou B) partilha o código do grupo (6 letras ou números); o primeiro a guardar vale, para a partida não cair se um se esquecer. Aqui e nos primeiros 10 minutos de jogo, 7 jogadores de 10 podem votar para cancelar a partida (sem pontos nem castigos).
 5. `IN_PROGRESS`: bloqueio de 15 minutos antes de se poder submeter o resultado.
 6. `RESULT_SUBMISSION`: cada capitão só escolhe a equipa que ganhou (A ou B), para confirmar que o jogo acabou. Quando os dois votam, ou 3 minutos depois do primeiro voto, a partida segue para a API.
 7. `PROCESSING_API`: a Edge Function procura o jogo na Henrik Dev API e fecha a partida com o resultado e o vencedor que a API diz (corrige quem votou mal). Sem resposta em 30 min, vai para disputa.

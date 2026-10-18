@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql', '0028_codigo_dois_capitaes_cancelar_7.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -210,7 +210,9 @@ ok(partida.estado === 'LOBBY_CREATION' && partida.lado.equipa === 'A' && partida
 
 // ------------------------------------------------------------ código
 console.log('\nCódigo do grupo')
-await falha(rpc(uids[1], 'definir_codigo', { p_match: mid, p_codigo: 'ABC123' }), 'Equipa A', 'só o Capitão A partilha o código')
+const naoCapitao = partida.jogadores.find((j) => !j.capitao).perfilId
+await falha(rpc(uidDe(naoCapitao), 'definir_codigo', { p_match: mid, p_codigo: 'ABC123' }), 'Só os capitães', 'quem não é capitão não partilha o código')
+await falha(rpc(uids[10], 'definir_codigo', { p_match: mid, p_codigo: 'ABC123' }), 'Só os capitães', 'quem não está na partida também não')
 await falha(rpc(uids[0], 'definir_codigo', { p_match: mid, p_codigo: 'AB12' }), '6 letras', 'o código tem 6 caracteres')
 await rpc(uids[0], 'definir_codigo', { p_match: mid, p_codigo: 'x7k2pq' })
 partida = await rpc(uids[3], 'partida_detalhe', { p_match: mid })
@@ -806,6 +808,8 @@ ok(true, 'correr a 0017 outra vez não dá erro')
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
 // A 0027 refaz o gatilho da fila do Discord que a 0020 define: volta a aplicá-la depois de cada repetição.
 await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
+// A 0028 refaz o número de votos para cancelar que a 0020 define: volta a aplicá-la também.
+await db.exec(readFileSync(new URL('../supabase/migrations/0028_codigo_dois_capitaes_cancelar_7.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 
@@ -828,7 +832,7 @@ console.log('\nVotação para cancelar a partida')
   await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end, is_captain = (profile_id in ($3, $4)) where match_id = $1`, [novo, ids.slice(0, 5), ids[0], ids[5]])
   await raiz(`update matches set state = 'LOBBY_CREATION', captain_a = $2, captain_b = $3, map = 'Lotus', phase_deadline = now() + interval '10 minutes' where id = $1`, [novo, ids[0], ids[5]])
   const j0 = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
-  ok(j0.cancelamento && j0.cancelamento.votos === 0 && j0.cancelamento.necessarios === 6 && j0.cancelamento.aberto && !j0.cancelamento.euVotei, 'com 10 pessoas são precisos 6 votos, e ainda ninguém votou')
+  ok(j0.cancelamento && j0.cancelamento.votos === 0 && j0.cancelamento.necessarios === 7 && j0.cancelamento.aberto && !j0.cancelamento.euVotei, 'com 10 pessoas são precisos 7 votos, e ainda ninguém votou')
   await falha(rpc(uids[10], 'votar_cancelar', { p_match: novo, p_voto: true }), 'Só quem está na partida', 'quem não está na partida não vota')
   for (const i of [0, 1, 5, 6, 7]) await rpc(uids[i], 'votar_cancelar', { p_match: novo, p_voto: true })
   const j5 = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
@@ -839,9 +843,12 @@ console.log('\nVotação para cancelar a partida')
   ok((await rpc(uids[0], 'partida_detalhe', { p_match: novo })).cancelamento.votos === 4, 'votar duas vezes conta uma só')
   await rpc(uids[7], 'votar_cancelar', { p_match: novo, p_voto: true })
   await rpc(uids[8], 'votar_cancelar', { p_match: novo, p_voto: true })
+  const seis = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
+  ok(seis.estado === 'LOBBY_CREATION' && seis.cancelamento.votos === 6, '6 votos de 10 já não chegam (era a maioria simples)')
+  await rpc(uids[9], 'votar_cancelar', { p_match: novo, p_voto: true })
   const fim = await rpc(uids[0], 'partida_detalhe', { p_match: novo })
-  ok(fim.estado === 'CANCELLED' && fim.cancelamento === null, 'à sexta pessoa a partida é cancelada')
-  await falha(rpc(uids[9], 'votar_cancelar', { p_match: novo, p_voto: true }), 'Já não dá para votar', 'depois de cancelada já não se vota')
+  ok(fim.estado === 'CANCELLED' && fim.cancelamento === null, 'à sétima pessoa a partida é cancelada')
+  await falha(rpc(uids[2], 'votar_cancelar', { p_match: novo, p_voto: true }), 'Já não dá para votar', 'depois de cancelada já não se vota')
   ok((await raiz(`select count(*)::int as n from profiles where id = any ($1::uuid[]) and points_delta_dummy is null`.replace(' and points_delta_dummy is null', ''), [ids]))[0].n === 10, 'ninguém perde nada: só a partida é cancelada')
 
   // Em jogo, só nos primeiros 10 minutos.
@@ -852,7 +859,32 @@ console.log('\nVotação para cancelar a partida')
   await raiz(`update matches set started_at = now() - interval '2 minutes' where id = $1`, [outro])
   await rpc(uids[0], 'votar_cancelar', { p_match: outro, p_voto: true })
   ok((await rpc(uids[0], 'partida_detalhe', { p_match: outro })).cancelamento.aberto === true, 'nos primeiros 10 minutos de jogo ainda se vota')
+  // Num teste com bots só contam as pessoas: 70% delas, arredondado para cima (mínimo 1).
+  const precisos = async () => (await servico(`select public._votos_necessarios($1) as n`, [outro]))[0].n
+  const comBots = async (humanos) => {
+    await raiz(`update profiles set is_bot = (id <> all ($1::uuid[])) where id = any ($2::uuid[])`, [ids.slice(0, humanos), ids])
+    return precisos()
+  }
+  ok((await comBots(4)) === 3 && (await comBots(1)) === 1 && (await comBots(2)) === 2 && (await comBots(0)) === 1, 'com 4 pessoas bastam 3 votos, com 1 basta 1 e nunca menos de 1')
+  await raiz(`update profiles set is_bot = false where id = any ($1::uuid[])`, [ids])
+  ok((await precisos()) === 7, 'com as 10 pessoas outra vez, são 7')
   await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [outro])
+}
+
+// ------------------------------------------------------------ o código pelo Capitão B
+console.log('\nCódigo do grupo partilhado pelo Capitão B')
+{
+  const ids = uids.slice(0, 10).map((_, i) => pid(i))
+  const lobby = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end, is_captain = (profile_id in ($3, $4)) where match_id = $1`, [lobby, ids.slice(0, 5), ids[0], ids[5]])
+  await raiz(`update matches set state = 'LOBBY_CREATION', captain_a = $2, captain_b = $3, map = 'Lotus', phase_deadline = now() + interval '10 minutes' where id = $1`, [lobby, ids[0], ids[5]])
+  await falha(rpc(uids[1], 'definir_codigo', { p_match: lobby, p_codigo: 'ABC123' }), 'Só os capitães', 'um jogador que não é capitão não partilha o código')
+  await rpc(uids[5], 'definir_codigo', { p_match: lobby, p_codigo: 'b2k9zq' })
+  const vistaA = await rpc(uids[0], 'partida_detalhe', { p_match: lobby })
+  ok(vistaA.estado === 'IN_PROGRESS' && vistaA.codigoGrupo === 'B2K9ZQ', 'o Capitão B partilha o código e o Capitão A vê-o')
+  ok((await rpc(uids[3], 'partida_detalhe', { p_match: lobby })).codigoGrupo === 'B2K9ZQ', 'toda a gente da partida o vê')
+  await falha(rpc(uids[0], 'definir_codigo', { p_match: lobby, p_codigo: 'ZZZ999' }), 'já foi partilhado', 'o outro capitão já não o substitui: o primeiro a guardar vale')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [lobby])
 }
 
 // ------------------------------------------------------------ a fila no Discord
@@ -887,6 +919,8 @@ console.log('\nFila no Discord (atualização do texto)')
 await db.exec(readFileSync(new URL('../supabase/migrations/0020_margem_cancelar_fila.sql', import.meta.url), 'utf8'))
 // A 0027 refaz o gatilho da fila do Discord que a 0020 define: volta a aplicá-la depois de cada repetição.
 await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
+// A 0028 refaz o número de votos para cancelar que a 0020 define: volta a aplicá-la também.
+await db.exec(readFileSync(new URL('../supabase/migrations/0028_codigo_dois_capitaes_cancelar_7.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0024_capitaes_votam_vencedor.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/0025_ordem_draft.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0020 outra vez não dá erro')
@@ -1072,6 +1106,8 @@ await db.exec(readFileSync(new URL('../supabase/migrations/0026_avisos_bans.sql'
 ok(true, 'correr a 0026 outra vez não dá erro')
 await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fila.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0027 outra vez não dá erro')
+await db.exec(readFileSync(new URL('../supabase/migrations/0028_codigo_dois_capitaes_cancelar_7.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0028 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

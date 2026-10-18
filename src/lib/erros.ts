@@ -87,7 +87,7 @@ const EN: Record<string, string> = {
   'Só dá para acelerar partidas simuladas.': 'Only simulated matches can be sped up.',
   'Só dá para saltar o bloqueio em partidas simuladas.': 'The lock can only be skipped in simulated matches.',
   'Só o Owner atribui ou retira as funções Owner e Dev.': 'Only the Owner gives or removes the Owner and Dev roles.',
-  'Só o capitão da Equipa A cria o grupo.': 'Only the Team A captain creates the party.',
+  'Só os capitães criam o grupo.': 'Only the captains create the party.',
   'Só os capitães confirmam quem ganhou.': 'Only the captains confirm who won.',
   'Só são permitidas imagens PNG, JPG ou WebP. GIFs e vídeos não.': 'Only PNG, JPG or WebP images are allowed. No GIFs or videos.',
   'Tens de entrar na tua conta.': 'You have to sign in.',
