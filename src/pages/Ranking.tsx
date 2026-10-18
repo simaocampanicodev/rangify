@@ -454,6 +454,8 @@ export function Ranking() {
   return (
     <>
       <Cabecalho
+        acoesSobTitulo
+        descricaoReservada
         migalhas={['Hub', tx('Tabela', 'Leaderboard')]}
         titulo={tx('Tabela da temporada', 'Season leaderboard')}
         descricao={tipo === 'nivel'

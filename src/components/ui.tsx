@@ -15,9 +15,15 @@ export function rgba(hex: string, a: number) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
 }
 
-export function Cabecalho({ migalhas, titulo, descricao, acoes }: {
-  migalhas: string[]; titulo: ReactNode; descricao?: ReactNode; acoes?: ReactNode
+/**
+ * O cabeçalho das páginas. Por defeito as ações ficam à direita, ou por baixo se não couberem: o sítio muda com o
+ * tamanho do texto da descrição. `acoesSobTitulo` põe-nas sempre logo por baixo do título e `descricaoReservada`
+ * guarda duas linhas para a descrição, para uma página com vários separadores (como a Tabela) não mexer ao trocar de um para outro.
+ */
+export function Cabecalho({ migalhas, titulo, descricao, acoes, acoesSobTitulo = false, descricaoReservada = false }: {
+  migalhas: string[]; titulo: ReactNode; descricao?: ReactNode; acoes?: ReactNode; acoesSobTitulo?: boolean; descricaoReservada?: boolean
 }) {
+  const barra = acoes && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{acoes}</div>
   return (
     <header className="flex flex-wrap items-start justify-between gap-[18px]">
       <div className="flex min-w-0 flex-col gap-2.5">
@@ -30,9 +36,10 @@ export function Cabecalho({ migalhas, titulo, descricao, acoes }: {
           ))}
         </nav>
         <h1 className="m-0 text-[clamp(32px,4vw,46px)] leading-[1.02] font-extrabold tracking-[-0.045em]">{titulo}</h1>
-        {descricao && <p className="m-0 max-w-[600px] text-[15px] leading-[1.55] text-suave">{descricao}</p>}
+        {acoesSobTitulo && barra}
+        {descricao && <p className={`m-0 max-w-[600px] text-[15px] leading-[1.55] text-suave ${descricaoReservada ? 'min-h-[46.5px]' : ''}`}>{descricao}</p>}
       </div>
-      {acoes && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{acoes}</div>}
+      {!acoesSobTitulo && barra}
     </header>
   )
 }
