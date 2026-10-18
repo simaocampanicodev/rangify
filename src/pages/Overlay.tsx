@@ -16,7 +16,7 @@ import { aoMudarDados, dados, type EstadoPartida, type OverlayDados } from '@/li
 import { l } from '@/lib/idioma'
 import { imagemMapa } from '@/lib/mapas'
 import { corRank, nomeRank } from '@/lib/ranks'
-import { relogio } from '@/lib/tempo'
+import { acertarRelogio, agoraCerto, relogio } from '@/lib/tempo'
 
 const CORES: Record<string, string> = { laranja: '#ff5b1f', azul: '#3b9eff', verde: '#3ddc97', rosa: '#ff5c9d', roxo: '#9146ff', ouro: '#f2c14e', branco: '#f3f0eb' }
 const VITORIA = '#5fe3d6'
@@ -44,7 +44,11 @@ function useFundoTransparente(ativo = true) {
   }, [ativo])
 }
 
-/** Os dados do overlay, de 5 em 5 segundos (e logo que algo muda no demo). Guarda os últimos se um pedido falhar. */
+/**
+ * Os dados do overlay, de 3 em 3 segundos (e logo que algo muda no demo). Guarda os últimos se um pedido falhar.
+ * Cada resposta traz a hora do servidor: o overlay acerta o relógio por ela, senão com o relógio do computador uns
+ * segundos atrasado os tempos da fila e da partida ficavam em 00:00 até ele "apanhar" o servidor.
+ */
 function useOverlayDados(chave: string | undefined) {
   const [valor, setValor] = useState<OverlayDados | null>(null)
   const [pronto, setPronto] = useState(false)
@@ -52,10 +56,10 @@ function useOverlayDados(chave: string | undefined) {
     if (!chave) { setPronto(true); return }
     let vivo = true
     const carregar = () => dados.overlayDados(chave)
-      .then((r) => { if (vivo) { setValor(r); setPronto(true) } })
+      .then((r) => { if (vivo) { if (r) acertarRelogio(r.agora); setValor(r); setPronto(true) } })
       .catch(() => { if (vivo) setPronto(true) })
     carregar()
-    const t = window.setInterval(carregar, 5000)
+    const t = window.setInterval(carregar, 3000)
     const parar = aoMudarDados(() => carregar())
     return () => { vivo = false; window.clearInterval(t); parar() }
   }, [chave])
@@ -102,7 +106,8 @@ const nomeFase = (e: EstadoPartida) => { const f = FASES[e] ?? ['EM PARTIDA', 'I
 
 /** O que o estado do jogador diz, já com os tempos a contar. */
 function useEstado(d: OverlayDados) {
-  const agora = useAgora(1000)
+  useAgora(1000) // só para desenhar outra vez a cada segundo; a hora lê-se já abaixo, ao desenhar, para acompanhar o acerto do relógio
+  const agora = agoraCerto()
   const desde = (iso: string | null | undefined) => (iso ? Math.max(0, (agora - Date.parse(iso)) / 1000) : 0)
   if (d.estado === 'partida' && d.partida) {
     const emJogo = d.partida.estado === 'IN_PROGRESS' && !!d.partida.comecouEm
