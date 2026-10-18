@@ -10,7 +10,7 @@ import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
-  Amizade, AvisoStaff, ConvitesInfo, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
 /**
@@ -243,6 +243,11 @@ export const dadosSupabase: Dados = {
   rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }).catch((e) => {
     // Sem a versão mais recente da migração 0013, a função não existe no servidor.
     if (e instanceof Error && /ranking_rs/.test(e.message)) throw new Error('A tabela do Rangify Score ainda não está ativa no servidor.')
+    throw e
+  }),
+  rankingAgentes: (opts) => rpc<RankingAgentes>('ranking_agentes', { p_minimo: opts?.minimo ?? 1, p_top: opts?.top ?? 5 }).catch((e) => {
+    // Sem a migração 0030, a função não existe no servidor.
+    if (e instanceof Error && /ranking_agentes/.test(e.message)) throw new Error('A tabela dos agentes ainda não está ativa no servidor.')
     throw e
   }),
   resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),

@@ -33,7 +33,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, Denuncia, DivulgacaoEstado, OverlayDados, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -425,9 +425,12 @@ function resumo(e: Estado, p: PartidaGuardada, ref: string | null): ResumoPartid
   }
 }
 
+/** Só quem já jogou pelo menos uma partida aparece nas tabelas (como em _na_tabela, na base de dados). */
+const jaJogou = (p: Perfil) => !!p.riotId && !p.bot && p.vitorias + p.derrotas > 0
+
 function classificados(e: Estado): Perfil[] {
   return Object.values(e.perfis)
-    .filter((p) => p.riotId && !p.bot)
+    .filter(jaJogou)
     .sort((x, y) => y.pontos - x.pontos || y.vitorias - x.vitorias || x.utilizador.localeCompare(y.utilizador))
 }
 
@@ -834,7 +837,7 @@ const xpDe = (e: Estado, perfilId: string) => e.conclusoes.reduce((t, c) => t + 
 
 function noRankingDeNivel(e: Estado) {
   return Object.values(e.perfis)
-    .filter((p) => !p.bot && p.riotId)
+    .filter(jaJogou)
     .map((p) => ({ perfil: p, xp: xpDe(e, p.id) }))
     .sort((x, y) => y.xp - x.xp || y.perfil.pontos - x.perfil.pontos || x.perfil.utilizador.localeCompare(y.perfil.utilizador))
 }
@@ -1564,7 +1567,7 @@ export const dadosLocais: Dados = {
     return {
       ...nivelDe(xp), xp,
       xpSemana: e.conclusoes.reduce((t, c) => t + (c.perfilId === id && ms(c.em) >= semana ? c.xp : 0), 0),
-      posicao: 1 + lista.filter((l) => l.perfil.id !== id && l.xp > xp).length,
+      posicao: lista.some((l) => l.perfil.id === id) ? 1 + lista.filter((l) => l.perfil.id !== id && l.xp > xp).length : 0,
       total: lista.length,
     } satisfies Experiencia
   },
@@ -1595,6 +1598,42 @@ export const dadosLocais: Dados = {
       linhas: ordem.slice(0, limite).map((x, i) => ({ posicao: i + 1, perfil: { ...x.perfil }, media: x.media, melhor: x.melhor, partidas: x.partidas })),
       eu: meu ? { posicao: ordem.indexOf(meu) + 1 || null, media: meu.media, melhor: meu.melhor, partidas: meu.partidas } : null,
     }
+  },
+
+  async rankingAgentes(opts) {
+    const e = await pronto()
+    const minimo = Math.max(1, opts?.minimo ?? 1)
+    const top = Math.min(10, Math.max(1, opts?.top ?? 5))
+    const por = new Map<string, Map<string, { rs: number[]; vitorias: number; acs: number[]; kills: number; assists: number; mortes: number }>>()
+    for (const p of terminadas(e)) for (const j of p.jogadores) {
+      if (!j.equipa || !j.agente || j.rangifyScore == null) continue
+      const perfil = e.perfis[j.perfilId]
+      if (!perfil || !jaJogou(perfil)) continue
+      const doAgente = por.get(j.agente) ?? new Map()
+      const x = doAgente.get(j.perfilId) ?? { rs: [], vitorias: 0, acs: [], kills: 0, assists: 0, mortes: 0 }
+      x.rs.push(j.rangifyScore)
+      if (j.equipa === p.vencedor) x.vitorias++
+      if (j.acs != null) x.acs.push(j.acs)
+      x.kills += j.kills ?? 0; x.assists += j.assists ?? 0; x.mortes += j.deaths ?? 0
+      doAgente.set(j.perfilId, x)
+      por.set(j.agente, doAgente)
+    }
+    const media = (xs: number[]) => xs.reduce((t, v) => t + v, 0) / xs.length
+    return {
+      minimo,
+      agentes: [...por.entries()].sort((a, b) => a[0].localeCompare(b[0])).flatMap(([agente, doAgente]) => {
+        const jogadores = [...doAgente.entries()]
+          .filter(([, x]) => x.rs.length >= minimo)
+          .map(([id, x]) => ({ perfil: e.perfis[id], x }))
+          .sort((a, b) => media(b.x.rs) - media(a.x.rs) || b.x.rs.length - a.x.rs.length || b.perfil.pontos - a.perfil.pontos || a.perfil.utilizador.localeCompare(b.perfil.utilizador))
+          .slice(0, top)
+          .map(({ perfil, x }, i): JogadorAgente => ({
+            posicao: i + 1, perfil: { ...perfil }, media: Math.round(media(x.rs) * 10) / 10, melhor: Math.max(...x.rs), partidas: x.rs.length, vitorias: x.vitorias,
+            acs: x.acs.length ? Math.round(media(x.acs)) : null, kda: x.mortes || x.kills || x.assists ? Math.round(((x.kills + x.assists) / Math.max(1, x.mortes)) * 100) / 100 : null,
+          }))
+        return jogadores.length ? [{ agente, jogadores }] : []
+      }),
+    } satisfies RankingAgentes
   },
 
   async resetarMissoes() {

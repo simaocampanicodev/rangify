@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql', '0028_codigo_dois_capitaes_cancelar_7.sql', '0029_streamers_convites.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql', '0028_codigo_dois_capitaes_cancelar_7.sql', '0029_streamers_convites.sql', '0030_tabelas_so_quem_jogou_agentes.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -292,7 +292,15 @@ const primeira = partida
 // ------------------------------------------------------------ leituras
 console.log('\nRanking, perfil e histórico')
 const ranking = await rpc(uids[10], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: '' })
-ok(ranking.total === 11 && ranking.linhas[0].perfil.pontos >= ranking.linhas[10].perfil.pontos, 'ranking com 11 jogadores, ordenado por pontos')
+ok(ranking.total === 10 && ranking.linhas[0].perfil.pontos >= ranking.linhas[9].perfil.pontos, 'ranking com os 10 jogadores que já jogaram, ordenado por pontos')
+ok(!ranking.linhas.some((l) => l.perfil.id === pid(10)), 'quem ainda não jogou (o 11.º) não aparece na tabela')
+ok((await rpc(uids[0], 'posicao', { p_perfil: pid(10) })) === 0 && (await rpc(uids[0], 'posicao', { p_perfil: pid(0) })) >= 1, 'sem jogos a posição é 0, com jogos é a da tabela')
+ok((await rpc(uids[10], 'experiencia')).posicao === 0 && (await rpc(uids[0], 'experiencia')).posicao >= 1, 'também no lugar do nível: 0 sem jogos')
+ok(!(await rpc(uids[0], 'ranking_nivel', { p_limite: 50 })).some((l) => l.perfil.id === pid(10)), 'e fora da tabela de nível')
+ok((await rpc(uids[0], 'estatisticas_perfil', { p_perfil: pid(0) })).totalJogadores === 10, '"de N jogadores" só conta quem já jogou')
+await raiz(`update profiles set wins = 1 where id = $1`, [pid(10)])
+ok((await rpc(uids[0], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: 'fora' })).total === 1 && (await rpc(uids[0], 'posicao', { p_perfil: pid(10) })) >= 1, 'assim que joga, entra na tabela')
+await raiz(`update profiles set wins = 0 where id = $1`, [pid(10)])
 ok(ranking.linhas.some((l) => l.forma.length === 1), 'a forma (V/D) aparece no ranking')
 ok((await rpc(uids[10], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: 'kaiser' })).total === 1, 'pesquisa por Riot ID')
 const historico = await rpc(uids[0], 'historico', { p_perfil: null, p_minhas: true, p_mapa: null, p_offset: 0 })
@@ -368,7 +376,7 @@ for (let i = 0; i < 40 && sim.estado !== 'COMPLETED'; i++) {
 }
 ok(sim.estado === 'COMPLETED' && sim.estatisticas && sim.bans.length === 6 && sim.codigoGrupo, 'a simulação corre sozinha até ao fim, com bans, código e estatísticas')
 ok((await rpc(uids[0], 'meu_perfil')).pontos !== antes, 'a partida de teste também dá pontos')
-ok((await rpc(uids[0], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: '' })).total === 11, 'os bots não aparecem no ranking')
+ok((await rpc(uids[0], 'ranking', { p_offset: 0, p_limite: 50, p_so_amigos: false, p_pesquisa: '' })).total === 10, 'os bots não aparecem no ranking')
 await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: true })
 sim = await rpc(uids[0], 'partida_ativa')
 await rpc(uids[0], 'responder_confirmacao', { p_match: sim.id, p_aceita: true })
@@ -514,7 +522,7 @@ ok(miss1.find((m) => m.id === 'd-jogar').concluida, 'e a missão aparece conclu�
 ok((await raiz('select count(*)::int as n from quest_completions c join profiles p on p.id = c.profile_id where p.is_bot'))[0].n === 0, 'os bots não ganham XP')
 const rn = await rpc(uids[4], 'ranking_nivel', { p_limite: 10 })
 ok(rn[0].perfil.id === pid(0) && rn[0].xp === exp1.xp && rn[0].nivel === exp1.nivel && exp1.posicao === 1, 'o ranking de nível ordena por XP')
-ok(exp1.total === 11 && exp1.xpSemana >= 100, 'experiência com o total de jogadores e o XP da semana')
+ok(exp1.total === 10 && exp1.xpSemana >= 100, 'experiência com o total de jogadores e o XP da semana')
 await rpc(uids[0], 'remover_partida', { p_match: xpm.id })
 ok((await rpc(uids[0], 'experiencia')).xp === xpAntesReset, 'remover a partida tira o XP das missões que ela completou')
 ok(!(await rpc(uids[0], 'missoes')).find((m) => m.id === 'd-jogar').concluida, 'e a missão volta a estar por fazer')
@@ -1272,6 +1280,38 @@ ok(estado.convidados === 1 && estado.premiados === 1 && estado.moedasDadas === 2
   ok((await raiz(`select estado from convidados where convidado_id = $1`, [sexto.pid]))[0].estado === 'limite' && (await coinsConvite(sexto.pid)) === 0 && (await coinsConvite(pid(5))) === 0, 'passado o limite mensal de quem convida não há mais recompensas')
 }
 await raiz(`update profiles set role = 'user' where id = $1`, [pid(1)])
+
+// ------------------------------------------------------------ o melhor de cada agente
+console.log('\nO melhor de cada agente')
+{
+  const todos = await rpc(uids[0], 'ranking_agentes', { p_minimo: 1, p_top: 5 })
+  const nomesAgentes = todos.agentes.map((a) => a.agente)
+  ok(todos.agentes.length >= 1 && todos.agentes.every((a) => a.jogadores.length >= 1 && a.jogadores[0].posicao === 1), 'há um melhor jogador por cada agente que foi jogado (as partidas dos testes anteriores)')
+  ok(nomesAgentes.join() === [...nomesAgentes].sort().join(), 'os agentes vêm por ordem alfabética')
+  ok(todos.agentes.every((a) => a.jogadores.every((j) => j.perfil.id !== pid(10))), 'quem ainda não jogou nunca entra')
+  // Um agente que só estes testes usam, com valores à medida.
+  const dez = [1, 2, 3, 10, 4, 5, 6, 7, 8, 9].map(pid)
+  const jogada = async (rs) => {
+    const m = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [dez]))[0].id
+    await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end where match_id = $1`, [m, dez.slice(0, 5)])
+    for (const [perfil, valor] of Object.entries(rs)) await raiz(`update match_players set agent = 'Waylay', rangify_score = $3 where match_id = $1 and profile_id = $2`, [m, perfil, valor])
+    await raiz(`update matches set state = 'COMPLETED', winner = 'A', score_a = 13, score_b = 8, finished_at = now() where id = $1`, [m])
+  }
+  await jogada({ [pid(1)]: 130, [pid(2)]: 125, [pid(3)]: 100, [pid(10)]: 999 })
+  await jogada({ [pid(1)]: 110 })
+  const waylay = async (args) => (await rpc(uids[0], 'ranking_agentes', args)).agentes.find((a) => a.agente === 'Waylay')?.jogadores
+  let w = await waylay({ p_minimo: 1, p_top: 5 })
+  ok(w.map((j) => j.perfil.id).join() === [pid(2), pid(1), pid(3)].join(), 'ordena pela média de Rangify Score com o agente (125, 120 e 100)')
+  ok(w[1].media === 120 && w[1].partidas === 2 && w[1].melhor === 130 && w[1].vitorias === 2 && w[0].posicao === 1 && w[2].posicao === 3, 'traz a média, as partidas, o melhor e as vitórias')
+  ok(!w.some((j) => j.perfil.id === pid(10)), 'quem ainda não jogou não entra, mesmo com RS nessa partida')
+  w = await waylay({ p_minimo: 2, p_top: 5 })
+  ok(w.length === 1 && w[0].perfil.id === pid(1), 'com mínimo de 2 partidas só fica quem as tem')
+  ok((await waylay({ p_minimo: 3, p_top: 5 })) === undefined, 'com mínimo de 3 o agente deixa de aparecer')
+  ok((await waylay({ p_minimo: 1, p_top: 2 })).length === 2, 'p_top limita quantos vêm por agente')
+  ok((await rpc(uids[0], 'ranking_agentes', { p_minimo: 1, p_top: 99 })).agentes.every((a) => a.jogadores.length <= 10), 'nunca mais de 10 por agente')
+}
+await db.exec(readFileSync(new URL('../supabase/migrations/0030_tabelas_so_quem_jogou_agentes.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0030 outra vez não dá erro')
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

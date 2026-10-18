@@ -321,6 +321,28 @@ export interface RankingRs {
   eu: { posicao: number | null; media: number; melhor: number; partidas: number } | null
 }
 
+/** Um jogador na tabela de um agente: a média de Rangify Score com esse agente. */
+export interface JogadorAgente {
+  posicao: number
+  perfil: Perfil
+  media: number
+  melhor: number
+  partidas: number
+  vitorias: number
+  acs: number | null
+  kda: number | null
+}
+
+/** Os melhores jogadores de um agente, do melhor para o pior. */
+export interface RankingAgente { agente: string; jogadores: JogadorAgente[] }
+
+export interface RankingAgentes {
+  /** Partidas com o agente precisas para entrar na tabela dele. */
+  minimo: number
+  /** Só os agentes que alguém já jogou, por ordem alfabética. */
+  agentes: RankingAgente[]
+}
+
 /** Novidade do Dashboard, publicada pela staff. */
 export interface Novidade {
   id: string
@@ -565,6 +587,8 @@ export interface Dados {
   rankingNivel(limite?: number): Promise<LinhaNivel[]>
   /** Tabela pela média de Rangify Score (só quem tem partidas suficientes). */
   rankingRs(limite?: number): Promise<RankingRs>
+  /** O melhor jogador de cada agente (e os seguintes, até `top`), pela média de Rangify Score com ele. */
+  rankingAgentes(opts?: { minimo?: number; top?: number }): Promise<RankingAgentes>
   /** Owner e Dev: sorteia já diárias e semanais novas. */
   resetarMissoes(): Promise<Missao[]>
 
