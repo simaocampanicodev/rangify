@@ -454,8 +454,7 @@ export function Ranking() {
   return (
     <>
       <Cabecalho
-        acoesSobTitulo
-        descricaoReservada
+        estavel
         migalhas={['Hub', tx('Tabela', 'Leaderboard')]}
         titulo={tx('Tabela da temporada', 'Season leaderboard')}
         descricao={tipo === 'nivel'
@@ -464,7 +463,7 @@ export function Ranking() {
           ? tx('Quem joga melhor, em média, segundo o Rangify Score de cada partida.', 'Who plays best on average, by the Rangify Score of each match.')
           : tipo === 'agentes'
           ? tx('O melhor jogador de cada agente, pela média de Rangify Score com ele.', 'The best player with each agent, by average Rangify Score with it.')
-          : tx('Ordenada pelos pontos do hub. Toda a gente começa a temporada com 1000 e entra na tabela quando acaba a primeira partida.', 'Sorted by hub points. Everyone starts the season at 1000 and gets on the leaderboard after finishing their first match.')}
+          : tx('Ordenada pelos pontos do hub. Entras na tabela quando acabas a tua primeira partida.', 'Sorted by hub points. You get on the leaderboard after finishing your first match.')}
         acoes={
           <>
             <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }, { valor: 'agentes', texto: tx('Agentes', 'Agents') }]} />
