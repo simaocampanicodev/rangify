@@ -6,6 +6,7 @@ import { EditarPerfil } from '@/components/EditarPerfil'
 import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { FundoBanner, TituloJogador } from '@/components/Cosmeticos'
+import { EmDireto } from '@/components/AoVivo'
 import { Avatar, Cabecalho, Carregando, Chip, LinkSeta, Modal, Painel, RankBadge, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -89,6 +90,7 @@ export function Perfil() {
         titulo={<span className="flex flex-wrap items-center gap-4"><Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={64} destaque={souEu} perfilId={p.id} /><span className="flex flex-col gap-1.5"><span>{nomeJogador(p)}<span className="font-mono text-[0.45em] font-medium tracking-normal text-mudo">{tagJogador(p)}</span></span><TituloJogador perfilId={p.id} className="tracking-normal" /></span></span>}
         descricao={<span className="flex flex-wrap items-center gap-2">
           <RankBadge tier={p.tier} rr={p.rr} />
+          <EmDireto perfilId={p.id} />
           <Chip>{nomeRegiao(p.regiao)}</Chip>
           {p.funcaoJogo && <Chip>{nomeFuncaoJogo(p.funcaoJogo)}</Chip>}
           {p.funcao !== 'user' && <Chip tom="laranja"><BadgeCheck size={12} aria-hidden />{nomesFuncao()[p.funcao]}</Chip>}

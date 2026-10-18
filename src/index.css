@@ -275,3 +275,16 @@ html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; backgrou
 @media (prefers-reduced-motion: reduce) {
   .fio-a, .fio-b, .fio-c, .fio-a-brilho, .fio-b-brilho, .fio-c-brilho, .respira, .ao-vivo, .ping, .entra, .entra-pagina > *, .entra-linha, .esqueleto { animation: none }
 }
+
+/*
+ * Overlay do OBS e marca animada (páginas públicas /overlay/:chave e /marca): o fundo é transparente para a
+ * fonte "Navegador" do OBS mostrar só o cartão. Os nomes começam por rg-ov para não se misturarem com o site.
+ */
+html.overlay-obs, html.overlay-obs body { background: transparent !important; overflow: hidden; }
+@keyframes rg-ov-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+@keyframes rg-ov-pulsa { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+@keyframes rg-ov-brilho { from { background-position: 200% 0 } to { background-position: -100% 0 } }
+@keyframes rg-ov-raio { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 var(--ov)) } 50% { transform: scale(1.12); filter: drop-shadow(0 0 7px var(--ov)) } }
+@keyframes rg-ov-seta { 0%, 100% { transform: translate(0, 0) } 50% { transform: translate(3px, -3px) } }
+@keyframes rg-ov-flutua { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@media (prefers-reduced-motion: reduce) { .rg-ov-anim { animation: none !important } }

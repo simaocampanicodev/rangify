@@ -80,7 +80,7 @@ await db.exec(`
 `)
 
 console.log('\nMigrações')
-for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql', '0028_codigo_dois_capitaes_cancelar_7.sql']) {
+for (const f of ['0001_schema.sql', '0002_perfil.sql', '0003_estatisticas.sql', '0004_fila_amigos.sql', '0005_perfil_estatisticas.sql', '0006_rotacao_testes.sql', '0007_experiencia.sql', '0008_novidades_api.sql', '0009_situacao.sql', '0010_sugestoes_staff.sql', '0011_discord.sql', '0012_rangify_score.sql', '0013_recarregar_partida.sql', '0014_tempo_real.sql', '0015_loja.sql', '0016_discord_ping.sql', '0017_lados_sugestoes.sql', '0018_moedas_diarias.sql', '0019_pontos_sem_rank.sql', '0020_margem_cancelar_fila.sql', '0021_partidas_ao_vivo.sql', '0022_historico_paginas.sql', '0023_fila_presenca.sql', '0024_capitaes_votam_vencedor.sql', '0025_ordem_draft.sql', '0026_avisos_bans.sql', '0027_discord_canal_fila.sql', '0028_codigo_dois_capitaes_cancelar_7.sql', '0029_streamers_convites.sql']) {
   await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   ok(true, `${f} aplicada sem erros`)
 }
@@ -1108,6 +1108,170 @@ await db.exec(readFileSync(new URL('../supabase/migrations/0027_discord_canal_fi
 ok(true, 'correr a 0027 outra vez não dá erro')
 await db.exec(readFileSync(new URL('../supabase/migrations/0028_codigo_dois_capitaes_cancelar_7.sql', import.meta.url), 'utf8'))
 ok(true, 'correr a 0028 outra vez não dá erro')
+
+// ------------------------------------------------------------ streamers, overlay, Twitch e convites
+console.log('\nStreamers: acesso (fechado até a staff abrir)')
+// A 0015 repetida acima repõe a conta de coins antiga: a 0029 volta a pô-la (e prova que corre outra vez).
+await db.exec(readFileSync(new URL('../supabase/migrations/0029_streamers_convites.sql', import.meta.url), 'utf8'))
+ok(true, 'correr a 0029 outra vez não dá erro')
+const anon = async (sql, params = []) => db.transaction(async (tx) => {
+  await tx.exec('set local role anon')
+  return (await tx.query(sql, params)).rows
+})
+const overlay = async (chave) => (await anon(`select public.overlay_dados($1) as r`, [chave]))[0].r
+await raiz(`update profiles set role = 'mod' where id = $1`, [pid(1)])
+await raiz(`update config set streamers_public = false where id`)
+ok((await rpc(uids[0], 'streamers_visivel')) === true, 'o Owner vê a área de streamers')
+ok((await rpc(uids[1], 'streamers_visivel')) === false, 'um mod não vê (como na loja: só Owner e Dev)')
+ok((await rpc(uids[2], 'streamers_visivel')) === false, 'um jogador não vê enquanto estiver fechada')
+await falha(rpc(uids[2], 'meu_overlay'), 'ainda não está aberta', 'sem acesso não há ligação de overlay')
+await falha(rpc(uids[2], 'meu_convite'), 'ainda não está aberta', 'nem código de convite')
+await falha(rpc(uids[2], 'divulgacao_estado'), 'equipa do Rangify', 'o estado da divulgação é da staff')
+await falha(rpc(uids[1], 'definir_streamers_publico', { p_publico: true }), 'Owner e Dev', 'um mod não abre a área a toda a gente')
+ok((await rpc(uids[2], 'minha_twitch')) === null, 'sem acesso a Twitch ligada devolve nada')
+ok(JSON.stringify(await rpc(uids[2], 'streamers_ao_vivo')) === '[]', 'sem acesso não há lives')
+ok((await servico(`select public.streamers_pode($1) as r`, [pid(0)]))[0].r === true && (await servico(`select public.streamers_pode($1) as r`, [pid(2)]))[0].r === false, 'a Edge Function sabe quem pode ligar a Twitch')
+
+console.log('\nOverlay do OBS')
+const { chave } = await rpc(uids[0], 'meu_overlay')
+ok(/^[0-9a-f]{64}$/.test(chave), 'a chave é longa e secreta (64 hex)')
+ok((await rpc(uids[0], 'meu_overlay')).chave === chave, 'a ligação é sempre a mesma')
+ok((await anon(`select * from overlay_chaves`)).length === 0, 'sem login não se lêem as chaves')
+let ov = await overlay(chave)
+ok(ov.nome === 'Kaiser' && ov.tier === 24 && ov.estado === 'livre' && ov.fila === null && ov.partida === null, 'o overlay mostra o jogador e que está livre')
+// O dia vem das partidas acabadas de hoje (a equipa do Kaiser na partida principal é sorteada, por isso a conta é feita aqui).
+const doDia = async () => (await raiz(`
+  select count(*) filter (where mp.team = m.winner)::int as v, count(*) filter (where mp.team <> m.winner)::int as d, coalesce(sum(mp.points_delta), 0)::int as dl
+  from match_players mp join matches m on m.id = mp.match_id
+  where mp.profile_id = $1 and mp.team is not null and m.state = 'COMPLETED' and not m.automatic
+    and m.finished_at >= date_trunc('day', now() at time zone 'Europe/Lisbon') at time zone 'Europe/Lisbon'`, [pid(0)]))[0]
+const diaAntes = await doDia()
+ok(diaAntes.v + diaAntes.d >= 1 && ov.hoje.vitorias === diaAntes.v && ov.hoje.derrotas === diaAntes.d && ov.hoje.delta === diaAntes.dl && ov.ultima !== null, 'e o dia: as vitórias, derrotas e pontos de hoje batem certo com as partidas')
+// Uma vitória e uma derrota controladas: o dia sobe e a última partida é a mais recente, do ponto de vista do jogador.
+const fecharPartida = async (kaiserNaA, vencedor, a, b, delta, mapa) => {
+  const outros = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(pid)
+  const ids = kaiserNaA ? [pid(0), ...outros] : [...outros, pid(0)]
+  const m = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end where match_id = $1`, [m, ids.slice(0, 5)])
+  await raiz(`update match_players set points_delta = $3 where match_id = $1 and profile_id = $2`, [m, pid(0), delta])
+  await raiz(`update matches set state = 'COMPLETED', winner = $2, score_a = $3, score_b = $4, map = $5, finished_at = now() where id = $1`, [m, vencedor, a, b, mapa])
+}
+await fecharPartida(true, 'A', 13, 5, 21, 'Lotus')
+ov = await overlay(chave)
+ok(ov.hoje.vitorias === diaAntes.v + 1 && ov.hoje.derrotas === diaAntes.d && ov.hoje.delta === diaAntes.dl + 21, 'uma vitória a mais: o dia sobe e os pontos somam')
+ok(ov.ultima.venceu === true && ov.ultima.rondasFeitas === 13 && ov.ultima.rondasSofridas === 5 && ov.ultima.delta === 21 && ov.ultima.mapa === 'Lotus', 'a última partida é a vitória por 13-5 em Lotus')
+await fecharPartida(false, 'A', 13, 9, -17, 'Bind')
+ov = await overlay(chave)
+ok(ov.hoje.derrotas === diaAntes.d + 1 && ov.hoje.delta === diaAntes.dl + 4, 'uma derrota a mais: o dia soma os pontos perdidos')
+ok(ov.ultima.venceu === false && ov.ultima.rondasFeitas === 9 && ov.ultima.rondasSofridas === 13 && ov.ultima.delta === -17, 'jogando na equipa B, a derrota 9-13 é vista do lado do jogador')
+ok((await overlay('inventada')) === null, 'uma chave inventada não devolve nada')
+await rpc(uids[0], 'entrar_fila')
+ov = await overlay(chave)
+ok(ov.estado === 'fila' && ov.fila.contagem === 1, 'na fila: o overlay diz quantos estão')
+await rpc(uids[0], 'sair_fila')
+{
+  const ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(pid)
+  const viva = (await servico(`select public._criar_partida($1::uuid[], 'eu', false, false, null) as id`, [ids]))[0].id
+  await raiz(`update matches set state = 'IN_PROGRESS', map = 'Lotus', started_at = now() where id = $1`, [viva])
+  await raiz(`insert into match_secrets (match_id, party_code) values ($1, 'SEGRED') on conflict (match_id) do update set party_code = 'SEGRED'`, [viva])
+  ov = await overlay(chave)
+  ok(ov.estado === 'partida' && ov.partida.estado === 'IN_PROGRESS' && ov.partida.mapa === 'Lotus', 'em partida: o overlay mostra o mapa e a fase')
+  ok(!JSON.stringify(ov).includes('SEGRED'), 'o código do grupo nunca vai para o overlay')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where id = $1`, [viva])
+}
+const nova = (await rpc(uids[0], 'renovar_overlay')).chave
+ok(nova !== chave && (await overlay(chave)) === null && (await overlay(nova)).nome === 'Kaiser', 'renovar a chave desliga a ligação antiga')
+// Quem perde o acesso deixa de aparecer; ao abrir a toda a gente, volta.
+await raiz(`update profiles set role = 'dev' where id = $1`, [pid(3)])
+const chaveDev = (await rpc(uids[3], 'meu_overlay')).chave
+ok((await overlay(chaveDev)).nome === 'Morfeu', 'um Dev tem overlay')
+await raiz(`update profiles set role = 'user' where id = $1`, [pid(3)])
+ok((await overlay(chaveDev)) === null, 'sem acesso (fechado) o overlay fica vazio')
+const aberto = await rpc(uids[0], 'definir_streamers_publico', { p_publico: true })
+ok(aberto.publico === true && (await rpc(uids[2], 'streamers_visivel')) === true, 'o Owner abre a área e os jogadores passam a vê-la')
+ok((await overlay(chaveDev)).nome === 'Morfeu', 'aberto a todos, o overlay volta a mostrar')
+ok((await rpc(uids[2], 'meu_overlay')).chave.length === 64, 'um jogador normal já tem ligação de overlay')
+ok((await rpc(uids[0], 'definir_streamers_publico', { p_publico: false })).publico === false, 'e o Owner volta a fechá-la')
+
+console.log('\nTwitch')
+await raiz(`insert into twitch_contas (profile_id, twitch_id, login, nome) values ($1, '111', 'kaiser_tv', 'Kaiser_TV')`, [pid(0)])
+let tw = await rpc(uids[0], 'minha_twitch')
+ok(tw.login === 'kaiser_tv' && tw.aoVivo === false, 'a Twitch ligada aparece, ainda sem live')
+ok(JSON.stringify(await rpc(uids[0], 'streamers_ao_vivo')) === '[]', 'ninguém em direto')
+await raiz(`update twitch_contas set ao_vivo = true, live_titulo = 'Ranked', live_jogo = 'VALORANT', live_espetadores = 42, live_desde = now(), verificada_em = now() where profile_id = $1`, [pid(0)])
+let lives = await rpc(uids[0], 'streamers_ao_vivo')
+ok(lives.length === 1 && lives[0].canal === 'kaiser_tv' && lives[0].espetadores === 42 && lives[0].perfilId === pid(0), 'em direto: aparece com o canal e os espectadores')
+ok((await overlay(nova)).twitch === 'kaiser_tv', 'o overlay sabe o canal')
+ok((await rpc(uids[2], 'streamers_ao_vivo')).length === 0, 'fechado, os outros jogadores não veem a live')
+await rpc(uids[0], 'definir_streamers_publico', { p_publico: true })
+ok((await rpc(uids[2], 'streamers_ao_vivo')).length === 1, 'aberto, veem-na')
+await rpc(uids[0], 'definir_streamers_publico', { p_publico: false })
+await raiz(`update twitch_contas set verificada_em = now() - interval '6 minutes'`)
+ok((await rpc(uids[0], 'streamers_ao_vivo')).length === 0 && (await rpc(uids[0], 'minha_twitch')).aoVivo === false, 'sem verificação há mais de 5 minutos, já não conta como em direto')
+await falha(raiz(`insert into twitch_contas (profile_id, twitch_id, login, nome) values ($1, '111', 'outro', 'Outro')`, [pid(2)]), 'duplicate', 'um canal só liga a um jogador')
+await rpc(uids[0], 'desligar_twitch')
+ok((await rpc(uids[0], 'minha_twitch')) === null, 'desligar apaga a ligação')
+await falha(como(uids[2], `select public._twitch_sincronizar_pedir()`), 'permission denied', 'a sincronização é só da base de dados')
+await servico(`select public._twitch_sincronizar_pedir()`)
+ok(true, 'pedir a sincronização sem pg_net nem contas não dá erro')
+
+console.log('\nConvites')
+const conv = await rpc(uids[0], 'meu_convite')
+ok(/^[0-9A-F]{8}$/.test(conv.codigo) && conv.convidados.length === 0 && conv.valores.convidador === 150 && conv.conviteDe === null, 'o código tem 8 caracteres e ainda ninguém foi convidado')
+ok((await rpc(uids[0], 'meu_convite')).codigo === conv.codigo, 'o código é sempre o mesmo')
+ok((await overlay(nova)).codigoConvite === conv.codigo, 'o overlay conhece o código para a marca com o link de convite')
+const novoConta = async (nome) => {
+  const [{ id }] = await raiz(`insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id`, [`${nome.toLowerCase()}@teste.pt`, { name: nome.toLowerCase(), avatar_url: null }])
+  await raiz(`update profiles set riot_id = $1 where auth_id = $2`, [`${nome}#EU9`, id])
+  return { uid: id, pid: (await raiz(`select id from profiles where auth_id = $1`, [id]))[0].id }
+}
+const novo = await novoConta('Novo')
+await falha(rpc(uids[0], 'usar_convite', { p_codigo: conv.codigo }), 'próprio convite', 'não se usa o próprio convite')
+await falha(rpc(novo.uid, 'usar_convite', { p_codigo: 'ZZZZZZZZ' }), 'não existe', 'um convite que não existe')
+await falha(rpc(uids[4], 'usar_convite', { p_codigo: conv.codigo }), 'acabou de criar a conta', 'quem já jogou não usa convites')
+const usado = await rpc(novo.uid, 'usar_convite', { p_codigo: conv.codigo.toLowerCase() })
+ok(usado.convidador === 'Kaiser' && usado.moedas === 100, 'o convidado usa o código (maiúsculas ou minúsculas)')
+await falha(rpc(novo.uid, 'usar_convite', { p_codigo: conv.codigo }), 'Já usaste', 'só se usa um convite')
+ok((await rpc(uids[0], 'meu_convite')).convidados[0].estado === 'pendente' && (await rpc(novo.uid, 'meu_convite').catch(() => ({ conviteDe: 'x' }))).conviteDe !== null, 'o convite fica pendente')
+const coinsConvite = async (perfil) => Number((await raiz(`select coalesce(sum(delta), 0)::int as n from coin_ledger where profile_id = $1 and reason = 'convite'`, [perfil]))[0].n)
+const jogarPartida = async (ids, { simulada = false } = {}) => {
+  const m = (await servico(`select public._criar_partida($1::uuid[], 'eu', $2, false, null) as id`, [ids, simulada]))[0].id
+  await raiz(`update match_players set team = case when profile_id = any ($2::uuid[]) then 'A'::team else 'B'::team end where match_id = $1`, [m, ids.slice(0, 5)])
+  await raiz(`update matches set state = 'COMPLETED', winner = 'A', score_a = 13, score_b = 5, finished_at = now() where id = $1`, [m])
+  return m
+}
+const outros = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(pid)
+await jogarPartida([novo.pid, ...outros], { simulada: true })
+ok((await rpc(uids[0], 'meu_convite')).convidados[0].estado === 'pendente' && (await coinsConvite(pid(0))) === 0, 'uma partida simulada não paga o convite')
+await jogarPartida([novo.pid, ...outros])
+let c2 = await rpc(uids[0], 'meu_convite')
+ok(c2.convidados[0].estado === 'premiado' && c2.premiados === 1 && c2.moedas === 150, 'a primeira partida a sério paga o convite')
+ok((await coinsConvite(pid(0))) === 150 && (await coinsConvite(novo.pid)) === 100, 'o Kaiser ganha 150 coins e o convidado 100')
+ok((await servico(`select (public._moedas_ganhas($1)->>'porConvites')::int as n`, [pid(0)]))[0].n === 150, 'as coins de convites aparecem à parte nas coins ganhas')
+await jogarPartida([novo.pid, ...outros])
+ok((await coinsConvite(pid(0))) === 150 && (await coinsConvite(novo.pid)) === 100, 'as partidas seguintes não pagam outra vez')
+ok((await rpc(novo.uid, 'meu_convite').catch(() => null)) === null, 'com a área fechada, o convidado não abre a página (mas já recebeu as coins)')
+const estado = await rpc(uids[0], 'divulgacao_estado')
+ok(estado.convidados === 1 && estado.premiados === 1 && estado.moedasDadas === 250 && estado.top[0].utilizador === 'Kaiser' && estado.top[0].premiados === 1 && estado.overlays >= 2, 'a staff vê os totais e quem mais convida')
+
+// Bónus de marco: a cada 5 convidados premiados.
+{
+  await raiz(`insert into profiles (username, is_bot) select 'conv' || g, true from generate_series(1, 25) g`)
+  const bots = (await raiz(`select id from profiles where username like 'conv%' order by username`)).map((r) => r.id)
+  for (const b of bots.slice(0, 3)) await raiz(`insert into convidados (convidado_id, convidador_id, estado, premiado_em, moedas_convidador) values ($1, $2, 'premiado', now(), 150)`, [b, pid(0)])
+  const quinto = await novoConta('Quinto')
+  await raiz(`insert into convidados (convidado_id, convidador_id) values ($1, $2)`, [quinto.pid, pid(0)])
+  await jogarPartida([quinto.pid, ...outros])
+  ok((await coinsConvite(pid(0))) === 150 + 450, 'ao 5.º convidado premiado há +300 de bónus (150 + 300)')
+
+  // Limite mensal: 20 por 30 dias.
+  for (const b of bots.slice(3, 23)) await raiz(`insert into convidados (convidado_id, convidador_id, estado, premiado_em) values ($1, $2, 'premiado', now())`, [b, pid(5)])
+  const sexto = await novoConta('Sexto')
+  await raiz(`insert into convidados (convidado_id, convidador_id) values ($1, $2)`, [sexto.pid, pid(5)])
+  await jogarPartida([sexto.pid, ...outros])
+  ok((await raiz(`select estado from convidados where convidado_id = $1`, [sexto.pid]))[0].estado === 'limite' && (await coinsConvite(sexto.pid)) === 0 && (await coinsConvite(pid(5))) === 0, 'passado o limite mensal de quem convida não há mais recompensas')
+}
+await raiz(`update profiles set role = 'user' where id = $1`, [pid(1)])
 
 console.log(`\n${passos - falhas}/${passos} verificações passaram.`)
 process.exit(falhas ? 1 : 0)

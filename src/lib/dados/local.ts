@@ -22,6 +22,7 @@ import {
   type CategoriaLoja, type Cosmeticos, type Raridade,
 } from '../loja'
 import { periodoSemana } from '../tempo'
+import { VALORES_CONVITE } from '../convites'
 import { aoMudarDados, avisarMudanca } from './eventos'
 import {
   aplicarResultado, baralhar, calcularRangifyScore, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
@@ -32,7 +33,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, AvisoStaff, BanFila, Dados, Denuncia, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, Denuncia, DivulgacaoEstado, OverlayDados, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -70,6 +71,17 @@ interface Estado {
   loja?: LojaDemo
   /** Avisos e bans da staff. */
   avisos?: AvisoGuardado[]
+  /** Overlay, Twitch e convites (só Owner e Dev até a área ser pública). */
+  streamers?: StreamersDemo
+}
+
+interface ConvidadoGuardado { convidadoId: string; convidadorId: string; criadoEm: string; estado: 'pendente' | 'premiado' | 'limite'; premiadoEm: string | null; moedasConvidador: number; moedasConvidado: number }
+interface StreamersDemo {
+  publico: boolean
+  chaves: Record<string, string>
+  twitch: Record<string, { login: string; nome: string; ligadaEm: string; aoVivo: boolean; titulo: string | null; jogo: string | null; espetadores: number | null }>
+  codigos: Record<string, string>
+  convidados: ConvidadoGuardado[]
 }
 
 interface AvisoGuardado extends AvisoStaff { alvoId: string; autorId: string }
@@ -80,7 +92,7 @@ interface LojaDemo {
   rotacoes: RotacaoLoja[]
   inventario: { perfilId: string; itemId: string; origem: 'compra' | 'conquista'; em: string }[]
   equipados: Record<string, Partial<Record<CategoriaLoja, string>>>
-  movimentos: { perfilId: string; delta: number; motivo: 'compra' | 'devolucao' | 'teste'; itemId: string | null; em: string }[]
+  movimentos: { perfilId: string; delta: number; motivo: 'compra' | 'devolucao' | 'teste' | 'convite'; itemId: string | null; em: string }[]
   gifs: Record<string, string>
 }
 
@@ -204,6 +216,62 @@ function exigirDev(e: Estado) {
   const p = eu(e)
   if (p.funcao !== 'owner' && p.funcao !== 'dev') throw new Error('Só Owner e Dev podem usar as ferramentas de teste.')
   return p
+}
+
+function streamersDemo(e: Estado): StreamersDemo {
+  if (!e.streamers) e.streamers = { publico: false, chaves: {}, twitch: {}, codigos: {}, convidados: [] }
+  return e.streamers
+}
+const streamersVisivel = (e: Estado, p: Perfil) => streamersDemo(e).publico || p.funcao === 'owner' || p.funcao === 'dev'
+function exigirStreamers(e: Estado) {
+  const p = eu(e)
+  if (!streamersVisivel(e, p)) throw new Error('Esta área ainda não está aberta.')
+  return p
+}
+const novaChave = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
+function codigoConvite(e: Estado, perfilId: string) {
+  const s = streamersDemo(e)
+  if (!s.codigos[perfilId]) s.codigos[perfilId] = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+  return s.codigos[perfilId]
+}
+
+/** Paga um convite pendente: moedas aos dois, bónus a cada 5 e o limite mensal (como _premiar_convite). */
+function premiarConvite(e: Estado, c: ConvidadoGuardado) {
+  const s = streamersDemo(e)
+  const v = VALORES_CONVITE
+  const agora = Date.now()
+  const doMes = s.convidados.filter((x) => x.convidadorId === c.convidadorId && x.estado === 'premiado' && agora - ms(x.premiadoEm) < 30 * 86_400_000).length
+  if (doMes >= v.limiteMes) { c.estado = 'limite'; c.premiadoEm = iso(agora); return }
+  const premiados = s.convidados.filter((x) => x.convidadorId === c.convidadorId && x.estado === 'premiado').length + 1
+  const total = v.convidador + (premiados % v.marcoACada === 0 ? v.bonusMarco : 0)
+  const mov = lojaDemo(e).movimentos
+  mov.push({ perfilId: c.convidadoId, delta: v.convidado, motivo: 'convite', itemId: null, em: iso(agora) })
+  mov.push({ perfilId: c.convidadorId, delta: total, motivo: 'convite', itemId: null, em: iso(agora) })
+  c.estado = 'premiado'; c.premiadoEm = iso(agora); c.moedasConvidador = total; c.moedasConvidado = v.convidado
+}
+
+function estadoDivulgacao(e: Estado): DivulgacaoEstado {
+  const s = streamersDemo(e)
+  const porConvidador = new Map<string, { convidados: number; premiados: number }>()
+  for (const c of s.convidados) {
+    const x = porConvidador.get(c.convidadorId) ?? { convidados: 0, premiados: 0 }
+    x.convidados++
+    if (c.estado === 'premiado') x.premiados++
+    porConvidador.set(c.convidadorId, x)
+  }
+  return {
+    publico: s.publico,
+    twitchLigadas: Object.keys(s.twitch).length,
+    aoVivo: Object.values(s.twitch).filter((t) => t.aoVivo).length,
+    overlays: Object.keys(s.chaves).length,
+    convidados: s.convidados.length,
+    premiados: s.convidados.filter((c) => c.estado === 'premiado').length,
+    moedasDadas: s.convidados.reduce((t, c) => t + c.moedasConvidador + c.moedasConvidado, 0),
+    top: [...porConvidador.entries()]
+      .map(([perfilId, x]) => ({ perfilId, utilizador: nomeCurto(e.perfis[perfilId]), ...x }))
+      .sort((a, b) => b.premiados - a.premiados || b.convidados - a.convidados)
+      .slice(0, 10),
+  }
 }
 
 function exigirStaff(e: Estado) {
@@ -895,7 +963,7 @@ function estadoLoja(e: Estado): EstadoLoja {
     publica: l.publica,
     staff: staffLoja(me),
     moedas: moedas(e, me.id),
-    ganhas: { ...moedasGanhas(e, me.id), testes: l.movimentos.reduce((t, m) => t + (m.perfilId === me.id && m.motivo === 'teste' ? m.delta : 0), 0) },
+    ganhas: { ...moedasGanhas(e, me.id), testes: l.movimentos.reduce((t, m) => t + (m.perfilId === me.id && m.motivo === 'teste' ? m.delta : 0), 0), porConvites: l.movimentos.reduce((t, m) => t + (m.perfilId === me.id && m.motivo === 'convite' ? m.delta : 0), 0) },
     hoje: {
       dia: h.dia, diarios: h.diarios, semanais: h.semanais, destaque: h.destaque,
       mudaEm: meiaNoiteLisboa(somarDias(h.dia, 1)),
@@ -2171,5 +2239,185 @@ export const dadosLocais: Dados = {
   aoMudarAvisos(_perfilId, cb) {
     // No demo, quem dá o aviso e quem o recebe usam o mesmo browser.
     return aoMudarDados((o) => { if (o === 'staff') cb() })
+  },
+
+  // ------------------------------------------------------------ streamers, overlay e convites
+
+  async streamersVisivel() {
+    const e = await carregar()
+    const me = e.sessao?.perfilId ? e.perfis[e.sessao.perfilId] : null
+    return !!me && streamersVisivel(e, me)
+  },
+
+  async meuOverlay() {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    const s = streamersDemo(e)
+    s.chaves[me.id] ??= novaChave()
+    guardar()
+    return { chave: s.chaves[me.id] }
+  },
+
+  async renovarOverlay() {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    streamersDemo(e).chaves[me.id] = novaChave()
+    guardar()
+    avisarMudanca('streamers')
+    return { chave: streamersDemo(e).chaves[me.id] }
+  },
+
+  async overlayDados(chave): Promise<OverlayDados | null> {
+    const e = await pronto()
+    const s = streamersDemo(e)
+    const perfilId = Object.keys(s.chaves).find((id) => s.chaves[id] === chave)
+    const p = perfilId ? e.perfis[perfilId] : null
+    if (!p || !streamersVisivel(e, p)) return null
+    const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0)
+    const dele = (m: PartidaGuardada) => m.jogadores.find((j) => j.perfilId === p.id && j.equipa)
+    const feitas = e.partidas.filter((m) => m.estado === 'COMPLETED' && !m.automatica && dele(m))
+    let vitorias = 0, derrotas = 0, delta = 0
+    for (const m of feitas.filter((x) => (ms(x.terminouEm) || 0) >= inicioDia.getTime())) {
+      const j = dele(m)!
+      if (j.equipa === m.vencedor) vitorias++; else derrotas++
+      delta += j.deltaPontos ?? 0
+    }
+    const viva = e.partidas.find((m) => !m.automatica && ativa(m.estado) && m.jogadores.some((j) => j.perfilId === p.id))
+    const naFila = e.fila.find((f) => f.perfilId === p.id)
+    const ult = [...feitas].sort((a, b) => (ms(b.terminouEm) || 0) - (ms(a.terminouEm) || 0))[0]
+    const jUlt = ult ? dele(ult) : null
+    return {
+      nome: nomeCurto(p), riotId: p.riotId, avatarUrl: p.avatarUrl, tier: p.tier, rr: p.rr, pontos: p.pontos, vitorias: p.vitorias, derrotas: p.derrotas,
+      hoje: { vitorias, derrotas, delta },
+      estado: viva ? 'partida' : naFila ? 'fila' : 'livre',
+      fila: !viva && naFila ? { contagem: e.fila.length, desde: naFila.desde } : null,
+      partida: viva ? { estado: viva.estado, codigo: viva.codigo, mapa: viva.mapa, equipa: viva.jogadores.find((j) => j.perfilId === p.id)?.equipa ?? null, comecouEm: viva.comecouEm } : null,
+      ultima: ult && jUlt ? {
+        codigo: ult.codigo, mapa: ult.mapa, venceu: jUlt.equipa === ult.vencedor,
+        rondasFeitas: jUlt.equipa === 'A' ? ult.resultadoA : ult.resultadoB, rondasSofridas: jUlt.equipa === 'A' ? ult.resultadoB : ult.resultadoA,
+        delta: jUlt.deltaPontos ?? null, terminouEm: ult.terminouEm,
+      } : null,
+      twitch: s.twitch[p.id]?.login ?? null,
+      codigoConvite: s.codigos[p.id] ?? null,
+      agora: iso(Date.now()),
+    }
+  },
+
+  async minhaTwitch() {
+    const e = await carregar()
+    const me = e.sessao?.perfilId ? e.perfis[e.sessao.perfilId] : null
+    const t = me && streamersVisivel(e, me) ? streamersDemo(e).twitch[me.id] : null
+    return t ?? null
+  },
+
+  async twitchUrlLigar() {
+    throw new Error('No modo demo não há ligação à Twitch a sério: usa "Ligar canal (demo)".')
+  },
+
+  async twitchLigarDemo(canal) {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    const c = canal.trim().replace(/^@/, '')
+    if (!/^[A-Za-z0-9_]{3,25}$/.test(c)) throw new Error('O nome do canal tem 3 a 25 letras, números ou _.')
+    streamersDemo(e).twitch[me.id] = { login: c.toLowerCase(), nome: c, ligadaEm: iso(Date.now()), aoVivo: false, titulo: null, jogo: null, espetadores: null }
+    guardar()
+    avisarMudanca('streamers')
+  },
+
+  async twitchAoVivoDemo(aoVivo) {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    const t = streamersDemo(e).twitch[me.id]
+    if (!t) throw new Error('Liga primeiro o teu canal da Twitch.')
+    Object.assign(t, aoVivo ? { aoVivo: true, titulo: 'Ranked no Rangify com a malta', jogo: 'VALORANT', espetadores: 27 } : { aoVivo: false, titulo: null, jogo: null, espetadores: null })
+    guardar()
+    avisarMudanca('streamers')
+  },
+
+  async desligarTwitch() {
+    const e = await pronto()
+    const me = eu(e)
+    delete streamersDemo(e).twitch[me.id]
+    guardar()
+    avisarMudanca('streamers')
+  },
+
+  async streamersAoVivo(): Promise<StreamerAoVivo[]> {
+    const e = await carregar()
+    const me = e.sessao?.perfilId ? e.perfis[e.sessao.perfilId] : null
+    if (!me || !streamersVisivel(e, me)) return []
+    return Object.entries(streamersDemo(e).twitch)
+      .filter(([id, t]) => t.aoVivo && e.perfis[id] && streamersVisivel(e, e.perfis[id]))
+      .map(([id, t]) => ({ perfilId: id, utilizador: nomeCurto(e.perfis[id]), canal: t.login, nome: t.nome, titulo: t.titulo, jogo: t.jogo, espetadores: t.espetadores, desde: t.ligadaEm }))
+  },
+
+  async meuConvite(): Promise<ConvitesInfo> {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    const s = streamersDemo(e)
+    const codigo = codigoConvite(e, me.id)
+    guardar()
+    const meus = s.convidados.filter((c) => c.convidadorId === me.id)
+    const deQuem = s.convidados.find((c) => c.convidadoId === me.id)
+    return {
+      codigo,
+      valores: VALORES_CONVITE,
+      convidados: [...meus].sort((a, b) => ms(b.criadoEm) - ms(a.criadoEm)).map((c) => ({
+        perfilId: c.convidadoId, utilizador: nomeCurto(e.perfis[c.convidadoId]), avatarUrl: e.perfis[c.convidadoId]?.avatarUrl ?? null,
+        estado: c.estado, desde: c.criadoEm, premiadoEm: c.premiadoEm, moedas: c.moedasConvidador,
+      })),
+      premiados: meus.filter((c) => c.estado === 'premiado').length,
+      moedas: meus.reduce((t, c) => t + c.moedasConvidador, 0),
+      conviteDe: deQuem ? { utilizador: nomeCurto(e.perfis[deQuem.convidadorId]), estado: deQuem.estado, moedas: deQuem.moedasConvidado } : null,
+    }
+  },
+
+  async usarConvite(codigo) {
+    const e = await pronto()
+    const me = eu(e)
+    const s = streamersDemo(e)
+    const c = codigo.trim().toUpperCase()
+    if (s.convidados.some((x) => x.convidadoId === me.id)) throw new Error('Já usaste um convite.')
+    const convidadorId = Object.keys(s.codigos).find((id) => s.codigos[id] === c)
+    if (!convidadorId) throw new Error('Esse convite não existe.')
+    if (convidadorId === me.id) throw new Error('Não podes usar o teu próprio convite.')
+    const jaJogou = e.partidas.some((m) => m.jogadores.some((j) => j.perfilId === me.id && j.equipa))
+    if (Date.now() - ms(me.criadoEm) > VALORES_CONVITE.diasParaUsar * 86_400_000 || jaJogou) {
+      throw new Error('Os convites só valem para quem acabou de criar a conta e ainda não jogou.')
+    }
+    s.convidados.push({ convidadoId: me.id, convidadorId, criadoEm: iso(Date.now()), estado: 'pendente', premiadoEm: null, moedasConvidador: 0, moedasConvidado: 0 })
+    guardar()
+    avisarMudanca('streamers')
+    return { convidador: nomeCurto(e.perfis[convidadorId]), moedas: VALORES_CONVITE.convidado }
+  },
+
+  async conviteConvidadoDemo() {
+    const e = await pronto()
+    const me = exigirStreamers(e)
+    const s = streamersDemo(e)
+    // Um jogador qualquer da comunidade de exemplo faz de convidado (ainda sem convite, e que não és tu).
+    const convidado = Object.values(e.perfis).find((p) => p.id !== me.id && !s.convidados.some((c) => c.convidadoId === p.id) && !s.codigos[p.id])
+    if (!convidado) throw new Error('Já não há mais jogadores de teste para convidar.')
+    codigoConvite(e, me.id)
+    const c: ConvidadoGuardado = { convidadoId: convidado.id, convidadorId: me.id, criadoEm: iso(Date.now()), estado: 'pendente', premiadoEm: null, moedasConvidador: 0, moedasConvidado: 0 }
+    s.convidados.push(c)
+    premiarConvite(e, c)
+    guardar()
+    avisarMudanca('streamers'); avisarMudanca('loja')
+  },
+
+  async divulgacaoEstado() {
+    const e = await pronto()
+    exigirStaff(e)
+    return estadoDivulgacao(e)
+  },
+
+  async definirStreamersPublico(publico) {
+    const e = await pronto()
+    exigirDev(e)
+    streamersDemo(e).publico = publico
+    guardar()
+    avisarMudanca('staff'); avisarMudanca('streamers')
+    return estadoDivulgacao(e)
   },
 }

@@ -1,6 +1,8 @@
-import { lazy } from 'react'
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ProvedorAjuda } from './components/Ajuda'
+import { ProvedorAoVivo } from './components/AoVivo'
+import { ConviteLink } from './components/ConviteLink'
 import { FilaPorLink } from './components/FilaPorLink'
 import { Layout } from './components/Layout'
 import { ProvedorAvisos } from './contexts/Avisos'
@@ -20,17 +22,22 @@ const Amigos = lazy(() => import('./pages/Amigos').then((m) => ({ default: m.Ami
 const Sugestoes = lazy(() => import('./pages/Sugestoes').then((m) => ({ default: m.Sugestoes })))
 const Loja = lazy(() => import('./pages/Loja').then((m) => ({ default: m.Loja })))
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })))
+const Divulgar = lazy(() => import('./pages/Divulgar').then((m) => ({ default: m.Divulgar })))
+const Overlay = lazy(() => import('./pages/Overlay').then((m) => ({ default: m.Overlay })))
+const OverlayMarca = lazy(() => import('./pages/Overlay').then((m) => ({ default: m.OverlayMarca })))
 const Definicoes = lazy(() => import('./pages/Definicoes').then((m) => ({ default: m.Definicoes })))
 const NaoEncontrado = lazy(() => import('./pages/NaoEncontrado').then((m) => ({ default: m.NaoEncontrado })))
 
-export function App() {
+/** O site com sessão, partida em curso e menu: tudo menos o overlay do OBS, que é público e não precisa de nada disto. */
+function Hub() {
   return (
-    <BrowserRouter>
-      <ProvedorAvisos>
-        <ProvedorSessao>
-          <ProvedorPartida>
-            <ProvedorAjuda>
+    <ProvedorAvisos>
+      <ProvedorSessao>
+        <ProvedorPartida>
+          <ProvedorAjuda>
+            <ProvedorAoVivo>
               <FilaPorLink />
+              <ConviteLink />
               <Routes>
                 <Route path="/entrar" element={<Entrar />} />
                 <Route path="/bem-vindo" element={<BemVindo />} />
@@ -45,15 +52,32 @@ export function App() {
                   <Route path="amigos" element={<Amigos />} />
                   <Route path="sugestoes" element={<Sugestoes />} />
                   <Route path="loja" element={<Loja />} />
+                  <Route path="divulgar" element={<Divulgar />} />
                   <Route path="definicoes" element={<Definicoes />} />
                   <Route path="admin" element={<Admin />} />
                   <Route path="*" element={<NaoEncontrado />} />
                 </Route>
               </Routes>
-            </ProvedorAjuda>
-          </ProvedorPartida>
-        </ProvedorSessao>
-      </ProvedorAvisos>
+            </ProvedorAoVivo>
+          </ProvedorAjuda>
+        </ProvedorPartida>
+      </ProvedorSessao>
+    </ProvedorAvisos>
+  )
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={null}>
+        <Routes>
+          {/* Páginas públicas para a fonte "Navegador" do OBS (ver pages/Overlay.tsx). */}
+          <Route path="/overlay/:chave" element={<Overlay />} />
+          <Route path="/overlay/:chave/marca" element={<OverlayMarca />} />
+          <Route path="/marca" element={<OverlayMarca />} />
+          <Route path="*" element={<Hub />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

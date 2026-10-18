@@ -1,6 +1,7 @@
 import { Minus, Plus, RefreshCw, Search, Trophy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { EmDireto } from '@/components/AoVivo'
 import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -47,10 +48,10 @@ function Podio({ top, eu }: { top: ItemPodio[]; eu?: string }) {
         const p = l.perfil
         const primeiro = l.posicao === 1
         return (
+          <div key={p.id} className={`relative flex flex-col ${primeiro ? 'sm:-mt-4' : ''} ${k === 1 ? 'order-first sm:order-none' : ''}`}>
           <Link
-            key={p.id}
             to={caminhoPerfil(p.riotId)}
-            className={`painel cartao-hover entra-linha relative flex flex-col gap-3.5 overflow-hidden p-5 text-texto no-underline ${primeiro ? 'cantos sm:-mt-4 sm:pb-7' : ''} ${k === 1 ? 'order-first sm:order-none' : ''}`}
+            className={`painel cartao-hover entra-linha relative flex flex-1 flex-col gap-3.5 overflow-hidden p-5 text-texto no-underline ${primeiro ? 'cantos sm:pb-7' : ''}`}
             style={{ borderColor: lugar.borda, boxShadow: primeiro ? '0 24px 70px -30px rgba(255,91,31,0.7)' : undefined, '--i': k } as React.CSSProperties}
           >
             <span aria-hidden className="pointer-events-none absolute -top-20 -right-16 size-60 rounded-full" style={{ background: `radial-gradient(circle, ${lugar.halo} 0%, rgba(0,0,0,0) 65%)` }} />
@@ -68,6 +69,9 @@ function Podio({ top, eu }: { top: ItemPodio[]; eu?: string }) {
               <span className="font-mono text-[12px] text-suave">{l.resumo}</span>
             </span>
           </Link>
+          {/* Fora da ligação do cartão: um botão dentro de outro não se pode. */}
+          <span className="absolute top-[11px] left-[118px] z-10"><EmDireto perfilId={p.id} compacto /></span>
+          </div>
         )
       })}
     </section>
@@ -97,6 +101,7 @@ function LinhaBase({ posicao: pos, perfil: p, eu, i, children }: { posicao: numb
         <span className={pos <= 3 || eu ? 'text-laranja' : 'text-suave'}>#{pos}</span>
       </td>
       <td className="py-2.5 pr-2">
+       <div className="flex min-w-0 items-center gap-2">
         <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
           <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} destaque={eu} perfilId={p.id} />
           <span className="flex min-w-0 flex-col">
@@ -104,6 +109,8 @@ function LinhaBase({ posicao: pos, perfil: p, eu, i, children }: { posicao: numb
             <span className="font-mono text-[11px] text-mudo">{tagJogador(p)}</span>
           </span>
         </Link>
+        <EmDireto perfilId={p.id} compacto />
+       </div>
       </td>
       {children}
     </tr>

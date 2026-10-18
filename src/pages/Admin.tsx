@@ -1,7 +1,7 @@
 import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { DiscordStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Moderacao } from '@/components/StaffModeracao'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -362,7 +362,7 @@ function Denuncias({ lista }: { lista: Denuncia[] }) {
   )
 }
 
-type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja'
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao'
 
 export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
@@ -415,7 +415,7 @@ export function Admin() {
             { valor: 'mapas', texto: tx('Mapas', 'Maps') },
             { valor: 'novidades', texto: tx('Novidades', 'News') },
             { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
-            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }] : []),
+            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }] : []),
           ]}
         />
         {aba === 'resultados' && (
@@ -491,6 +491,12 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('LOJA', 'SHOP')} titulo={tx('Abrir a loja a toda a gente', 'Open the shop to everyone')} />
             <LojaStaff />
+          </div>
+        )}
+        {aba === 'divulgacao' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('DIVULGAÇÃO', 'PROMOTION')} titulo={tx('Streamers, Twitch e convites', 'Streamers, Twitch and invites')} />
+            <DivulgacaoStaff />
           </div>
         )}
         {aba === 'mapas' && (

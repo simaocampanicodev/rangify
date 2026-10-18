@@ -10,7 +10,7 @@ import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
-  Amizade, AvisoStaff, Dados, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
 /**
@@ -340,6 +340,23 @@ export const dadosSupabase: Dados = {
   // Sem a migração 0026 não há avisos: o site segue sem popups em vez de dar erro.
   avisoPendente: () => rpc<AvisoStaff | null>('aviso_pendente').catch(() => null),
   async confirmarAviso(id) { await rpc('confirmar_aviso', { p_id: id }) },
+  // Sem a migração 0029 a área de streamers fica fechada em vez de dar erro.
+  streamersVisivel: () => rpc<boolean>('streamers_visivel').then((v) => !!v).catch(() => false),
+  meuOverlay: () => rpc<{ chave: string }>('meu_overlay'),
+  renovarOverlay: () => rpc<{ chave: string }>('renovar_overlay'),
+  overlayDados: (chave) => rpc<OverlayDados | null>('overlay_dados', { p_chave: chave }),
+  minhaTwitch: () => rpc<TwitchConta | null>('minha_twitch').catch(() => null),
+  async twitchUrlLigar() {
+    const r = await funcao<{ url: string }>('twitch-ligar', { accao: 'url', retorno: window.location.origin })
+    return r.url
+  },
+  async desligarTwitch() { await rpc('desligar_twitch') },
+  streamersAoVivo: () => rpc<StreamerAoVivo[]>('streamers_ao_vivo').catch(() => []),
+  meuConvite: () => rpc<ConvitesInfo>('meu_convite'),
+  usarConvite: (codigo) => rpc<{ convidador: string; moedas: number }>('usar_convite', { p_codigo: codigo }),
+  divulgacaoEstado: () => rpc<DivulgacaoEstado>('divulgacao_estado'),
+  definirStreamersPublico: (publico) => rpc<DivulgacaoEstado>('definir_streamers_publico', { p_publico: publico }),
+
   aoMudarAvisos(perfilId, cb) {
     const canal = cliente().channel(`avisos-${perfilId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_avisos', filter: `target_id=eq.${perfilId}` }, cb)
@@ -368,6 +385,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
   comprarItem: ['loja'], equiparItem: ['loja'], desequiparItem: ['loja'], definirAvatarGif: ['loja'], definirLojaPublica: ['loja', 'staff'],
   lojaResetar: ['loja'], lojaMoedasTeste: ['loja'], lojaDevolver: ['loja'],
+  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers', 'loja'],
 }
 for (const [nome, tipos] of Object.entries(AVISOS)) {
   const tabela = dadosSupabase as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>
