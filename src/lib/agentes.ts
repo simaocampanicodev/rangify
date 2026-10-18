@@ -43,10 +43,13 @@ export function agentePorNome(nome: string | null | undefined): Agente | undefin
   return AGENTES.find((a) => chave(a.nome) === k)
 }
 
-/** O ícone quadrado do agente, ou undefined se o nome não for conhecido. */
-export function iconeAgente(nome: string | null | undefined): string | undefined {
+/**
+ * O ícone quadrado do agente, ou undefined se o nome não for conhecido. Por defeito a versão pequena (128 px, chega
+ * para os 46 px mais largos do site); `grande` é a original, que serve de reserva se a pequena não existir.
+ */
+export function iconeAgente(nome: string | null | undefined, grande = false): string | undefined {
   const a = agentePorNome(nome)
-  return a ? `https://media.valorant-api.com/agents/${a.uuid}/displayicon.png` : undefined
+  return a ? `https://media.valorant-api.com/agents/${a.uuid}/${grande ? 'displayicon' : 'displayiconsmall'}.png` : undefined
 }
 
 /** Os agentes de uma função, pela ordem em que as simulações os escolhem (igual à base de dados). */

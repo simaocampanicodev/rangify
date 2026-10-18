@@ -213,7 +213,7 @@ export function Sidebar() {
   return (
     <>
       {/* Ecrãs pequenos: barra no topo e menu deslizante. */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[rgba(10,10,12,0.82)] px-4 py-2.5 backdrop-blur-[18px] vidro-leve lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[rgba(10,10,12,0.9)] px-4 py-2.5 vidro-leve lg:hidden">
         <Link to="/" aria-label={l('Rangify, ir para o painel', 'Rangify, go to the dashboard')} className="no-underline"><Marca /></Link>
         <button type="button" aria-label={l('Abrir menu', 'Open menu')} aria-expanded={aberto} onClick={() => setAberto(true)} className="relative grid size-11 cursor-pointer place-items-center rounded-[11px] border border-white/8 bg-white/[0.03] text-marfim">
           <Menu size={19} aria-hidden />
@@ -228,7 +228,7 @@ export function Sidebar() {
         </div>
       )}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-[22px] overflow-x-hidden overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.64)] px-3 pt-[22px] pb-4 backdrop-blur-[18px] vidro-leve transition-[width] lg:flex ${ANIM} ${recolhido ? 'w-[84px]' : 'w-[248px]'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-[22px] overflow-x-hidden overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.8)] px-3 pt-[22px] pb-4 vidro-leve transition-[width] lg:flex ${ANIM} ${recolhido ? 'w-[84px]' : 'w-[248px]'}`}
       >
         {conteudo(false)}
       </aside>

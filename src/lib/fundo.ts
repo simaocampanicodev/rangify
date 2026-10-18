@@ -1,6 +1,6 @@
 /**
  * Qualidade do fundo.
- *   completo: as linhas ondulam e seguem o rato, e os painéis são de vidro.
+ *   completo: as linhas ondulam e seguem o rato.
  *   leve: o fundo fica parado e os painéis opacos. Quase não gasta nada.
  *
  * "auto" é completo, mas passa a leve enquanto o portátil está na bateria, ou de

@@ -87,12 +87,12 @@ export function Confirmar() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[75] grid place-items-center overflow-y-auto bg-[rgba(5,5,7,0.78)] p-4 backdrop-blur-[4px]">
+    <div className="fixed inset-0 z-[75] grid place-items-center overflow-y-auto bg-[rgba(5,5,7,0.84)] p-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="rg-conf-titulo"
-        className="entra relative my-3 flex w-full max-w-[780px] flex-col items-center gap-4 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.94)] p-[clamp(16px,4vw,36px)] text-center backdrop-blur-[20px] sm:my-6 sm:gap-6"
+        className="entra relative my-3 flex w-full max-w-[780px] flex-col items-center gap-4 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.96)] p-[clamp(16px,4vw,36px)] text-center sm:my-6 sm:gap-6"
         style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 40px 120px -40px rgba(255,91,31,0.6)' }}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[26px]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,91,31,0.12), rgba(0,0,0,0) 70%)' }} />

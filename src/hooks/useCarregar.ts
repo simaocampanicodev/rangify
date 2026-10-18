@@ -10,6 +10,13 @@ const espera = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
  * sessão atual: ao entrar noutra conta, esvazia.
  */
 const cache = new Map<string, { valor: unknown; em: number }>()
+/** Quantas respostas guarda ao mesmo tempo: as mais antigas saem (cada perfil ou pesquisa visitada é uma chave nova). */
+const MAXIMO_GUARDADO = 80
+function guardar(chave: string, valor: unknown) {
+  cache.delete(chave)
+  cache.set(chave, { valor, em: Date.now() })
+  if (cache.size > MAXIMO_GUARDADO) cache.delete(cache.keys().next().value!)
+}
 const aCaminho = new Map<string, Promise<unknown>>()
 let dono: string | null = null
 
@@ -61,7 +68,7 @@ export function useCarregar<T>(f: () => Promise<T>, deps: DependencyList, ouvir:
     try {
       const v = await pedirUmaVez(chave, correr)
       if (!silencioso && minimo) await espera(Math.max(0, minimo - (Date.now() - inicio)))
-      if (chave) cache.set(chave, { valor: v, em: Date.now() })
+      if (chave) guardar(chave, v)
       if (n === pedido.current) { setValor(v); setErro(null) }
     } catch (e) {
       if (n === pedido.current) setErro(traduzirErro(e instanceof Error ? e.message : 'Não foi possível carregar.'))

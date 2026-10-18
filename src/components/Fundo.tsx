@@ -8,7 +8,7 @@ import { fundoLeve } from '@/lib/fundo'
  * Para não pesar, cada fio é desenhado (e desfocado) uma vez só e depois só se
  * mexe com transform e opacity, que a placa gráfica faz sem voltar a pintar.
  * O rato mexe direto no transform das duas camadas, sem passar pelo React.
- * No modo leve (ver lib/fundo.ts) fica tudo parado.
+ * No modo leve (ver lib/fundo.ts) fica tudo parado, e com a janela sem foco as linhas pausam.
  */
 export function Fundo() {
   const longe = useRef<HTMLDivElement>(null)
@@ -29,6 +29,16 @@ export function Fundo() {
     }
     window.addEventListener('pointermove', mover, { passive: true })
     return () => { window.removeEventListener('pointermove', mover); cancelAnimationFrame(quadro) }
+  }, [])
+
+  // As linhas só mexem com a janela em foco: com o jogo (ou outra janela) à frente, o site num segundo ecrã não gasta placa gráfica.
+  useEffect(() => {
+    const raiz = document.documentElement
+    const marcar = () => { raiz.dataset.foco = document.hasFocus() ? 'dentro' : 'fora' }
+    marcar()
+    window.addEventListener('focus', marcar)
+    window.addEventListener('blur', marcar)
+    return () => { window.removeEventListener('focus', marcar); window.removeEventListener('blur', marcar); delete raiz.dataset.foco }
   }, [])
 
   return (

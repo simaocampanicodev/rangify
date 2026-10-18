@@ -12,6 +12,10 @@ services:
         source: /*
         destination: /index.html
     headers:
+      # Os ficheiros de /assets têm o conteúdo no nome (o Vite muda-o a cada alteração): podem ficar um ano no browser.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
       - path: /mapas/*
         name: Cache-Control
         value: public, max-age=604800, immutable
