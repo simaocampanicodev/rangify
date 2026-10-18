@@ -385,10 +385,9 @@ interface Slide { rotulo: string; corpo: ReactNode }
 
 /**
  * A marca animada para um cantinho da live. Três mensagens que se trocam de 2,4 em 2,4 segundos (o ciclo todo
- * dura 7,2 s e fecha sem saltos, que é o que o GIF precisa): a marca, o endereço do site e um convite.
+ * dura 7,2 s): a marca, o endereço do site e um convite.
  * Com o código do convite mostra o link inteiro (o endereço grande e o "/?convite=…" por baixo, nunca numa linha só
- * demasiado comprida) e o bónus que o convidado recebe. Com ?fundo=1 leva um fundo sólido e com ?sombra=0 não tem sombras
- * nem brilhos (o GIF do site usa ?sombra=0: um brilho com a paleta de um GIF fica sujo à volta).
+ * demasiado comprida) e o bónus que o convidado recebe. Com ?fundo=1 leva um fundo sólido.
  */
 export function OverlayMarca() {
   const { chave } = useParams()
@@ -416,13 +415,12 @@ export function OverlayMarca() {
       : { rotulo: l('5V5 COM CAPITÃES', '5V5 WITH CAPTAINS'), corpo: <span className="text-[24px] leading-[1.1] font-extrabold tracking-[-0.02em]">{l('Draft, bans e tabela', 'Draft, bans and ranking')}</span> },
   ]
   const estilo = { '--ov': o.cor, transform: `scale(${o.escala / 100})`, transformOrigin: 'top left', background: q.get('fundo') === '1' ? '#09090b' : undefined } as CSSProperties
-  const sombra = q.get('sombra') === '0' ? 'inset 0 1px 0 rgba(255,255,255,0.06)' : VIDRO.boxShadow
   return (
     <div style={estilo} className="inline-block p-2 text-texto">
-      <div data-marca className="relative flex h-[116px] w-[440px] items-center gap-[18px] overflow-hidden rounded-[24px] border px-[22px]" style={{ background: VIDRO.background, boxShadow: sombra, borderColor: 'color-mix(in srgb, var(--ov) 45%, transparent)' }}>
+      <div data-marca className="relative flex h-[116px] w-[440px] items-center gap-[18px] overflow-hidden rounded-[24px] border px-[22px]" style={{ background: VIDRO.background, boxShadow: VIDRO.boxShadow, borderColor: 'color-mix(in srgb, var(--ov) 45%, transparent)' }}>
         <span aria-hidden className="absolute top-0 right-0 left-0 h-0.5" style={{ background: 'linear-gradient(90deg, var(--ov), rgba(255,255,255,0) 70%)' }} />
         <span aria-hidden className="rg-ov-anim pointer-events-none absolute top-0 bottom-0 w-[90px]" style={{ background: 'linear-gradient(105deg, rgba(255,255,255,0), color-mix(in srgb, var(--ov) 26%, transparent) 45%, rgba(255,255,255,0.1) 52%, rgba(255,255,255,0))', animation: 'rg-ov-c-varre 2.4s ease-in-out infinite' }} />
-        <span className="rg-ov-anim relative grid size-[72px] shrink-0 place-items-center rounded-[20px]" style={{ background: 'var(--ov)', color: '#170802', animation: 'rg-ov-c-tile 7.2s ease-in-out infinite', boxShadow: q.get('sombra') === '0' ? 'none' : '0 0 26px color-mix(in srgb, var(--ov) 45%, transparent)' }}>
+        <span className="rg-ov-anim relative grid size-[72px] shrink-0 place-items-center rounded-[20px]" style={{ background: 'var(--ov)', color: '#170802', animation: 'rg-ov-c-tile 7.2s ease-in-out infinite', boxShadow: '0 0 26px color-mix(in srgb, var(--ov) 45%, transparent)' }}>
           <Simbolo tamanho={44} />
         </span>
         <span className="relative h-[78px] min-w-0 flex-1">

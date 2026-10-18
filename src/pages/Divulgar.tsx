@@ -1,4 +1,4 @@
-import { Check, Copy, Download, ExternalLink, Gift, Link2, Megaphone, MonitorPlay, RefreshCw, Sparkles, Unlink } from 'lucide-react'
+import { Check, Copy, ExternalLink, Gift, Link2, Megaphone, MonitorPlay, RefreshCw, Sparkles, Unlink } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { IconeTwitch } from '@/components/AoVivo'
@@ -10,9 +10,6 @@ import { dados, type ConvidadoLinha } from '@/lib/dados'
 import { linkConvite } from '@/lib/convites'
 import { l } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
-
-/** O GIF pronto, servido pelo próprio site (ver scripts/gerar-gif-marca.mjs). */
-const CAMINHO_GIF = '/divulgar/rangify-canto.gif'
 
 const CORES: { id: string; hex: string; nome: [string, string] }[] = [
   { id: 'laranja', hex: '#ff5b1f', nome: ['Laranja', 'Orange'] },
@@ -179,33 +176,20 @@ function PainelMarca() {
     <Painel aria-labelledby="rg-div-marca" className="flex min-w-0 flex-[1_1_420px] flex-col gap-4 p-[22px]">
       <TituloPainel eyebrow={l('PARA UM CANTINHO', 'FOR A CORNER')} titulo={l('Marca animada', 'Animated badge')} id="rg-div-marca" direita={<Sparkles size={20} className="text-laranja" aria-hidden />} />
       <p className="m-0 text-[13px] leading-normal text-mudo">
-        {l('Um pequeno cartão animado para pores num canto da live: três mensagens que se trocam (o Rangify, o endereço do site e um convite). Duas formas: o GIF pronto (qualquer programa aceita) ou a versão para o OBS com o teu link de convite inteiro.', 'A small animated card with Rangify and the site address, to put in a corner of your stream. Two ways: the ready-made GIF (any program takes it) or the OBS version with your invite link.')}
+        {l('Um cartão animado para pores num canto da live, com o endereço do Rangify e o teu link de convite inteiro. Três mensagens trocam-se sozinhas: o Rangify, o endereço do site e o bónus de quem se regista. É uma página a correr no OBS e não um GIF, por isso mexe-se com a fluidez da própria live, e o fundo é transparente.', 'An animated card for a corner of your stream, with the Rangify address and your full invite link. Three messages swap by themselves: Rangify, the site address and the bonus new players get. It is a page running in OBS rather than a GIF, so it moves as smoothly as the stream itself, on a transparent background.')}
       </p>
-      <div className="flex flex-col gap-2.5 rounded-xl border border-white/8 bg-white/[0.025] p-3.5">
-        <span className="text-[13.5px] font-bold">{l('GIF animado', 'Animated GIF')}</span>
-        <div className="flex justify-center rounded-lg border border-white/10 p-3" style={XADREZ}>
-          <img src={CAMINHO_GIF} alt={l('Marca animada do Rangify com o endereço do site', 'Animated Rangify badge with the site address')} width={440} height={116} className="h-auto w-auto max-w-full min-w-0" />
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <a href={CAMINHO_GIF} download="rangify-canto.gif" className="btn btn-primario no-underline"><Download size={16} aria-hidden />{l('Descarregar o GIF', 'Download the GIF')}</a>
-          <span className="text-[12px] text-mudo">{l('No OBS: Fontes › + › Imagem, e escolhe o ficheiro.', 'In OBS: Sources › + › Image, and pick the file.')}</span>
-        </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={l('Cor', 'Colour')}>
+        {CORES.map((c) => (
+          <button key={c.id} type="button" onClick={() => setCor(c.id)} aria-pressed={cor === c.id} aria-label={l(c.nome[0], c.nome[1])} className={`size-6 rounded-full border-2 ${cor === c.id ? 'border-white' : 'border-white/15'}`} style={{ background: c.hex }} />
+        ))}
       </div>
-      <div className="flex flex-col gap-2.5 rounded-xl border border-white/8 bg-white/[0.025] p-3.5">
-        <span className="text-[13.5px] font-bold">{l('Versão para o OBS, com o teu convite', 'OBS version, with your invite')}</span>
-        <div className="flex flex-wrap gap-2" role="group" aria-label={l('Cor', 'Colour')}>
-          {CORES.map((c) => (
-            <button key={c.id} type="button" onClick={() => setCor(c.id)} aria-pressed={cor === c.id} aria-label={l(c.nome[0], c.nome[1])} className={`size-6 rounded-full border-2 ${cor === c.id ? 'border-white' : 'border-white/15'}`} style={{ background: c.hex }} />
-          ))}
-        </div>
-        {url && (
-          <>
-            <Previsao src={url} titulo={l('Pré-visualização da marca', 'Badge preview')} largura={460} altura={140} />
-            <CampoLink valor={url} rotulo={l('Link da marca', 'Badge link')} aoCopiar={() => copiar(url, l('Link da marca copiado.', 'Badge link copied.'))} />
-            <span className="text-[12px] text-mudo">{l('OBS: fonte Navegador, 460 × 140. Mostra o teu link de convite inteiro e o bónus que quem se regista recebe.', 'OBS: Browser source, 460 × 140. It shows your full invite link and the bonus new players get.')}</span>
-          </>
-        )}
-      </div>
+      {url ? (
+        <>
+          <Previsao src={url} titulo={l('Pré-visualização da marca', 'Badge preview')} largura={460} altura={140} />
+          <CampoLink valor={url} rotulo={l('Link da marca', 'Badge link')} aoCopiar={() => copiar(url, l('Link da marca copiado.', 'Badge link copied.'))} />
+          <span className="text-[12px] text-mudo">{l('No OBS: Fontes › + › Navegador, cola o link e põe 460 de largura e 140 de altura.', 'In OBS: Sources › + › Browser, paste the link and set 460 wide and 140 high.')}</span>
+        </>
+      ) : <Carregando />}
     </Painel>
   )
 }
