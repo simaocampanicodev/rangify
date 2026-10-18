@@ -16,7 +16,7 @@ import './cosmeticos.css'
 // A extensão do browser, se estiver instalada, avisa que está lá (toca o som da partida no lugar do site).
 iniciarExtensao()
 
-// Painéis de vidro ou opacos, conforme o computador aguenta (ver lib/fundo.ts).
+// Fundo animado ou parado e painéis mais ou menos opacos, conforme o computador aguenta (ver lib/fundo.ts).
 iniciarFundo()
 
 // O browser só deixa tocar o som de "partida encontrada" depois de uma interação.

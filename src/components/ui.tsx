@@ -1,5 +1,5 @@
 import { ChevronRight, CircleQuestionMark, LoaderCircle, Star, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
@@ -188,7 +188,7 @@ export function Modal({ aberto, onFechar, titulo, eyebrow, children, largura = 5
   }, [aberto, semFechar])
   if (!aberto) return null
   return createPortal(
-    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-[rgba(5,5,7,0.72)] p-4 backdrop-blur-[3px]" onMouseDown={(e) => { if (e.target === e.currentTarget && !semFechar) onFechar() }}>
+    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-[rgba(5,5,7,0.8)] p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !semFechar) onFechar() }}>
       <div
         ref={caixa}
         role="dialog"
@@ -299,7 +299,10 @@ export function IconeAgente({ nome, tamanho = 24 }: { nome: string | null | unde
       ? <span aria-hidden style={estilo} className="inline-grid shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/5 font-mono text-[11px] text-suave">{nome[0]}</span>
       : null
   }
-  return <img src={url} alt="" title={nome ?? undefined} loading="lazy" style={estilo} className="shrink-0 rounded-[6px] border border-white/10 bg-white/5 object-cover" />
+  const grande = iconeAgente(nome, true)
+  // Se a versão pequena faltar (um agente novo, por exemplo), cai para a grande, que é a que sempre existiu.
+  const reserva = (e: SyntheticEvent<HTMLImageElement>) => { if (grande && e.currentTarget.src !== grande) e.currentTarget.src = grande }
+  return <img src={url} alt="" title={nome ?? undefined} loading="lazy" decoding="async" onError={reserva} style={estilo} className="shrink-0 rounded-[6px] border border-white/10 bg-white/5 object-cover" />
 }
 
 /** MVP da partida: só uma estrela laranja dentro de um quadrado. */

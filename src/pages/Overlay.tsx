@@ -16,7 +16,7 @@ import { aoMudarDados, dados, type EstadoPartida, type OverlayDados } from '@/li
 import { l } from '@/lib/idioma'
 import { imagemMapa } from '@/lib/mapas'
 import { corRank, nomeRank } from '@/lib/ranks'
-import { relogio } from '@/lib/tempo'
+import { acertarRelogio, agoraCerto, relogio } from '@/lib/tempo'
 
 const CORES: Record<string, string> = { laranja: '#ff5b1f', azul: '#3b9eff', verde: '#3ddc97', rosa: '#ff5c9d', roxo: '#9146ff', ouro: '#f2c14e', branco: '#f3f0eb' }
 const VITORIA = '#5fe3d6'
@@ -44,7 +44,11 @@ function useFundoTransparente(ativo = true) {
   }, [ativo])
 }
 
-/** Os dados do overlay, de 5 em 5 segundos (e logo que algo muda no demo). Guarda os últimos se um pedido falhar. */
+/**
+ * Os dados do overlay, de 3 em 3 segundos (e logo que algo muda no demo). Guarda os últimos se um pedido falhar.
+ * Cada resposta traz a hora do servidor: o overlay acerta o relógio por ela, senão com o relógio do computador uns
+ * segundos atrasado os tempos da fila e da partida ficavam em 00:00 até ele "apanhar" o servidor.
+ */
 function useOverlayDados(chave: string | undefined) {
   const [valor, setValor] = useState<OverlayDados | null>(null)
   const [pronto, setPronto] = useState(false)
@@ -52,10 +56,10 @@ function useOverlayDados(chave: string | undefined) {
     if (!chave) { setPronto(true); return }
     let vivo = true
     const carregar = () => dados.overlayDados(chave)
-      .then((r) => { if (vivo) { setValor(r); setPronto(true) } })
+      .then((r) => { if (vivo) { if (r) acertarRelogio(r.agora); setValor(r); setPronto(true) } })
       .catch(() => { if (vivo) setPronto(true) })
     carregar()
-    const t = window.setInterval(carregar, 5000)
+    const t = window.setInterval(carregar, 3000)
     const parar = aoMudarDados(() => carregar())
     return () => { vivo = false; window.clearInterval(t); parar() }
   }, [chave])
@@ -102,7 +106,8 @@ const nomeFase = (e: EstadoPartida) => { const f = FASES[e] ?? ['EM PARTIDA', 'I
 
 /** O que o estado do jogador diz, já com os tempos a contar. */
 function useEstado(d: OverlayDados) {
-  const agora = useAgora(1000)
+  useAgora(1000) // só para desenhar outra vez a cada segundo; a hora lê-se já abaixo, ao desenhar, para acompanhar o acerto do relógio
+  const agora = agoraCerto()
   const desde = (iso: string | null | undefined) => (iso ? Math.max(0, (agora - Date.parse(iso)) / 1000) : 0)
   if (d.estado === 'partida' && d.partida) {
     const emJogo = d.partida.estado === 'IN_PROGRESS' && !!d.partida.comecouEm
@@ -419,13 +424,13 @@ export function OverlayMarca() {
     <div style={estilo} className="inline-block p-2 text-texto">
       <div data-marca className="relative flex h-[116px] w-[440px] items-center gap-[18px] overflow-hidden rounded-[24px] border px-[22px]" style={{ background: VIDRO.background, boxShadow: VIDRO.boxShadow, borderColor: 'color-mix(in srgb, var(--ov) 45%, transparent)' }}>
         <span aria-hidden className="absolute top-0 right-0 left-0 h-0.5" style={{ background: 'linear-gradient(90deg, var(--ov), rgba(255,255,255,0) 70%)' }} />
-        <span aria-hidden className="rg-ov-anim pointer-events-none absolute top-0 bottom-0 w-[90px]" style={{ background: 'linear-gradient(105deg, rgba(255,255,255,0), color-mix(in srgb, var(--ov) 26%, transparent) 45%, rgba(255,255,255,0.1) 52%, rgba(255,255,255,0))', animation: 'rg-ov-c-varre 2.4s ease-in-out infinite' }} />
+        <span aria-hidden className="rg-ov-anim rg-ov-brilho pointer-events-none absolute top-0 bottom-0 w-[90px]" style={{ background: 'linear-gradient(105deg, rgba(255,255,255,0), color-mix(in srgb, var(--ov) 26%, transparent) 45%, rgba(255,255,255,0.1) 52%, rgba(255,255,255,0))', animation: 'rg-ov-c-varre 2.4s ease-in-out infinite' }} />
         <span className="rg-ov-anim relative grid size-[72px] shrink-0 place-items-center rounded-[20px]" style={{ background: 'var(--ov)', color: '#170802', animation: 'rg-ov-c-tile 7.2s ease-in-out infinite', boxShadow: '0 0 26px color-mix(in srgb, var(--ov) 45%, transparent)' }}>
           <Simbolo tamanho={44} />
         </span>
         <span className="relative h-[78px] min-w-0 flex-1">
           {slides.map((s, i) => (
-            <span key={i} className="rg-ov-anim absolute top-0 left-0 flex h-[70px] w-full flex-col justify-center gap-[7px]" style={{ animation: 'rg-ov-c-slide 7.2s ease-in-out both infinite', animationDelay: `${i * 2.4 - 7.2}s` }}>
+            <span key={i} className="rg-ov-troca absolute top-0 left-0 flex h-[70px] w-full flex-col justify-center gap-[7px]" style={{ opacity: i === 0 ? 1 : 0, animation: 'rg-ov-c-slide 7.2s ease-in-out both infinite', animationDelay: `${i * 2.4 - 7.2}s` }}>
               <span className="font-mono text-[10.5px] font-bold tracking-[0.24em] whitespace-nowrap" style={{ color: MUDO }}>{s.rotulo}</span>
               {s.corpo}
             </span>
@@ -433,7 +438,7 @@ export function OverlayMarca() {
           <span aria-hidden className="absolute bottom-0 left-0 flex w-full gap-1">
             {[0, 1, 2].map((i) => (
               <span key={i} className="relative h-[3px] flex-1 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                <span className="rg-ov-anim absolute inset-0 origin-left rounded-full" style={{ background: 'var(--ov)', animation: 'rg-ov-c-prog 7.2s linear both infinite', animationDelay: `${i * 2.4 - 7.2}s` }} />
+                <span className="absolute inset-0 origin-left rounded-full" style={{ background: 'var(--ov)', transform: 'scaleX(0)', animation: 'rg-ov-c-prog 7.2s linear both infinite', animationDelay: `${i * 2.4 - 7.2}s` }} />
               </span>
             ))}
           </span>

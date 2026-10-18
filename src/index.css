@@ -45,12 +45,15 @@
 }
 
 @layer components {
-  /* Cartões: vidro escuro por cima das linhas do fundo. */
+  /*
+   * Cartões: escuros e quase opacos por cima das linhas do fundo. Sem backdrop-filter de propósito: com as linhas a
+   * mexer por trás, cada cartão com desfoque obrigava a placa gráfica a refazê-lo em todos os fotogramas (medido: 28 fps
+   * contra 58 fps numa página cheia de cartões, sem diferença que se veja).
+   */
   .painel {
-    background: rgb(16 16 19 / 0.78);
+    background: rgb(16 16 19 / 0.86);
     border: 1px solid rgb(255 255 255 / 0.07);
     border-radius: 18px;
-    backdrop-filter: blur(16px);
   }
   .eyebrow {
     font-family: var(--font-mono);
@@ -186,12 +189,13 @@
 
 /*
  * Fundo leve (na bateria, em computadores fracos ou escolhido nas Definições):
- * as linhas ficam paradas e os painéis deixam de desfocar o que está por trás.
+ * as linhas ficam paradas e os painéis passam a opacos.
  */
+html[data-foco='fora'] .fio { animation-play-state: paused; }
 html[data-fundo='leve'] .fio { animation: none; will-change: auto; }
 html[data-fundo='leve'] .fundo-camada { transform: none !important; transition: none !important; will-change: auto; }
-html[data-fundo='leve'] .painel { background: rgb(16 16 19 / 0.93); backdrop-filter: none; }
-html[data-fundo='leve'] .vidro-leve { backdrop-filter: none !important; background-color: rgb(10 10 12 / 0.94) !important; }
+html[data-fundo='leve'] .painel { background: rgb(16 16 19 / 0.93); }
+html[data-fundo='leve'] .vidro-leve { background-color: rgb(10 10 12 / 0.94) !important; }
 .ao-vivo { animation: rg-pisca 1.6s ease-in-out infinite }
 .ping { animation: rg-ping 1.8s ease-out infinite }
 .entra { animation: rg-entra .35s ease-out both }
@@ -296,4 +300,11 @@ html.overlay-obs, html.overlay-obs body { background: transparent !important; ov
   9%, 42.3%, 75.6% { transform: scale(1) rotate(0) }
 }
 @keyframes rg-ov-c-varre { 0%, 50% { transform: translateX(-130%) } 80%, 100% { transform: translateX(560%) } }
-@media (prefers-reduced-motion: reduce) { .rg-ov-anim { animation: none !important } }
+/* Com "reduzir animações" (o Windows com as animações desligadas, por exemplo) a marca não pára: o varrimento e o balanço do ícone
+   desaparecem, mas as mensagens continuam a trocar-se, só a esbater (sem deslizar). */
+@keyframes rg-ov-c-troca-calma { 0% { opacity: 0 } 5% { opacity: 1 } 31% { opacity: 1 } 38% { opacity: 0 } 100% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) {
+  .rg-ov-anim { animation: none !important }
+  .rg-ov-brilho { display: none }
+  .rg-ov-troca { animation-name: rg-ov-c-troca-calma !important }
+}

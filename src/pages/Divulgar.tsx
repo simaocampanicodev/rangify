@@ -169,27 +169,43 @@ function PainelMarca() {
   const copiar = useCopiar()
   const chave = useCarregar(() => dados.meuOverlay(), [], ['streamers'])
   const k = chave.valor?.chave
-  // O link de convite só aparece na marca depois de o código existir (a página dos convites cria-o).
   const [cor, setCor] = useState(() => lerPreferencias().cor)
-  const url = k ? `${window.location.origin}/overlay/${k}/marca${cor !== 'laranja' ? `?cor=${cor}` : ''}` : ''
+  const consulta = cor !== 'laranja' ? `?cor=${cor}` : ''
+  // A do endereço não precisa de chave. A do convite mostra o link inteiro e só existe depois de a chave existir.
+  const urlSite = `${window.location.origin}/marca${consulta}`
+  const urlConvite = k ? `${window.location.origin}/overlay/${k}/marca${consulta}` : ''
   return (
     <Painel aria-labelledby="rg-div-marca" className="flex min-w-0 flex-[1_1_420px] flex-col gap-4 p-[22px]">
-      <TituloPainel eyebrow={l('PARA UM CANTINHO', 'FOR A CORNER')} titulo={l('Marca animada', 'Animated badge')} id="rg-div-marca" direita={<Sparkles size={20} className="text-laranja" aria-hidden />} />
+      <TituloPainel eyebrow={l('PARA A TUA STREAM', 'FOR YOUR STREAM')} titulo={l('Marca animada', 'Animated badge')} id="rg-div-marca" direita={<Sparkles size={20} className="text-laranja" aria-hidden />} />
       <p className="m-0 text-[13px] leading-normal text-mudo">
-        {l('Um cartão animado para pores num canto da live, com o endereço do Rangify e o teu link de convite inteiro. Três mensagens trocam-se sozinhas: o Rangify, o endereço do site e o bónus de quem se regista. É uma página a correr no OBS e não um GIF, por isso mexe-se com a fluidez da própria live, e o fundo é transparente.', 'An animated card for a corner of your stream, with the Rangify address and your full invite link. Three messages swap by themselves: Rangify, the site address and the bonus new players get. It is a page running in OBS rather than a GIF, so it moves as smoothly as the stream itself, on a transparent background.')}
+        {l('Um pequeno cartão animado para pores num canto da live: três mensagens que se trocam sozinhas (o Rangify, o endereço do site e um convite). São páginas para o OBS e não GIFs, por isso mexem-se com a fluidez da própria live, com fundo transparente. Escolhe a cor e uma das duas versões.', 'A small animated card for a corner of your stream: three messages that swap by themselves (Rangify, the site address and an invite). They are pages for OBS rather than GIFs, so they move as smoothly as the stream itself, on a transparent background. Pick a colour and one of the two versions.')}
       </p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={l('Cor', 'Colour')}>
         {CORES.map((c) => (
           <button key={c.id} type="button" onClick={() => setCor(c.id)} aria-pressed={cor === c.id} aria-label={l(c.nome[0], c.nome[1])} className={`size-6 rounded-full border-2 ${cor === c.id ? 'border-white' : 'border-white/15'}`} style={{ background: c.hex }} />
         ))}
       </div>
-      {url ? (
-        <>
-          <Previsao src={url} titulo={l('Pré-visualização da marca', 'Badge preview')} largura={460} altura={140} />
-          <CampoLink valor={url} rotulo={l('Link da marca', 'Badge link')} aoCopiar={() => copiar(url, l('Link da marca copiado.', 'Badge link copied.'))} />
-          <span className="text-[12px] text-mudo">{l('No OBS: Fontes › + › Navegador, cola o link e põe 460 de largura e 140 de altura.', 'In OBS: Sources › + › Browser, paste the link and set 460 wide and 140 high.')}</span>
-        </>
-      ) : <Carregando />}
+      <div className="flex flex-col gap-2.5 rounded-xl border border-white/8 bg-white/[0.025] p-3.5">
+        <span className="text-[13.5px] font-bold">{l('Com o endereço do site', 'With the site address')}</span>
+        <Previsao src={urlSite} titulo={l('Pré-visualização da marca com o endereço do site', 'Badge preview with the site address')} largura={460} altura={140} />
+        <CampoLink valor={urlSite} rotulo={l('Link da marca com o endereço do site', 'Badge link with the site address')} aoCopiar={() => copiar(urlSite, l('Link da marca copiado.', 'Badge link copied.'))} />
+        <span className="text-[12px] text-mudo">{l('Mostra o endereço do Rangify. Podes usá-la em qualquer live, sem chave.', 'It shows the Rangify address. Use it on any stream, no key needed.')}</span>
+      </div>
+      <div className="flex flex-col gap-2.5 rounded-xl border border-white/8 bg-white/[0.025] p-3.5">
+        <span className="text-[13.5px] font-bold">{l('Com o teu convite', 'With your invite')}</span>
+        {urlConvite ? (
+          <>
+            <Previsao src={urlConvite} titulo={l('Pré-visualização da marca com o convite', 'Badge preview with the invite')} largura={460} altura={140} />
+            <CampoLink valor={urlConvite} rotulo={l('Link da marca com o convite', 'Badge link with the invite')} aoCopiar={() => copiar(urlConvite, l('Link da marca copiado.', 'Badge link copied.'))} />
+            <span className="text-[12px] text-mudo">{l('Mostra o teu link de convite inteiro e o bónus que quem se regista recebe. Leva a chave do teu overlay, por isso não a partilhes.', 'It shows your full invite link and the bonus new players get. It carries your overlay key, so do not share it.')}</span>
+          </>
+        ) : <Carregando />}
+      </div>
+      <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[13px] leading-normal text-suave">
+        <li>{l('No OBS, em Fontes carrega em +, escolhe', 'In OBS, under Sources press +, choose')} <b className="text-texto">{l('Navegador', 'Browser')}</b>.</li>
+        <li>{l('Cola o link em', 'Paste the link in')} <b className="text-texto">URL</b> {l('e põe', 'and set')} <b className="text-texto">460 × 140</b> ({l('largura × altura', 'width × height')}).</li>
+        <li>{l('O fundo já é transparente: põe-na num canto da cena e não precisas de mexer mais.', 'The background is already transparent: put it in a corner of the scene and you are done.')}</li>
+      </ol>
     </Painel>
   )
 }
