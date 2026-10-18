@@ -1,6 +1,7 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { FerramentasDev } from '@/components/FerramentasDev'
+import { ConviteExtensao } from '@/components/ConviteExtensao'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
@@ -201,6 +202,7 @@ function PainelFila() {
             {naFila ? l(`Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.`, `You have ${SEGUNDOS_CONFIRMAR} seconds to accept when the lobby fills.`) : l(`${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`, `${contagem} ${contagem === 1 ? 'player is' : 'players are'} waiting.`)}
           </span>
         </div>
+        <ConviteExtensao className="mt-1 max-w-[560px]" />
       </div>
     </Painel>
   )

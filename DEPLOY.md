@@ -158,3 +158,7 @@ Depois de correr `0015_loja.sql`, a loja fica **fechada**: só Owner e Dev a vee
 - **Coins** (migração `0018_moedas_diarias.sql`): 15 por missão diária, 40 por missão semanal, 120 por nível do Experience, mais 400 em cada 5.º nível, e 25 por MVP (as partidas automáticas não contam). São sempre calculadas, por isso descem se uma partida for removida.
 - **Rotação**: muda à meia-noite de Lisboa. 8 diários (um de cada categoria), 2 semanais épicos (mudam à segunda) e 1 destaque lendário (de 3 em 3 dias). Um item que sai não volta durante 14 dias.
 - **Mudar o catálogo**: edita `src/lib/loja.ts` (o desenho de cada item está em `src/cosmeticos.css`), corre `node scripts/gerar-loja-sql.mjs` e volta a correr a `0015_loja.sql` no SQL Editor.
+
+## Extensão do browser
+
+A extensão (Chrome, Edge e Brave) mostra a roda da fila e toca o aviso de partida mesmo com outro separador à frente. Para os jogadores a instalarem sem comandos, publica-a uma vez nas lojas: `npm run extensao -- https://o-teu-site --zip` e o passo a passo em [extensao/PUBLICAR.md](extensao/PUBLICAR.md). Depois, no Render, define `VITE_EXTENSAO_URL` com o link da loja: a página Jogar passa a convidar a instalá-la. Para a usares só tu, vê [extensao/LEIA-ME.md](extensao/LEIA-ME.md).

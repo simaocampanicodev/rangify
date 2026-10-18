@@ -19,3 +19,6 @@ supabase/.env
 *.log
 .DS_Store
 Thumbs.db
+
+# Extensão do browser: o .zip para as lojas e a pasta gerada
+extensao/*.zip

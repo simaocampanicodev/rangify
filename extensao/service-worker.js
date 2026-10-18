@@ -1,25 +1,37 @@
-// O "motor" da extensão. Enquanto a pessoa está na fila, pergunta ao Rangify de poucos em poucos segundos
-// (a mesma chamada `situacao` do site), dá o sinal de vida da fila e, quando a partida é encontrada, toca o som,
-// mostra uma notificação e abre a janela de alerta. Fora da fila, só pergunta de 30 em 30 segundos.
+// O "motor" da extensão. Enquanto a pessoa está na fila (ou com uma partida a decidir-se), o Rangify avisa-a por
+// Realtime quando algo muda, como faz ao site: a extensão não pergunta de poucos em poucos segundos. Só dá o sinal de
+// vida da fila e, quando a partida é encontrada, toca o som, mostra uma notificação e abre a janela de alerta.
+// Fora da fila só pergunta uma vez por minuto (um alarme).
 import { CONFIG } from './config.js'
 import * as api from './lib/api.js'
+import { criarTempoReal } from './lib/tempo-real.js'
 
 const ALARME = 'tick'
-/** Com fila ou partida a decidir-se, pergunta a cada 3 s: o ready check dura 20 s. */
-const RAPIDO_MS = 3000
+/** Com o Realtime ligado, só confirma de vez em quando (é a reserva, se um aviso se perder). */
+const RESERVA_VIVO_MS = 20_000
+/** Sem Realtime (rede, bloqueio), pergunta mais depressa para a extensão não ficar cega. */
+const RESERVA_SEM_TEMPO_REAL_MS = 5000
+/** Com um ready check por responder, mostra quantos já aceitaram. */
+const RESERVA_READY_MS = 4000
+/** Vários avisos seguidos (dez pessoas a entrar) viram uma só pergunta. */
+const JUNTAR_AVISOS_MS = 400
 /** O servidor tira da fila quem passa 3 minutos sem sinal; o site dá-o de 30 em 30 s. */
-const BATIMENTO_MS = 25_000
+const BATIMENTO_MS = 30_000
 /** Se há quem esteja a ver o site, a janela de alerta não abre por cima dele. */
 const SITE_VISIVEL_MS = 25_000
 /** Quanto tempo depois de aparecer a partida toca o lembrete (o ready check tem 20 s). */
 const LEMBRETE_MS = 12_000
 /** A extensão só se diz "viva" ao site se falou com o servidor há menos disto. */
 const VIVA_MS = 90_000
+/** O relógio do servidor só se guarda de novo se mudar mais do que isto (senão cada resposta mexia no storage). */
+const TOLERANCIA_DESVIO_MS = 1500
 const SOM_PADRAO = { ligado: true, volume: 70 }
 
 let aCorrer = false
 let ultimoBatimento = 0
+let ultimaEscrita = 0
 let siteVisivelAte = 0
+let temporizadorAvisos = null
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
 const ler = api.ler
@@ -37,23 +49,99 @@ function resumo(p, eu) {
   }
 }
 
+/**
+ * Guarda só o que mudou. Cada escrita no storage acorda o popup e a janela de alerta, por isso uma resposta igual
+ * à anterior não pode escrever nada (era isto que fazia tudo piscar e "lagar").
+ */
+const memoria = {}
+async function guardarMudancas(novo) {
+  const mudou = {}
+  for (const [k, v] of Object.entries(novo)) {
+    const j = JSON.stringify(v ?? null)
+    if (memoria[k] === j) continue
+    memoria[k] = j
+    mudou[k] = v ?? null
+  }
+  if (Object.keys(mudou).length) await guardar(mudou)
+}
+
+/** A diferença para o relógio do servidor: só muda no storage se andar mais do que a tolerância (varia uns ms a cada resposta). */
+function desvioEstavel(fila) {
+  const novo = fila.agora ? Date.parse(fila.agora) - Date.now() : 0
+  const antes = memoria.desvio == null ? null : JSON.parse(memoria.desvio)
+  return antes != null && Math.abs(novo - antes) < TOLERANCIA_DESVIO_MS ? antes : novo
+}
+
 async function limparEstado(erro = null) {
-  await chrome.storage.local.remove(['perfil', 'fila', 'partida', 'discord', 'atualizadoEm'])
-  await guardar({ erro })
+  tempoReal?.desligar()
+  for (const k of ['perfil', 'fila', 'partida', 'discord', 'atualizadoEm', 'desvio']) delete memoria[k]
+  await chrome.storage.local.remove(['perfil', 'fila', 'partida', 'discord', 'atualizadoEm', 'desvio'])
+  await guardarMudancas({ erro })
   await chrome.action.setBadgeText({ text: '' })
 }
 
+let ultimoBadge = ''
 async function pintarBadge(fila, partida) {
   const pendente = partida?.estado === 'READY_CHECK' && partida.participo && !partida.euAceitei
   const texto = pendente ? '!' : partida ? '▶' : fila?.naFila ? String(Math.min(10, fila.contagem)) : ''
+  if (texto === ultimoBadge) return
+  ultimoBadge = texto
   await chrome.action.setBadgeText({ text: texto })
   await chrome.action.setBadgeBackgroundColor({ color: pendente ? '#ff5b1f' : '#3a3a40' })
   try { await chrome.action.setBadgeTextColor({ color: pendente ? '#170802' : '#f3f0eb' }) } catch { /* versões antigas */ }
 }
 
+// ------------------------------------------------------------ tempo real
+
+let tempoReal = null
+
 /**
- * Pergunta o estado ao Rangify e guarda-o. Devolve se vale a pena perguntar depressa (na fila,
- * ou com um ready check por responder), ou null se não há sessão.
+ * O Realtime só está ligado enquanto interessa: na fila, ou com um ready check por decidir. Fora disso não há
+ * ligação nenhuma (e a extensão só pergunta uma vez por minuto).
+ */
+async function ajustarEscuta(perfil, fila, partida) {
+  const { sessao } = await ler('sessao')
+  const precisa = !!sessao && !!perfil && (fila?.naFila || partida?.estado === 'READY_CHECK')
+  if (!precisa) { tempoReal?.desligar(); return }
+  tempoReal ??= criarTempoReal({ url: CONFIG.supabaseUrl, chave: CONFIG.supabaseKey, aoMudar: aoMudarTempoReal, aoEstado: () => {} })
+  tempoReal.ligar({ perfilId: perfil.id, partidaId: partida?.estado === 'READY_CHECK' ? partida.id : null, accessToken: sessao.accessToken })
+}
+
+const tabelasPorTratar = new Set()
+
+/** O servidor avisou que algo mudou. Vários avisos seguidos (dez pessoas a entrar) juntam-se numa só pergunta. */
+function aoMudarTempoReal(tabela) {
+  tabelasPorTratar.add(tabela)
+  clearTimeout(temporizadorAvisos)
+  temporizadorAvisos = setTimeout(async () => {
+    const tabelas = new Set(tabelasPorTratar)
+    tabelasPorTratar.clear()
+    // Só alguém a entrar ou sair da fila: basta a contagem. Uma partida a mexer-se pede o estado todo.
+    if (tabelas.has('match_players') || tabelas.has('matches')) manter(await atualizar())
+    else atualizarSoFila()
+  }, JUNTAR_AVISOS_MS)
+}
+
+/** A contagem e o meu lugar na fila, sem avançar partidas nem trazer jogadores (uma chamada pequena). */
+async function atualizarSoFila() {
+  const { sessao, fila: antes } = await ler('sessao', 'fila')
+  if (!sessao) return
+  try {
+    const fila = await api.rpc('estado_fila')
+    // Saí da fila (ou entrei numa partida): isso já é assunto para o estado completo.
+    if (!!antes?.naFila !== !!fila.naFila) { manter(await atualizar()); return }
+    await guardarMudancas({ fila, desvio: desvioEstavel(fila), erro: null })
+    await pintarBadge(fila, (await ler('partida')).partida)
+  } catch (e) {
+    if (e.estado === 401) await limparEstado(e.message)
+  }
+}
+
+// ------------------------------------------------------------ atualizar
+
+/**
+ * Pergunta o estado ao Rangify e guarda-o. Devolve { rapido, pendente } (vale a pena ir confirmando: na fila, ou com um
+ * ready check a decidir-se; pendente é "ainda não aceitaste"), ou null se não há sessão.
  */
 async function atualizar({ lento = false } = {}) {
   if (!api.configurado()) return null
@@ -64,8 +152,9 @@ async function atualizar({ lento = false } = {}) {
     const [{ fila, partida }, perfil] = await Promise.all([api.rpc('situacao', { p_partida: null }), perfilPedido])
     if (!perfil) { await limparEstado('Esta conta ainda não tem perfil no Rangify. Abre o site.'); return null }
     const estado = resumo(partida, perfil.id)
-    const desvio = fila.agora ? Date.parse(fila.agora) - Date.now() : 0
-    await guardar({ perfil, fila, partida: estado, desvio, atualizadoEm: Date.now(), erro: null })
+    await guardarMudancas({ perfil, fila, partida: estado, desvio: desvioEstavel(fila), erro: null })
+    // Para o site saber que a extensão está viva; não acorda ninguém porque o popup ignora esta chave.
+    if (Date.now() - ultimaEscrita > 10_000) { ultimaEscrita = Date.now(); await guardar({ atualizadoEm: ultimaEscrita }) }
     await pintarBadge(fila, estado)
 
     if (fila.naFila && Date.now() - ultimoBatimento >= BATIMENTO_MS) {
@@ -74,25 +163,31 @@ async function atualizar({ lento = false } = {}) {
     }
     const pendente = estado?.estado === 'READY_CHECK' && estado.participo && !estado.euAceitei && !estado.automatica
     if (pendente) await partidaEncontrada(estado)
-    return { rapido: fila.naFila || pendente }
+    await ajustarEscuta(perfil, fila, estado)
+    return { rapido: !!fila.naFila || estado?.estado === 'READY_CHECK', pendente }
   } catch (e) {
     if (e.estado === 401) { await limparEstado(e.message); return null }
-    // Sem rede ou o servidor falhou: mantém o que havia e tenta outra vez já a seguir.
-    await guardar({ erro: e.message })
-    return { rapido: !!(await ler('fila')).fila?.naFila }
+    // Sem rede ou o servidor falhou: mantém o que havia e tenta outra vez daqui a pouco.
+    await guardarMudancas({ erro: e.message })
+    return { rapido: !!(await ler('fila')).fila?.naFila, pendente: false }
   }
 }
 
-/** Pergunta de 3 em 3 segundos enquanto é preciso. Um só ciclo de cada vez. */
-async function correrRapido() {
+/**
+ * A reserva: enquanto estás na fila, confirma de vez em quando (20 s com o Realtime ligado, 5 s sem ele, 4 s com um ready check
+ * por aceitar), para o caso de um aviso se perder. Chamar uma API da extensão também impede o service worker de adormecer.
+ */
+async function manter(primeiro) {
   if (aCorrer) return
   aCorrer = true
   try {
+    let r = primeiro
     for (;;) {
-      const r = await atualizar()
+      r = r === undefined ? await atualizar() : r
       if (!r?.rapido) break
-      await dormir(RAPIDO_MS)
-      // Chamar uma API da extensão volta a contar o tempo de inatividade: o service worker não adormece a meio.
+      const ms = r.pendente ? RESERVA_READY_MS : tempoReal?.estaVivo() ? RESERVA_VIVO_MS : RESERVA_SEM_TEMPO_REAL_MS
+      r = undefined
+      await dormir(ms)
       chrome.runtime.getPlatformInfo(() => {})
     }
   } finally {
@@ -199,13 +294,11 @@ async function entrarNaFila() {
 async function tratar(m, remetente) {
   switch (m.tipo) {
     case 'atualizar':
-      await atualizar({ lento: true })
-      correrRapido()
+      manter(await atualizar({ lento: true }))
       return { ok: true }
     case 'entrar':
       await entrarNaFila()
-      await atualizar()
-      correrRapido()
+      manter(await atualizar())
       return { ok: true }
     case 'sair':
       await api.rpc('sair_fila')
@@ -223,13 +316,11 @@ async function tratar(m, remetente) {
     }
     case 'login-discord':
       await api.entrarComDiscord()
-      await atualizar({ lento: true })
-      correrRapido()
+      manter(await atualizar({ lento: true }))
       return { ok: true }
     case 'login-password':
       await api.entrarComPassword(String(m.utilizador ?? ''), String(m.password ?? ''))
-      await atualizar({ lento: true })
-      correrRapido()
+      manter(await atualizar({ lento: true }))
       return { ok: true }
     case 'logout': {
       // Primeiro sai da fila (senão ficava lá até o servidor dar pela falta de sinal).
@@ -257,11 +348,14 @@ async function tratar(m, remetente) {
       const viva = !!sessao && !!perfil && perfil.id === m.perfilId && Date.now() - (atualizadoEm ?? 0) < VIVA_MS
       return { viva, som: (await configSom()).ligado }
     }
+    case 'ponte-fila':
+      // O site viu a pessoa entrar ou sair da fila: a extensão começa (ou deixa) de a acompanhar já, sem esperar pelo alarme.
+      manter(await atualizar())
+      return { ok: true }
     case 'ponte-partida':
       // O site viu a partida primeiro (o Realtime é mais rápido que o ciclo): toca já. Com o site à vista, não abre a janela.
       siteVisivelAte = m.visivel ? Date.now() + SITE_VISIVEL_MS : 0
-      await atualizar()
-      correrRapido()
+      manter(await atualizar())
       return { ok: true }
     default:
       void remetente
@@ -278,14 +372,15 @@ chrome.runtime.onMessage.addListener((m, remetente, responder) => {
 
 // ------------------------------------------------------------ arranque
 
+/** Fora da fila, a extensão só pergunta uma vez por minuto (versões antigas perguntavam de 30 em 30 s). */
 function garantirAlarme() {
-  chrome.alarms.get(ALARME, (a) => { if (!a) chrome.alarms.create(ALARME, { periodInMinutes: 0.5 }) })
+  chrome.alarms.get(ALARME, (a) => { if (!a || a.periodInMinutes !== 1) chrome.alarms.create(ALARME, { periodInMinutes: 1 }) })
 }
 
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name !== ALARME) return
-  atualizar({ lento: true }).then((r) => { if (r?.rapido) correrRapido() })
+  atualizar({ lento: true }).then((r) => { if (r?.rapido) manter(r) })
 })
-chrome.runtime.onInstalled.addListener(() => { garantirAlarme(); atualizar({ lento: true }).then((r) => { if (r?.rapido) correrRapido() }) })
-chrome.runtime.onStartup.addListener(() => { garantirAlarme(); atualizar({ lento: true }).then((r) => { if (r?.rapido) correrRapido() }) })
+chrome.runtime.onInstalled.addListener(() => { garantirAlarme(); atualizar({ lento: true }).then((r) => { if (r?.rapido) manter(r) }) })
+chrome.runtime.onStartup.addListener(() => { garantirAlarme(); atualizar({ lento: true }).then((r) => { if (r?.rapido) manter(r) }) })
 garantirAlarme()
