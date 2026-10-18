@@ -6,8 +6,8 @@ Tudo isto nasce **fechado**: só Owner e Dev veem a página **Divulgar** no menu
 
 | | O que faz |
 |---|---|
-| **Overlay do OBS** | Uma ligação por jogador (com uma chave secreta) que mostra o rank, os pontos, o dia (V, D, pontos), se está na fila ou numa partida e a última partida. Atualiza sozinha de 5 em 5 segundos, com fundo transparente. Formato cartão ou barra, cor, tamanho e campos à escolha. |
-| **Marca animada** | O GIF `public/divulgar/rangify-canto.gif` (raio do Rangify, "Joga ranked no Rangify" e o endereço do site) e uma versão para o OBS (`/overlay/<chave>/marca`) que mostra o **link de convite** do jogador. |
+| **Overlay do OBS** | Uma ligação por jogador (com uma chave secreta) que mostra o emblema do rank com a barra de RR, os pontos, o dia (quadrados de vitórias e derrotas, e os pontos), a fila (10 segmentos e o tempo) ou a partida (fase, mapa com a arte por trás e o cronómetro) e a última partida. Quando uma partida acaba com o overlay aberto, aparece durante 9 segundos uma faixa de **VITÓRIA** ou **DERROTA** com o resultado e os pontos. Atualiza sozinha de 5 em 5 segundos, com fundo transparente. Formato cartão ou barra, cor, tamanho e campos à escolha. |
+| **Marca animada** | Um cartão para um cantinho da live com três mensagens que se trocam de 2,4 em 2,4 segundos: o Rangify, o endereço do site e um convite (ou "5v5 com capitães"). O GIF `public/divulgar/rangify-canto.gif` (fundo transparente, ciclo de 7,2 s) e uma versão para o OBS (`/overlay/<chave>/marca`) que mostra o **link de convite inteiro** e o bónus de 100 coins. O endereço nunca passa do cartão: a letra encolhe se for comprido. |
 | **Twitch** | O jogador liga o canal. Quando está em direto, aparece **AO VIVO** com o botão da live ao lado do nome na tabela, no perfil e nas equipas da partida, e numa faixa "Em direto agora" na página Jogar. |
 | **Convites** | Cada jogador tem um código e um link (`/?convite=CODIGO`). Quem se regista por ele e **joga a primeira partida a sério** dá coins aos dois. |
 
@@ -32,7 +32,7 @@ Sem os passos 2 e 3, o botão "Ligar a Twitch" responde "A Twitch ainda não est
 
 1. Em **Divulgar**, escolhe o formato, a cor e o que mostrar e carrega em **Copiar**.
 2. No OBS: **Fontes › + › Navegador**, cola o link em **URL** e põe a largura e a altura que a página indica. O fundo já é transparente.
-3. A chave na ligação é só tua. Se alguém a vir, carrega em **Renovar a chave** (a antiga deixa de funcionar) e atualiza o link no OBS.
+3. O tamanho que a página indica (por exemplo 360 × 370 para o cartão) já leva uma folga por cima para o aviso de fim de partida; se desligares "Aviso de fim de partida", é menor. A chave na ligação é só tua. Se alguém a vir, carrega em **Renovar a chave** (a antiga deixa de funcionar) e atualiza o link no OBS.
 4. A marca: ou **Fontes › + › Imagem** com o GIF, ou outra fonte **Navegador** com o link da marca (essa leva o teu link de convite).
 
 O overlay mostra o **mapa e o cronómetro** da partida em curso, mas não o placar ronda a ronda: o Rangify só recebe os dados da partida quando ela acaba (a Riot não os dá em direto). O resultado aparece no fim.

@@ -32,7 +32,7 @@ export function Cabecalho({ migalhas, titulo, descricao, acoes }: {
         <h1 className="m-0 text-[clamp(32px,4vw,46px)] leading-[1.02] font-extrabold tracking-[-0.045em]">{titulo}</h1>
         {descricao && <p className="m-0 max-w-[600px] text-[15px] leading-[1.55] text-suave">{descricao}</p>}
       </div>
-      {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
+      {acoes && <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{acoes}</div>}
     </header>
   )
 }

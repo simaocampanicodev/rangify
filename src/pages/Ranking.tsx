@@ -2,6 +2,7 @@ import { Minus, Plus, RefreshCw, Search, Trophy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EmDireto } from '@/components/AoVivo'
+import { TabelaAgentes } from '@/components/TabelaAgentes'
 import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -220,16 +221,24 @@ function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, 
 
 /** "A tua posição", igual nas três tabelas. */
 function CartaoPosicao({ posicao, perfil, resumo }: { posicao: number | null | undefined; perfil: Perfil; resumo: string }) {
+  // Só entra na tabela quem já jogou uma partida: até lá não há posição.
+  const semJogos = perfil.vitorias + perfil.derrotas === 0
   return (
     <Painel aria-labelledby="rg-eu" className="flex flex-col gap-3 p-[22px]">
       <span id="rg-eu" className="eyebrow">{tx('A TUA POSIÇÃO', 'YOUR POSITION')}</span>
       <div className="flex items-center gap-3">
-        <span className="font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] text-laranja">#{posicao ?? '-'}</span>
+        <span className={`font-mono text-[40px] leading-none font-semibold tracking-[-0.04em] ${posicao ? 'text-laranja' : 'text-mudo'}`}>{posicao ? `#${posicao}` : '-'}</span>
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[15px] font-bold">{nomeJogador(perfil)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(perfil)}</span></span>
-          <span className="font-mono text-[12px] text-suave">{resumo}</span>
+          <span className="font-mono text-[12px] text-suave">{semJogos ? tx('Ainda sem partidas', 'No matches yet') : resumo}</span>
         </span>
       </div>
+      {semJogos && (
+        <>
+          <p className="m-0 text-[13px] leading-normal text-suave">{tx('Ainda não estás na tabela: entras assim que acabares a tua primeira partida.', 'You are not on the leaderboard yet: you get in as soon as you finish your first match.')}</p>
+          <Link to="/jogar" className="btn btn-primario no-underline">{tx('Ir jogar', 'Go play')}</Link>
+        </>
+      )}
     </Painel>
   )
 }
@@ -347,7 +356,7 @@ function RankingNivel({ perfil }: { perfil: Perfil | null }) {
           ))}
           vazio={vazioFiltro(f.ambito, f.q
             ? <Vazio icone={<Trophy size={22} />} titulo={tx('Ninguém com esse nome', 'Nobody with that name')} texto={tx('Experimenta outro Riot ID.', 'Try another Riot ID.')} />
-            : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda ninguém tem XP', 'Nobody has XP yet')} texto={tx('Completa missões para apareceres aqui.', 'Complete missions to show up here.')} />)}
+            : <Vazio icone={<Trophy size={22} />} titulo={tx('Ainda ninguém na tabela', 'Nobody on the leaderboard yet')} texto={tx('Entra quem já jogou uma partida. Joga e completa missões para apareceres aqui.', 'Players who have finished a match get in. Play and complete missions to show up here.')} />)}
         />
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
           {perfil && <CartaoPosicao posicao={minha.valor?.posicao} perfil={perfil} resumo={minha.valor ? `${tx('Nível', 'Level')} ${minha.valor.nivel} · ${formatarXp(minha.valor.xp)} XP` : '-'} />}
@@ -406,8 +415,8 @@ function Simulador() {
 export function Ranking() {
   const [params, setParams] = useSearchParams()
   const pedido = params.get('tipo')
-  const tipo = pedido === 'nivel' || pedido === 'rs' ? pedido : 'pontos'
-  const mudarTipo = (t: 'pontos' | 'nivel' | 'rs') => setParams(t === 'pontos' ? {} : { tipo: t }, { replace: true })
+  const tipo = pedido === 'nivel' || pedido === 'rs' || pedido === 'agentes' ? pedido : 'pontos'
+  const mudarTipo = (t: 'pontos' | 'nivel' | 'rs' | 'agentes') => setParams(t === 'pontos' ? {} : { tipo: t }, { replace: true })
   const { perfil } = useSessao()
   const acao = useAcao()
   const { sincronizar, aSincronizar } = useSincronizarRank()
@@ -451,16 +460,18 @@ export function Ranking() {
           ? tx('Quem subiu mais no passe da temporada com o XP das missões.', 'Who has climbed the season pass furthest with mission XP.')
           : tipo === 'rs'
           ? tx('Quem joga melhor, em média, segundo o Rangify Score de cada partida.', 'Who plays best on average, by the Rangify Score of each match.')
-          : tx('Ordenada pelos pontos do hub. Toda a gente começa a temporada com 1000.', 'Sorted by hub points. Everyone starts the season at 1000.')}
+          : tipo === 'agentes'
+          ? tx('O melhor jogador de cada agente, pela média de Rangify Score com ele.', 'The best player with each agent, by average Rangify Score with it.')
+          : tx('Ordenada pelos pontos do hub. Toda a gente começa a temporada com 1000 e entra na tabela quando acaba a primeira partida.', 'Sorted by hub points. Everyone starts the season at 1000 and gets on the leaderboard after finishing their first match.')}
         acoes={
           <>
-            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }]} />
+            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }, { valor: 'agentes', texto: tx('Agentes', 'Agents') }]} />
             <BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>
           </>
         }
       />
 
-      {tipo === 'rs' ? <RankingRs perfil={perfil} /> : tipo === 'nivel' ? <RankingNivel perfil={perfil} /> : <>
+      {tipo === 'agentes' ? <TabelaAgentes perfil={perfil} /> : tipo === 'rs' ? <RankingRs perfil={perfil} /> : tipo === 'nivel' ? <RankingNivel perfil={perfil} /> : <>
 
       {pagina.carregando && !q ? <PodioEsqueleto /> : comPodio && <Podio eu={perfil?.id} top={linhas.slice(0, 3).map((l) => {
         const j = l.perfil.vitorias + l.perfil.derrotas
@@ -479,7 +490,9 @@ export function Ranking() {
             { texto: tx('Pontos', 'Points'), classe: 'pr-3 text-right' },
           ]}
           linhas={tabela.map((l, i) => <Linha key={l.perfil.id} l={l} i={i} eu={l.perfil.id === perfil?.id} />)}
-          vazio={vazioFiltro(ambito, <Vazio icone={<Trophy size={22} />} titulo={tx('Ninguém com esse nome', 'Nobody with that name')} texto={tx('Experimenta outro Riot ID.', 'Try another Riot ID.')} />)}
+          vazio={vazioFiltro(ambito, q
+            ? <Vazio icone={<Trophy size={22} />} titulo={tx('Ninguém com esse nome', 'Nobody with that name')} texto={tx('Experimenta outro Riot ID.', 'Try another Riot ID.')} />
+            : <Vazio icone={<Trophy size={22} />} titulo={tx('A tabela ainda está vazia', 'The leaderboard is still empty')} texto={tx('Entra quem já jogou uma partida. Sê o primeiro!', 'Players who have finished a match get in. Be the first!')} />)}
           rodape={cursor && (
             <button type="button" className="btn btn-fantasma self-center" disabled={mais} onClick={carregarMais}>{mais ? tx('A carregar…', 'Loading…') : tx('Carregar mais 50', 'Load 50 more')}</button>
           )}

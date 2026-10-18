@@ -1,7 +1,7 @@
 /**
  * Gera o GIF animado da marca (public/divulgar/rangify-canto.gif): o raio do Rangify, "Joga ranked no Rangify" e o
  * endereço do site, num cartão com fundo transparente para pôr num cantinho da live. É a página /marca do próprio
- * site, fotografada quadro a quadro (as animações andam de 4,8 em 4,8 s, por isso o GIF fecha o ciclo sem saltos).
+ * site, fotografada quadro a quadro (as animações repetem-se de 7,2 em 7,2 s, por isso o GIF fecha o ciclo sem saltos).
  *
  *   npm run gif-marca -- rangify.onrender.com            (precisa do site a correr: npm run dev)
  *   npm run gif-marca -- rangify.onrender.com --cor azul --base http://localhost:5175
@@ -23,8 +23,8 @@ if (!host) {
 const base = valor('base', 'http://localhost:5175')
 const cor = valor('cor', 'laranja')
 const caminho = valor('saida', fileURLToPath(new URL('../public/divulgar/rangify-canto.gif', import.meta.url)))
-const FPS = 15
-const CICLO_MS = 4800
+const FPS = 12.5
+const CICLO_MS = 7200
 const ESCALA = 2
 
 let playwright
