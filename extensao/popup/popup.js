@@ -1,6 +1,7 @@
 // O popup da extensão: a roda da fila, entrar/sair e as definições do som. Só mostra o que o service worker
 // guardou em chrome.storage e manda-lhe os pedidos (entrar, sair, iniciar sessão...).
 import { CONFIG } from '../config.js'
+import { atualizarHtml } from '../lib/morph.js'
 import { rodaSvg } from '../lib/roda.js'
 import { agoraServidor, banAtivo, esc, pedir, relogio, textoBan } from '../lib/util.js'
 
@@ -150,22 +151,13 @@ function vistaPrincipal() {
 
 // ------------------------------------------------------------ ligação
 
-// Redesenhar com o rato premido faria perder o clique (o botão deixava de existir antes de o largares).
-let premido = false
-let adiado = false
-raiz.addEventListener('pointerdown', () => { premido = true })
-window.addEventListener('pointerup', () => { premido = false; if (adiado) setTimeout(() => { adiado = false; render() }, 60) })
-window.addEventListener('pointercancel', () => { premido = false })
-
 function render() {
-  if (premido) { adiado = true; return }
-  // Não redesenha a meio de escrever o utilizador ou a palavra-passe, nem enquanto se arrasta o volume.
-  const foco = document.activeElement
-  if (foco && raiz.contains(foco) && (foco.matches('input.campo') || foco.id === 'som-volume')) return
-  const guardado = raiz.querySelector('details')?.open
-  if (guardado) verLogin = true
-  raiz.innerHTML = !configurado ? vistaSemConfig() : !estado.sessao ? vistaLogin() : vistaPrincipal()
+  // Atualiza só o que mudou: os botões e a roda são sempre os mesmos elementos (nada pisca, nenhum clique se perde).
+  atualizarHtml(raiz, !configurado ? vistaSemConfig() : !estado.sessao ? vistaLogin() : vistaPrincipal())
 }
+
+// Abrir ou fechar o "Entrar com utilizador e palavra-passe" lembra-se, para o redesenho não o fechar.
+raiz.addEventListener('toggle', (e) => { if (e.target.matches?.('details')) verLogin = e.target.open }, true)
 
 raiz.addEventListener('click', (e) => {
   const botao = e.target.closest('[data-acao]')
@@ -196,7 +188,11 @@ raiz.addEventListener('input', (e) => {
   if (e.target.id === 'som-volume') pedir({ tipo: 'som', volume: e.target.value }).catch(() => {})
 })
 
-chrome.storage.onChanged.addListener(() => { carregar().then(render) })
+// O service worker escreve o "atualizadoEm" só para o site saber que está vivo; isso não muda nada do que se vê.
+chrome.storage.onChanged.addListener((mudancas) => {
+  if (Object.keys(mudancas).every((k) => k === 'atualizadoEm')) return
+  carregar().then(render)
+})
 
 // As contagens (tempo na fila, castigo, ready check) mexem a cada segundo.
 setInterval(() => { if (estado.sessao && !aTrabalhar) render() }, 1000)

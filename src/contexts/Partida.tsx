@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
-import { consultarExtensao, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
+import { consultarExtensao, extensaoAvisarFila, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
 import { acertarRelogio } from '@/lib/tempo'
 import { useVisivel } from '@/hooks/useVisivel'
 import { useAvisos } from './Avisos'
@@ -125,6 +125,14 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
     window.addEventListener('pagehide', sair)
     return () => window.removeEventListener('pagehide', sair)
   }, [naFila, meuId])
+
+  // Entrar ou sair da fila (por qualquer caminho) avisa a extensão, que passa a acompanhá-la por Realtime.
+  const jaViu = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (!meuId || !fila) return
+    if (jaViu.current !== null && jaViu.current !== naFila) extensaoAvisarFila()
+    jaViu.current = naFila
+  }, [naFila, meuId, fila])
 
   // Enquanto estás na fila, vai perguntando à extensão se continua viva (o aviso de fecho acima usa a última resposta).
   useEffect(() => {

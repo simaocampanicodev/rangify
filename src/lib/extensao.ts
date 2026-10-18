@@ -13,6 +13,7 @@ const ESPERA_MS = 600
 interface Resposta { viva: boolean; som: boolean }
 
 let presente = false
+const ouvintes = new Set<() => void>()
 let ultima: { perfilId: string; em: number; viva: boolean; som: boolean } | null = null
 const pendentes = new Map<string, (r: Resposta) => void>()
 
@@ -24,7 +25,7 @@ export function iniciarExtensao() {
     if (e.source !== window || e.origin !== window.location.origin) return
     const m = e.data as { origem?: string; tipo?: string; id?: string; viva?: boolean; som?: boolean } | null
     if (!m || m.origem !== DA_EXTENSAO) return
-    if (m.tipo === 'ola') presente = true
+    if (m.tipo === 'ola') { presente = true; ouvintes.forEach((f) => f()) }
     else if (m.tipo === 'estado' && m.id) {
       pendentes.get(m.id)?.({ viva: !!m.viva, som: !!m.som })
       pendentes.delete(m.id)
@@ -35,6 +36,15 @@ export function iniciarExtensao() {
 
 /** A extensão está instalada neste browser? */
 export const extensaoPresente = () => presente
+
+/** Onde instalar a extensão (a página dela na Chrome Web Store ou no Edge Add-ons), se o site a tiver configurada. */
+export const URL_EXTENSAO = ((import.meta.env.VITE_EXTENSAO_URL as string | undefined) ?? '').trim()
+
+/** Chama `cb` quando a extensão se anuncia (a resposta chega depois de a página carregar). */
+export function aoAparecerExtensao(cb: () => void): () => void {
+  ouvintes.add(cb)
+  return () => { ouvintes.delete(cb) }
+}
 
 /** Pergunta à extensão se está viva e com sessão nesta conta (e se toca o som). Sem extensão, responde logo que não. */
 export function consultarExtensao(perfilId: string): Promise<Resposta> {
@@ -63,6 +73,11 @@ export async function extensaoTocaOSom(perfilId: string): Promise<boolean> {
  */
 export function extensaoMantemAFila(perfilId: string): boolean {
   return !!ultima && ultima.perfilId === perfilId && ultima.viva && Date.now() - ultima.em < VALIDADE_MS
+}
+
+/** Diz à extensão que entraste ou saíste da fila, para ela começar (ou deixar) de a acompanhar já, sem esperar pelo alarme. */
+export function extensaoAvisarFila() {
+  if (presente) enviar({ tipo: 'fila-mudou' })
 }
 
 /** Diz à extensão que a partida acabou de ser encontrada, para tocar já (o site vê-a antes do ciclo dela). */

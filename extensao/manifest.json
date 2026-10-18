@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rangify: fila e aviso de partida",
   "short_name": "Rangify",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A roda da fila do Rangify no browser: entra e sai da fila e ouve o aviso de partida encontrada mesmo que estejas noutro separador, no YouTube por exemplo.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxgacEd+3io9sRXXGF5RImqfRKEaT2ivD17gS0MGq3AIz4ypQP/sRdeAPygsvFM61bJ/0SIF2mU+O5HL2dez0YGPy7urvTlgYu1XHC8rygCdJrIDwdv+otxxuYJRpi0VDC18N7/cGhq7ImOg5+AkVrN4fJe4YP6/NB/XxBdhuvUGeal83wLK5vhTM4B37okTY37btMDc7xuWEJzGAFy6DM2LVFOcavaBOyX/DffB14vQIylJZYhOjsy6x5CgameIqnd3F0wGUnzY1M+0o0fsSwLWv5FfSDM6n3e6XrfzHFJxnTftcgC6uUE1c0l1Fg373di/2HJkyUxNypv6zdgjoNQIDAQAB",
   "minimum_chrome_version": "116",
