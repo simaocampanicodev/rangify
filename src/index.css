@@ -296,4 +296,11 @@ html.overlay-obs, html.overlay-obs body { background: transparent !important; ov
   9%, 42.3%, 75.6% { transform: scale(1) rotate(0) }
 }
 @keyframes rg-ov-c-varre { 0%, 50% { transform: translateX(-130%) } 80%, 100% { transform: translateX(560%) } }
-@media (prefers-reduced-motion: reduce) { .rg-ov-anim { animation: none !important } }
+/* Com "reduzir animações" (o Windows com as animações desligadas, por exemplo) a marca não pára: o varrimento e o balanço do ícone
+   desaparecem, mas as mensagens continuam a trocar-se, só a esbater (sem deslizar). */
+@keyframes rg-ov-c-troca-calma { 0% { opacity: 0 } 5% { opacity: 1 } 31% { opacity: 1 } 38% { opacity: 0 } 100% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) {
+  .rg-ov-anim { animation: none !important }
+  .rg-ov-brilho { display: none }
+  .rg-ov-troca { animation-name: rg-ov-c-troca-calma !important }
+}
