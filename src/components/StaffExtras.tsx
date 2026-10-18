@@ -529,3 +529,61 @@ export function LojaStaff() {
     </div>
   )
 }
+
+/** Owner e Dev: abrir o overlay do OBS, a Twitch e os convites a toda a gente (ou voltar a fechá-los) e ver como está a correr. */
+export function DivulgacaoStaff() {
+  const acao = useAcao()
+  const estado = useCarregar(() => dados.divulgacaoEstado(), [], ['staff', 'streamers'])
+  if (!estado.valor) return <Carregando />
+  const e = estado.valor
+  const numeros: [string, number][] = [
+    [l('Twitch ligadas', 'Twitch linked'), e.twitchLigadas],
+    [l('Em direto agora', 'Live now'), e.aoVivo],
+    [l('Overlays criados', 'Overlays created'), e.overlays],
+    [l('Convidados', 'Invited'), e.convidados],
+    [l('Convites pagos', 'Invites paid'), e.premiados],
+    [l('Coins dadas', 'Coins given'), e.moedasDadas],
+  ]
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="m-0 max-w-[680px] text-[13px] leading-normal text-mudo">
+        {l('Overlay do OBS, marca animada, ligação da Twitch (com o "AO VIVO" ao lado dos jogadores em direto) e convites com recompensa. Enquanto está fechado, só Owner e Dev veem e usam: a página Divulgar aparece no menu só para vocês e as ligações de overlay dos outros jogadores ficam vazias. Ao abrir, toda a gente passa a ter tudo.', 'OBS overlay, animated badge, Twitch link (with "LIVE" next to players who are streaming) and invites with a reward. While closed, only Owner and Dev see and use it: the Share page shows in the menu only for you and other players\' overlay links stay empty. Once open, everyone gets everything.')}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Chip tom={e.publico ? 'vitoria' : 'laranja'}>{e.publico ? l('Aberto a toda a gente', 'Open to everyone') : l('Fechado: só Owner e Dev', 'Closed: Owner and Dev only')}</Chip>
+        {e.publico ? (
+          <BotaoSegurar rotulo={l('Segura para fechar ao público', 'Hold to close to the public')} className="btn btn-fantasma" onConfirmar={() => acao(() => dados.definirStreamersPublico(false), l('A área voltou a estar fechada.', 'The area is closed again.'))}>
+            <Lock size={16} aria-hidden />{l('Fechar ao público', 'Close to the public')}
+          </BotaoSegurar>
+        ) : (
+          <BotaoSegurar rotulo={l('Segura para abrir a toda a gente', 'Hold to open to everyone')} className="btn btn-primario" onConfirmar={() => acao(() => dados.definirStreamersPublico(true), l('A área está aberta a toda a gente.', 'The area is open to everyone.'))}>
+            <Megaphone size={16} aria-hidden />{l('Abrir a toda a gente', 'Open to everyone')}
+          </BotaoSegurar>
+        )}
+        <Link to="/divulgar" className="btn btn-fantasma no-underline">{l('Ir para a página Divulgar', 'Go to the Share page')}</Link>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
+        {numeros.map(([nome, n]) => (
+          <div key={nome} className="flex flex-col gap-0.5 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-3">
+            <span className="font-mono text-[22px] leading-none font-semibold">{n}</span>
+            <span className="text-[12px] text-mudo">{nome}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2">
+        <span className="eyebrow">{l('QUEM MAIS CONVIDA', 'TOP INVITERS')}</span>
+        {e.top.length === 0 ? <Vazio icone={<Megaphone size={18} />} titulo={l('Ainda ninguém convidou ninguém', 'Nobody has invited anyone yet')} /> : (
+          <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {e.top.map((t, i) => (
+              <li key={t.perfilId} className="flex items-center gap-3 rounded-xl border border-white/7 bg-white/[0.025] px-3 py-2 text-[13.5px]">
+                <span className="w-6 font-mono text-[12px] text-mudo">#{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold">{t.utilizador}</span>
+                <span className="font-mono text-[12px] text-suave">{t.premiados} {l('pagos', 'paid')} · {t.convidados} {l('convidados', 'invited')}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  )
+}

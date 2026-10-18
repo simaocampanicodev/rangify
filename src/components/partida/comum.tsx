@@ -3,6 +3,7 @@ import { urlAvatar } from '@/lib/imagem'
 import type { ReactNode } from 'react'
 import type { FuncaoJogo, JogadorPartida } from '@/lib/dados'
 import { iniciais } from '../ui'
+import { EmDireto } from '../AoVivo'
 import { DecoracaoAvatar } from '../Cosmeticos'
 import { nomeJogador, tagJogador } from '@/lib/partida'
 import { nomeRank } from '@/lib/ranks'
@@ -65,6 +66,7 @@ export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jog
             </span>
             <span className="truncate text-[11.5px] text-mudo">{nomeRank(j.tier)}{j.funcaoJogo ? ` · ${nomeFuncaoJogo(j.funcaoJogo)}` : ''}</span>
           </span>
+          <EmDireto perfilId={j.perfilId} compacto />
           {j.capitao
             ? null
             : j.perfilId === eu ? <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{l('TU', 'YOU')}</span>

@@ -1,5 +1,6 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { FaixaAoVivo } from '@/components/AoVivo'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { ConviteExtensao } from '@/components/ConviteExtensao'
 import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
@@ -243,6 +244,7 @@ export function Jogar() {
         descricao={l('Entra na fila da tua região. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Join your region\'s queue. When there are 10 players, you get the accept alert and go on to the draft.')}
       />
       <PainelFila />
+      <FaixaAoVivo />
       <FerramentasDev />
       <ComoFunciona />
       <p className="m-0 flex items-center gap-2 text-[12.5px] text-mudo"><Swords size={14} className="text-laranja" aria-hidden />{l('Precisas do Riot ID ligado e de jogar com essa conta, para o resultado ser confirmado.', 'You need your Riot ID linked and to play with that account, so the result can be confirmed.')}</p>

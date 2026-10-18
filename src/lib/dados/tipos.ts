@@ -415,13 +415,63 @@ export interface LojaAberta {
   /** Owner e Dev: compram tudo (para testar), dão coins a si próprios, sorteiam a loja e devolvem itens. */
   staff: boolean
   moedas: number
-  ganhas: { nivel: number; porNivel: number; porMarcos: number; porDiarias: number; porSemanais: number; porMvp: number; testes: number }
+  ganhas: { nivel: number; porNivel: number; porMarcos: number; porDiarias: number; porSemanais: number; porMvp: number; testes: number; porConvites?: number }
   hoje: { dia: string; diarios: string[]; semanais: string[]; destaque: string | null; mudaEm: string; semanaisAte: string; destaqueAte: string }
   inventario: string[]
   equipados: Partial<Record<CategoriaLoja, string>>
   avatarGif: string | null
 }
 export type EstadoLoja = { visivel: false } | LojaAberta
+
+/** O que o overlay do OBS mostra: o jogador, o dia, o estado e a última partida. */
+export interface OverlayDados {
+  nome: string
+  riotId: string | null
+  avatarUrl: string | null
+  tier: number
+  rr: number | null
+  pontos: number
+  vitorias: number
+  derrotas: number
+  hoje: { vitorias: number; derrotas: number; delta: number }
+  estado: 'livre' | 'fila' | 'partida'
+  fila: { contagem: number; desde: string } | null
+  partida: { estado: EstadoPartida; codigo: string; mapa: string | null; equipa: Equipa | null; comecouEm: string | null } | null
+  ultima: { codigo: string; mapa: string | null; venceu: boolean; rondasFeitas: number | null; rondasSofridas: number | null; delta: number | null; terminouEm: string | null } | null
+  twitch: string | null
+  codigoConvite: string | null
+  agora: string
+}
+
+/** A conta da Twitch ligada ao perfil e o que se sabe da live. */
+export interface TwitchConta { login: string; nome: string; ligadaEm: string; aoVivo: boolean; titulo: string | null; jogo: string | null; espetadores: number | null }
+
+/** Um jogador em direto na Twitch (o site mostra "AO VIVO" e o botão da live ao lado dele). */
+export interface StreamerAoVivo { perfilId: string; utilizador: string; canal: string; nome: string; titulo: string | null; jogo: string | null; espetadores: number | null; desde: string | null }
+
+export interface ConviteValores { convidador: number; convidado: number; marcoACada: number; bonusMarco: number; limiteMes: number; diasParaUsar: number }
+export interface ConvidadoLinha { perfilId: string; utilizador: string; avatarUrl: string | null; estado: 'pendente' | 'premiado' | 'limite'; desde: string; premiadoEm: string | null; moedas: number }
+export interface ConvitesInfo {
+  codigo: string
+  valores: ConviteValores
+  convidados: ConvidadoLinha[]
+  premiados: number
+  moedas: number
+  /** Quem te convidou, se usaste um convite. */
+  conviteDe: { utilizador: string; estado: 'pendente' | 'premiado' | 'limite'; moedas: number } | null
+}
+
+/** Staff: o estado da área de streamers e convites. */
+export interface DivulgacaoEstado {
+  publico: boolean
+  twitchLigadas: number
+  aoVivo: number
+  overlays: number
+  convidados: number
+  premiados: number
+  moedasDadas: number
+  top: { perfilId: string; utilizador: string; convidados: number; premiados: number }[]
+}
 
 export interface Dados {
   modo: 'demo' | 'supabase'
@@ -620,4 +670,34 @@ export interface Dados {
   confirmarAviso(id: string): Promise<void>
   /** Chama cb quando a staff te dá um aviso ou um ban (no site real, pelo Realtime). */
   aoMudarAvisos(perfilId: string, cb: () => void): () => void
+
+  // Streamers, overlay e convites (fechado a Owner e Dev até a staff abrir a toda a gente)
+  /** Se quem pergunta vê a área (Owner e Dev sempre; os outros quando está aberta). */
+  streamersVisivel(): Promise<boolean>
+  /** A chave secreta da ligação do overlay do OBS (cria-a na primeira vez). */
+  meuOverlay(): Promise<{ chave: string }>
+  /** Troca a chave: a ligação antiga deixa de funcionar. */
+  renovarOverlay(): Promise<{ chave: string }>
+  /** O que o overlay mostra. Pública: só precisa da chave. null se a chave não existir ou a área estiver fechada. */
+  overlayDados(chave: string): Promise<OverlayDados | null>
+  minhaTwitch(): Promise<TwitchConta | null>
+  /** O endereço da Twitch para onde mandar a pessoa ligar o canal (a Twitch devolve-a ao site). */
+  twitchUrlLigar(): Promise<string>
+  desligarTwitch(): Promise<void>
+  /** Quem está em direto agora (vazio se a área estiver fechada para quem pergunta). */
+  streamersAoVivo(): Promise<StreamerAoVivo[]>
+  /** Só no modo demo: faz de conta que ligaste o canal (não há OAuth no demo). */
+  twitchLigarDemo?(canal: string): Promise<void>
+  /** Só no modo demo: põe o teu canal em direto ou fora dele. */
+  twitchAoVivoDemo?(aoVivo: boolean): Promise<void>
+  /** O teu código de convite, a lista de convidados e o que ganhaste. */
+  meuConvite(): Promise<ConvitesInfo>
+  /** Usa o código de quem te convidou (só contas novas e sem partidas, uma vez). */
+  usarConvite(codigo: string): Promise<{ convidador: string; moedas: number }>
+  /** Só no modo demo: um convidado de teste que acabou de jogar a primeira partida. */
+  conviteConvidadoDemo?(): Promise<void>
+  /** Staff: o estado da área (aberta ou não), as Twitch ligadas e os convites. */
+  divulgacaoEstado(): Promise<DivulgacaoEstado>
+  /** Owner e Dev: abre a área a toda a gente (ou volta a fechá-la). */
+  definirStreamersPublico(publico: boolean): Promise<DivulgacaoEstado>
 }

@@ -8,3 +8,11 @@ verify_jwt = false
 [functions.discord-partida]
 # Chamada pela base de dados (pg_net) com um segredo no cabeçalho, não por utilizadores.
 verify_jwt = false
+
+[functions.twitch-sincronizar]
+# Chamada pela base de dados (pg_cron + pg_net) com o mesmo segredo do Discord.
+verify_jwt = false
+
+[functions.twitch-ligar]
+# O GET de retorno vem da Twitch, pelo browser, sem token; o POST confirma a sessão dentro da função.
+verify_jwt = false

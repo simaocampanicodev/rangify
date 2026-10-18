@@ -11,7 +11,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "testar-sql": "node scripts/testar-sql.mjs",
-    "extensao": "node scripts/montar-extensao.mjs"
+    "extensao": "node scripts/montar-extensao.mjs",
+    "gif-marca": "node scripts/gerar-gif-marca.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
