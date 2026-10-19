@@ -117,10 +117,12 @@ export interface JogadorNosso { perfilId: string; equipa: 'A' | 'B' | null; riot
  */
 export function encontrarPartida(
   lista: PartidaHenrik[],
-  alvo: { mapa: string; desde: number; ate?: number | null; nossos: JogadorNosso[]; minimo: number },
+  // mapa null: serve qualquer mapa (os torneios nem sempre marcam um). excluir: jogos da API que já são de outro jogo.
+  alvo: { mapa: string | null; desde: number; ate?: number | null; nossos: JogadorNosso[]; minimo: number; excluir?: string[] },
 ) {
   for (const p of lista) {
-    if (p.metadata.map?.toLowerCase() !== alvo.mapa.toLowerCase()) continue
+    if (alvo.mapa && p.metadata.map?.toLowerCase() !== alvo.mapa.toLowerCase()) continue
+    if (p.metadata.matchid && alvo.excluir?.includes(p.metadata.matchid)) continue
     const inicio = p.metadata.game_start * 1000
     if (inicio < alvo.desde || (alvo.ate != null && inicio > alvo.ate)) continue
     const lido = lerPartida(p)
