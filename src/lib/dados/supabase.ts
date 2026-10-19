@@ -10,6 +10,7 @@ import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
+  ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
   Amizade, AvisoStaff, ConvitesInfo, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
@@ -361,6 +362,82 @@ export const dadosSupabase: Dados = {
   usarConvite: (codigo) => rpc<{ convidador: string; moedas: number }>('usar_convite', { p_codigo: codigo }),
   divulgacaoEstado: () => rpc<DivulgacaoEstado>('divulgacao_estado'),
   definirStreamersPublico: (publico) => rpc<DivulgacaoEstado>('definir_streamers_publico', { p_publico: publico }),
+
+  // ---------------------------------------------------------------- torneios
+  torneiosVisivel: () => rpc<boolean>('torneios_visivel').catch(() => false),
+  torneiosLista: () => rpc<TorneioResumo[]>('torneios_lista'),
+  torneioDetalhe: (id) => rpc<TorneioDetalhe>('torneio_detalhe', { p_torneio: id }),
+  meusConvitesTorneio: () => rpc<ConviteTorneio[]>('meus_convites_torneio').catch(() => []),
+  torneioProcurarJogadores: (q) => rpc<JogadorSugerido[]>('torneio_procurar_jogadores', { p_q: q }),
+  async torneioCriarEquipa(torneio, nome, funcao = 'jogador') {
+    const id = await rpc<string>('torneio_criar_equipa', { p_torneio: torneio, p_nome: nome, p_funcao: funcao })
+    avisarMudanca('torneios')
+    return id
+  },
+  async torneioRenomearEquipa(equipa, nome) { await rpc('torneio_renomear_equipa', { p_equipa: equipa, p_nome: nome }); avisarMudanca('torneios') },
+  async torneioConvidar(equipa, nome, funcao) {
+    const r = await rpc<JogadorSugerido>('torneio_convidar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao })
+    avisarMudanca('torneios')
+    return r
+  },
+  async torneioResponderConvite(equipa, aceitar) { await rpc('torneio_responder_convite', { p_equipa: equipa, p_aceitar: aceitar }); avisarMudanca('torneios') },
+  async torneioRemoverMembro(equipa, perfil) { await rpc('torneio_remover_membro', { p_equipa: equipa, p_perfil: perfil }); avisarMudanca('torneios') },
+  async torneioMudarFuncao(equipa, perfil, funcao) { await rpc('torneio_mudar_funcao', { p_equipa: equipa, p_perfil: perfil, p_funcao: funcao }); avisarMudanca('torneios') },
+  async torneioSairEquipa(equipa) { await rpc('torneio_sair_equipa', { p_equipa: equipa }); avisarMudanca('torneios') },
+  async torneioApagarEquipa(equipa) { await rpc('torneio_apagar_equipa', { p_equipa: equipa }); avisarMudanca('torneios') },
+  async torneioAbrirJogo(jogo, codigo) {
+    await rpc('torneio_abrir_jogo', { p_jogo: jogo, p_codigo: codigo })
+    avisarMudanca('torneios')
+  },
+  async torneioVetoIniciar(jogo) { await rpc('torneio_veto_iniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioVetoAgir(jogo, valor) { await rpc('torneio_veto_agir', { p_jogo: jogo, p_valor: valor }); avisarMudanca('torneios') },
+  async torneioVetoAvancar(jogo) {
+    const jogou = await rpc<boolean>('torneio_veto_avancar', { p_jogo: jogo })
+    if (jogou) avisarMudanca('torneios')
+    return jogou
+  },
+  async torneioVetoConcluir(jogo) { await rpc('torneio_veto_concluir', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioVetoReiniciar(jogo) { await rpc('torneio_veto_reiniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioProcessarJogo(jogo) {
+    // No máximo uma vez a cada 20 s por jogo (o servidor ainda limita a 1 consulta por minuto à API).
+    const agora = Date.now()
+    if ((ultimoProcessamento.get(jogo) ?? 0) > agora - 20_000) return
+    ultimoProcessamento.set(jogo, agora)
+    try {
+      const r = await funcao<{ estado?: string }>('processar-torneio', { jogoId: jogo })
+      if (r?.estado === 'concluido') avisarMudanca('torneios')
+    } catch { /* o servidor volta a tentar sozinho a cada minuto */ }
+  },
+  async torneioCriar(p) { const id = await rpc<string>('torneio_criar', { p }); avisarMudanca('torneios'); return id },
+  async torneioEditar(id, p) { await rpc('torneio_editar', { p_torneio: id, p }); avisarMudanca('torneios') },
+  async torneioMudarEstado(id, estado) { await rpc('torneio_mudar_estado', { p_torneio: id, p_estado: estado }); avisarMudanca('torneios') },
+  async torneioApagar(id) { await rpc('torneio_apagar', { p_torneio: id }); avisarMudanca('torneios') },
+  async torneioAcesso(id, nome, dar) { const r = await rpc<JogadorSugerido>('torneio_acesso', { p_torneio: id, p_nome: nome, p_dar: dar }); avisarMudanca('torneios'); return r },
+  torneioAcessos: (id) => rpc<JogadorSugerido[]>('torneio_acessos_lista', { p_torneio: id }),
+  async torneioStaffAdicionar(equipa, nome, funcao) {
+    const r = await rpc<JogadorSugerido>('torneio_staff_adicionar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao })
+    avisarMudanca('torneios')
+    return r
+  },
+  async torneioSortear(id, seed) {
+    const r = await rpc<{ grupos: number; equipas: number; seed: number }>('torneio_sortear', { p_torneio: id, p_seed: seed ?? null })
+    avisarMudanca('torneios')
+    return r
+  },
+  async torneioAgendar(jogo, quando, mapa, presencial) {
+    await rpc('torneio_agendar', { p_jogo: jogo, p_quando: quando, p_mapa: mapa ?? null, p_presencial: presencial ?? null })
+    avisarMudanca('torneios')
+  },
+  async torneioAgendarVarios(itens) { const n = await rpc<number>('torneio_agendar_varios', { p_itens: itens }); avisarMudanca('torneios'); return n },
+  async torneioResolverJogo(jogo, a, b) { await rpc('torneio_resolver_jogo', { p_jogo: jogo, p_a: a, p_b: b }); avisarMudanca('torneios') },
+  async torneioWalkover(jogo, vencedor) { await rpc('torneio_walkover', { p_jogo: jogo, p_vencedor: vencedor }); avisarMudanca('torneios') },
+  async torneioDesfazerJogo(jogo) { await rpc('torneio_desfazer_jogo', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioGerarPlayoffs(id) { await rpc('torneio_gerar_playoffs', { p_torneio: id }); avisarMudanca('torneios') },
+  async torneioTesteEquipas(id, n) { const r = await rpc<number>('torneio_teste_equipas', { p_torneio: id, p_n: n }); avisarMudanca('torneios'); return r },
+  async torneioTestePreencher(equipa, completo = false) { const r = await rpc<number>('torneio_teste_preencher', { p_equipa: equipa, p_completo: completo }); avisarMudanca('torneios'); return r },
+  async torneioTesteSimular(jogo) { await rpc('torneio_teste_simular', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioTesteSimularTudo(id, soGrupos = false) { const r = await rpc<number>('torneio_teste_simular_tudo', { p_torneio: id, p_so_grupos: soGrupos }); avisarMudanca('torneios'); return r },
+  async torneioTesteReiniciar(id) { await rpc('torneio_teste_reiniciar', { p_torneio: id }); avisarMudanca('torneios') },
 
   aoMudarAvisos(perfilId, cb) {
     const canal = cliente().channel(`avisos-${perfilId}`)

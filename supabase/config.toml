@@ -16,3 +16,7 @@ verify_jwt = false
 [functions.twitch-ligar]
 # O GET de retorno vem da Twitch, pelo browser, sem token; o POST confirma a sessão dentro da função.
 verify_jwt = false
+
+[functions.processar-torneio]
+# A base de dados chama-a a cada minuto (pg_cron + pg_net) com o segredo do Discord; os jogadores chamam-na com a sessão e ela confirma-a por dentro.
+verify_jwt = false

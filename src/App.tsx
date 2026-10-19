@@ -23,6 +23,8 @@ const Sugestoes = lazy(() => import('./pages/Sugestoes').then((m) => ({ default:
 const Loja = lazy(() => import('./pages/Loja').then((m) => ({ default: m.Loja })))
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })))
 const Divulgar = lazy(() => import('./pages/Divulgar').then((m) => ({ default: m.Divulgar })))
+const Torneios = lazy(() => import('./pages/Torneios').then((m) => ({ default: m.Torneios })))
+const Torneio = lazy(() => import('./pages/Torneio').then((m) => ({ default: m.Torneio })))
 const Overlay = lazy(() => import('./pages/Overlay').then((m) => ({ default: m.Overlay })))
 const OverlayMarca = lazy(() => import('./pages/Overlay').then((m) => ({ default: m.OverlayMarca })))
 const Definicoes = lazy(() => import('./pages/Definicoes').then((m) => ({ default: m.Definicoes })))
@@ -53,6 +55,8 @@ function Hub() {
                   <Route path="sugestoes" element={<Sugestoes />} />
                   <Route path="loja" element={<Loja />} />
                   <Route path="divulgar" element={<Divulgar />} />
+                  <Route path="torneios" element={<Torneios />} />
+                  <Route path="torneios/:id" element={<Torneio />} />
                   <Route path="definicoes" element={<Definicoes />} />
                   <Route path="admin" element={<Admin />} />
                   <Route path="*" element={<NaoEncontrado />} />

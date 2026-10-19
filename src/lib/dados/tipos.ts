@@ -495,6 +495,208 @@ export interface DivulgacaoEstado {
   top: { perfilId: string; utilizador: string; convidados: number; premiados: number }[]
 }
 
+// ---------------------------------------------------------------- torneios
+
+export type EstadoTorneio = 'rascunho' | 'inscricoes' | 'grupos' | 'playoffs' | 'concluido' | 'cancelado'
+export type FuncaoEquipaTorneio = 'jogador' | 'coach' | 'suplente'
+/** 'veto' = os capitães estão a banir e a escolher o mapa. */
+export type EstadoJogoTorneio = 'pendente' | 'agendado' | 'veto' | 'a_decorrer' | 'concluido'
+/**
+ * Como se escolhe o mapa de cada jogo: 'bans' (banem à vez até sobrar um, quem não baniu por último escolhe o lado)
+ * ou 'ban_pick' (banem à vez até sobrarem 3, a equipa da vez escolhe o mapa e a outra o lado).
+ */
+export type FormatoVetoTorneio = 'bans' | 'ban_pick'
+export type PassoVetoTorneio = { tipo: 'ban' | 'pick' | 'lado'; equipa: 'A' | 'B' }
+export interface JogadaVetoTorneio extends PassoVetoTorneio {
+  ordem: number
+  /** O mapa banido ou escolhido; no lado, 'ataque' ou 'defesa'. */
+  valor: string
+  /** Jogada feita pelo tempo ou por um bot, não por um capitão. */
+  auto: boolean
+}
+export interface VetoJogoTorneio {
+  formato: FormatoVetoTorneio
+  /** Os mapas em jogo (fixados quando o veto começa). */
+  pool: string[]
+  /** A ordem completa, mesmo do que ainda não aconteceu. */
+  passos: PassoVetoTorneio[]
+  feitos: JogadaVetoTorneio[]
+  /** Quando acaba o tempo da vez; passado, joga-se ao calhas. */
+  prazo: string | null
+  ladoEquipa: 'A' | 'B' | null
+  ladoEscolha: 'ataque' | 'defesa' | null
+  /** O mapa foi posto pela staff: não há picks e bans neste jogo. */
+  mapaStaff: boolean
+}
+/** Como se soube o resultado: API da Riot, staff, simulado (testes), falta de comparência ou folga na chave. */
+export type ComoJogoTorneio = 'api' | 'staff' | 'simulado' | 'walkover' | 'bye'
+
+export interface TorneioResumo {
+  id: string
+  nome: string
+  descricao: string | null
+  estado: EstadoTorneio
+  /** Aberto a todos (senão só a staff, quem foi convidado a testar e os membros das equipas). */
+  publico: boolean
+  /** Torneio de teste: a staff tem ferramentas com bots. */
+  teste: boolean
+  tamanhoGrupo: number
+  passamPorGrupo: number
+  finalPresencial: boolean
+  /** Picks e bans de mapas antes de cada jogo. */
+  vetoMapas: boolean
+  vetoFormato: FormatoVetoTorneio
+  /** Os mapas escolhidos para este torneio (null = a rotação do hub). */
+  poolMapas: string[] | null
+  /** Os mapas que realmente entram: os escolhidos ou a rotação do hub. */
+  poolEfetiva: string[]
+  /** Jogadores da API que têm de estar num jogo para o darmos como do torneio. */
+  minJogadores: number
+  inscricoesAte: string
+  inicio: string | null
+  maxEquipas: number | null
+  sorteadoEm: string | null
+  inscricoesAbertas: boolean
+  equipas: number
+  completas: number
+  campeao: { id: string; nome: string } | null
+  minhaEquipa: { id: string; nome: string; funcao: FuncaoEquipaTorneio; capitao: boolean } | null
+  /** Convites por aceitar neste torneio. */
+  convites: number
+  gerir: boolean
+  /** A seed do sorteio (só a staff a vê). */
+  seed?: number | null
+}
+
+export interface TorneioMembro {
+  perfilId: string
+  utilizador: string
+  riotId: string | null
+  avatarUrl: string | null
+  bot: boolean
+  funcao: FuncaoEquipaTorneio
+  estado: 'convidado' | 'aceite'
+  capitao: boolean
+}
+
+export interface TorneioEquipa {
+  id: string
+  nome: string
+  capitaoId: string
+  estado: 'inscrita' | 'desqualificada'
+  /** 1, 2, 3... (A, B, C...) depois do sorteio. */
+  grupo: number | null
+  ordem: number | null
+  /** 5 jogadores aceites. */
+  completa: boolean
+  membros: TorneioMembro[]
+}
+
+export interface TorneioJogadorJogo {
+  perfilId: string
+  equipaId: string
+  utilizador: string
+  agente: string | null
+  kills: number | null
+  deaths: number | null
+  assists: number | null
+  acs: number | null
+  firstBloods: number | null
+  trades: number | null
+  hsPct: number | null
+  kastPct: number | null
+}
+
+/** De onde vem uma equipa que ainda não se sabe: um lugar num grupo ou o vencedor de outro jogo. */
+export type OrigemEquipaTorneio = { tipo: 'grupo'; grupo: number; posicao: number } | { tipo: 'vencedor'; ronda: number; ordem: number }
+
+export interface TorneioJogo {
+  id: string
+  fase: 'grupo' | 'playoff'
+  grupo: number | null
+  /** Jornada (grupos) ou ronda da chave (playoffs, 1 = a primeira). */
+  ronda: number
+  ordem: number
+  /** 'jornada', 'oitavos', 'quartos', 'meias', 'final' ou 'ronda'. */
+  rotulo: string
+  equipaA: { id: string; nome: string } | null
+  equipaB: { id: string; nome: string } | null
+  origemA: OrigemEquipaTorneio | null
+  origemB: OrigemEquipaTorneio | null
+  agendadoPara: string | null
+  /** O mapa do jogo: o que saiu dos picks e bans ou o que a staff fixou. */
+  mapa: string | null
+  presencial: boolean
+  estado: EstadoJogoTorneio
+  /** Picks e bans (null se o torneio os desligou ou se o jogo é presencial). */
+  veto: VetoJogoTorneio | null
+  comecouEm: string | null
+  terminouEm: string | null
+  scoreA: number | null
+  scoreB: number | null
+  vencedorId: string | null
+  como: ComoJogoTorneio | null
+  /** A decorrer há mais de 1 hora sem resultado da API: a staff põe-no à mão. */
+  semResultadoAuto: boolean
+  /** O código do grupo: só aparece aos jogadores das duas equipas e à staff. */
+  codigo: string | null
+  jogadores: TorneioJogadorJogo[]
+}
+
+export interface TorneioLinhaClassificacao {
+  equipaId: string
+  nome: string
+  jogos: number
+  vitorias: number
+  derrotas: number
+  rondasGanhas: number
+  rondasPerdidas: number
+  diferenca: number
+  posicao: number
+  passa: boolean
+}
+
+export interface TorneioDetalhe {
+  torneio: TorneioResumo
+  equipas: TorneioEquipa[]
+  jogos: TorneioJogo[]
+  classificacao: { grupo: number; equipas: TorneioLinhaClassificacao[] }[]
+  agora: string
+}
+
+export interface ConviteTorneio {
+  equipaId: string
+  equipaNome: string
+  torneioId: string
+  torneioNome: string
+  funcao: FuncaoEquipaTorneio
+  convidadoPor: string | null
+  inscricoesAte: string
+  em: string
+}
+
+export interface JogadorSugerido { perfilId: string; utilizador: string; riotId: string | null; avatarUrl: string | null }
+
+export interface DadosNovoTorneio {
+  nome: string
+  descricao?: string | null
+  tamanhoGrupo?: number
+  passamPorGrupo?: number
+  finalPresencial?: boolean
+  vetoMapas?: boolean
+  vetoFormato?: FormatoVetoTorneio
+  /** Vazio ou ausente = a rotação do hub. */
+  poolMapas?: string[] | null
+  minJogadores?: number
+  inscricoesAte: string
+  inicio?: string | null
+  maxEquipas?: number | null
+  teste?: boolean
+  publico?: boolean
+}
+
+export interface ItemCalendarioTorneio { jogo: string; quando: string | null; mapa?: string | null; presencial?: boolean | null }
+
 export interface Dados {
   modo: 'demo' | 'supabase'
 
@@ -724,4 +926,56 @@ export interface Dados {
   divulgacaoEstado(): Promise<DivulgacaoEstado>
   /** Owner e Dev: abre a área a toda a gente (ou volta a fechá-la). */
   definirStreamersPublico(publico: boolean): Promise<DivulgacaoEstado>
+
+  // ---------------------------------------------------------------- torneios
+  /** A área aparece a Owner e Dev, e a quem tem pelo menos um torneio para ver. */
+  torneiosVisivel(): Promise<boolean>
+  torneiosLista(): Promise<TorneioResumo[]>
+  torneioDetalhe(id: string): Promise<TorneioDetalhe>
+  meusConvitesTorneio(): Promise<ConviteTorneio[]>
+  torneioProcurarJogadores(q: string): Promise<JogadorSugerido[]>
+  torneioCriarEquipa(torneio: string, nome: string, funcao?: 'jogador' | 'coach'): Promise<string>
+  torneioRenomearEquipa(equipa: string, nome: string): Promise<void>
+  /** Convida pelo nome (Riot ID ou utilizador): a pessoa tem de aceitar. */
+  torneioConvidar(equipa: string, nome: string, funcao: FuncaoEquipaTorneio): Promise<JogadorSugerido>
+  torneioResponderConvite(equipa: string, aceitar: boolean): Promise<void>
+  torneioRemoverMembro(equipa: string, perfil: string): Promise<void>
+  torneioMudarFuncao(equipa: string, perfil: string, funcao: FuncaoEquipaTorneio): Promise<void>
+  torneioSairEquipa(equipa: string): Promise<void>
+  torneioApagarEquipa(equipa: string): Promise<void>
+  /** O capitão partilha o código do grupo: o jogo passa a decorrer e o resultado é detetado na API. */
+  torneioAbrirJogo(jogo: string, codigo: string): Promise<void>
+  /** Os capitães (ou a staff) começam os picks e bans do jogo. */
+  torneioVetoIniciar(jogo: string): Promise<void>
+  /** O capitão da vez bane/escolhe um mapa ou escolhe o lado ('ataque' | 'defesa'). */
+  torneioVetoAgir(jogo: string, valor: string): Promise<void>
+  /** Passou o tempo da vez? Joga ao calhas. Devolve se jogou. */
+  torneioVetoAvancar(jogo: string): Promise<boolean>
+  /** Staff: despacha o que falta dos picks e bans ao calhas. */
+  torneioVetoConcluir(jogo: string): Promise<void>
+  /** Staff: apaga os picks e bans para se fazerem de novo. */
+  torneioVetoReiniciar(jogo: string): Promise<void>
+  /** Pede à API que veja se o jogo já acabou (o servidor também o faz sozinho a cada minuto). */
+  torneioProcessarJogo(jogo: string): Promise<void>
+  // Staff (Owner e Dev)
+  torneioCriar(p: DadosNovoTorneio): Promise<string>
+  torneioEditar(id: string, p: Partial<DadosNovoTorneio>): Promise<void>
+  torneioMudarEstado(id: string, estado: 'inscricoes' | 'rascunho' | 'cancelado'): Promise<void>
+  torneioApagar(id: string): Promise<void>
+  torneioAcesso(id: string, nome: string, dar: boolean): Promise<JogadorSugerido>
+  torneioAcessos(id: string): Promise<JogadorSugerido[]>
+  torneioStaffAdicionar(equipa: string, nome: string, funcao: FuncaoEquipaTorneio): Promise<JogadorSugerido>
+  torneioSortear(id: string, seed?: number | null): Promise<{ grupos: number; equipas: number; seed: number }>
+  torneioAgendar(jogo: string, quando: string | null, mapa?: string | null, presencial?: boolean | null): Promise<void>
+  torneioAgendarVarios(itens: ItemCalendarioTorneio[]): Promise<number>
+  torneioResolverJogo(jogo: string, a: number, b: number): Promise<void>
+  torneioWalkover(jogo: string, vencedor: string): Promise<void>
+  torneioDesfazerJogo(jogo: string): Promise<void>
+  torneioGerarPlayoffs(id: string): Promise<void>
+  // Só nos torneios de teste
+  torneioTesteEquipas(id: string, n: number): Promise<number>
+  torneioTestePreencher(equipa: string, completo?: boolean): Promise<number>
+  torneioTesteSimular(jogo: string): Promise<void>
+  torneioTesteSimularTudo(id: string, soGrupos?: boolean): Promise<number>
+  torneioTesteReiniciar(id: string): Promise<void>
 }

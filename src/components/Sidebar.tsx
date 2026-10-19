@@ -1,5 +1,5 @@
 import {
-  Clock, House, Lightbulb, LogOut, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
+  Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -77,6 +77,8 @@ export function Sidebar() {
   const cz = useClassesCosmeticos(perfil?.id)
   const loja = useCarregar(() => dados.lojaVisivel(), [perfil?.id, perfil?.funcao], ['loja', 'staff'])
   const divulgar = useCarregar(() => dados.streamersVisivel(), [perfil?.id, perfil?.funcao], ['streamers', 'staff'])
+  const torneios = useCarregar(() => dados.torneiosVisivel(), [perfil?.id, perfil?.funcao], ['torneios', 'staff'])
+  const convitesTorneio = useCarregar(() => (torneios.valor ? dados.meusConvitesTorneio() : Promise.resolve([])), [perfil?.id, torneios.valor], ['torneios'], { chave: 'torneios:convites' })
 
   useEffect(() => { setAberto(false) }, [local.pathname])
 
@@ -142,6 +144,7 @@ export function Sidebar() {
         { para: '/amigos', texto: l('Amigos', 'Friends'), icone: <Users size={18} />, tour: 'amigos', extra: pedidos ? <Contador>{pedidos}</Contador> : null },
         { para: '/sugestoes', texto: l('Sugestões', 'Suggestions'), icone: <Lightbulb size={18} />, tour: 'sugestoes' },
         ...(loja.valor ? [{ para: '/loja', texto: l('Loja', 'Shop'), icone: <ShoppingBag size={18} />, tour: 'loja' }] : []),
+        ...(torneios.valor ? [{ para: '/torneios', texto: l('Torneios', 'Tournaments'), icone: <Medal size={18} />, tour: 'torneios', extra: convitesTorneio.valor?.length ? <Contador>{convitesTorneio.valor.length}</Contador> : null }] : []),
         ...(divulgar.valor ? [{ para: '/divulgar', texto: l('Divulgar', 'Share'), icone: <Megaphone size={18} />, tour: 'divulgar' }] : []),
       ],
     },

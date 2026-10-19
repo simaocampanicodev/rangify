@@ -24,6 +24,7 @@ import {
 import { periodoSemana } from '../tempo'
 import { VALORES_CONVITE } from '../convites'
 import { aoMudarDados, avisarMudanca } from './eventos'
+import { criarTorneiosLocais, type ContextoTorneios } from './local-torneios'
 import {
   aplicarResultado, baralhar, calcularRangifyScore, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
   melhorDisponivel, novoJogador, type JogadorGuardado, type PartidaGuardada,
@@ -985,7 +986,34 @@ function mudouLoja(e: Estado) {
   return estadoLoja(e)
 }
 
-export const dadosLocais: Dados = {
+/** O que o módulo dos torneios precisa do demo: quem sou eu, os perfis e a criação de bots. */
+const contextoTorneios: ContextoTorneios = {
+  async perfis() {
+    const e = await pronto()
+    return { eu: eu(e), todos: Object.values(e.perfis) }
+  },
+  poolHub() {
+    const e = estado
+    return e ? NOMES_MAPAS.filter((m) => e.poolMapas.includes(m)) : [...ROTACAO_PADRAO]
+  },
+  criarBot() {
+    const e = estado!
+    const sufixo = () => Array.from(crypto.getRandomValues(new Uint8Array(2)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+    const id = novoId()
+    const bot: Perfil = {
+      id, utilizador: `bot_${id.slice(0, 8)}`, avatarUrl: null, riotId: `Bot${sufixo()}#BOT`, regiao: 'eu', tier: 6 + Math.floor(Math.random() * 18), rr: null,
+      rankAtualizadoEm: null, pontos: 1000, vitorias: 0, derrotas: 0, funcao: 'user',
+      funcaoJogo: (['Duelista', 'Controlador', 'Iniciador', 'Sentinela'] as const)[Math.floor(Math.random() * 4)],
+      bot: true, cooldownAte: null, tourVistoEm: iso(Date.now()), temPassword: false, criadoEm: iso(Date.now()),
+    }
+    e.perfis[id] = bot
+    guardar()
+    return bot
+  },
+}
+
+/** O que se escreve aqui à mão; os torneios vêm de local-torneios.ts. */
+const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>> = {
   modo: 'demo',
 
   async sessao() {
@@ -2460,3 +2488,9 @@ export const dadosLocais: Dados = {
     return estadoDivulgacao(e)
   },
 }
+
+/**
+ * O adaptador do modo demo. O Object.assign marcado como puro deixa o Vite tirar tudo isto do site a sério
+ * (um spread com uma chamada à frente contava como efeito e arrastava o demo inteiro para o ficheiro final).
+ */
+export const dadosLocais: Dados = /* @__PURE__ */ Object.assign({}, /* @__PURE__ */ criarTorneiosLocais(contextoTorneios), dadosSemTorneios)
