@@ -844,7 +844,7 @@ export interface Dados {
   reporDemo?(): Promise<void>
 
   // Histórico
-  partidas(opts: { minhas: boolean; cursor?: string | null; mapa?: string | null; perfilId?: string; limite?: number }): Promise<PaginaPartidas>
+  partidas(opts: { minhas: boolean; cursor?: string | null; mapa?: string | null; perfilId?: string; limite?: number; fila?: FilaTipo | null }): Promise<PaginaPartidas>
   jogadoresDaPartida(id: string): Promise<JogadorPartida[]>
 
   // Missões

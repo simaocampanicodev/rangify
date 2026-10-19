@@ -225,12 +225,13 @@ export const dadosSupabase: Dados = {
   async devSaltarBloqueio(id) { await rpc('dev_saltar_bloqueio', { p_match: id }) },
   async devAcelerar(id) { await rpc('dev_acelerar', { p_match: id }) },
 
-  async partidas({ minhas, cursor, mapa, perfilId, limite }) {
+  async partidas({ minhas, cursor, mapa, perfilId, limite, fila }) {
     const args = { p_perfil: perfilId ?? null, p_minhas: minhas, p_mapa: mapa ?? null, p_offset: cursor ? Number(cursor) : 0 }
-    if (!limite) return rpc<PaginaPartidas>('historico', args)
-    // Sem a migração 0022 o servidor não conhece p_limite: pede o padrão (20) e o cursor continua certo.
-    return rpc<PaginaPartidas>('historico', { ...args, p_limite: limite }).catch((e) => {
-      if (e instanceof Error && /historico|p_limite/.test(e.message)) return rpc<PaginaPartidas>('historico', args)
+    const completos = { ...args, ...(limite ? { p_limite: limite } : {}), ...(fila ? { p_fila: fila } : {}) }
+    if (Object.keys(completos).length === Object.keys(args).length) return rpc<PaginaPartidas>('historico', args)
+    // Sem as migrações 0022 (p_limite) ou 0033 (p_fila) o servidor não conhece o argumento: pede sem ele (20 por página, as duas filas).
+    return rpc<PaginaPartidas>('historico', completos).catch((e) => {
+      if (e instanceof Error && /historico|p_limite|p_fila/.test(e.message)) return rpc<PaginaPartidas>('historico', args)
       throw e
     })
   },

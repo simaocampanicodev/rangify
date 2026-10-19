@@ -204,16 +204,18 @@ const BRASAS = [
  * A moldura da fila ranked: cantos nos quatro lados, uma linha de luz no topo, um calor discreto no fundo
  * e umas brasas pequenas a subir (mais na fila). Fechada, os cantos, o calor e as brasas apagam-se.
  */
-export function MoldeRanked({ bloqueada = false, naFila = false, children, ...resto }: {
+export function MoldeRanked({ bloqueada = false, naFila = false, linhas, children, ...resto }: {
   bloqueada?: boolean; naFila?: boolean; children: ReactNode
+  /** Com um número, o cartão ocupa essa quantidade de linhas da grelha do pai e reparte-as com os filhos (subgrelha). */
+  linhas?: number
 } & React.HTMLAttributes<HTMLElement>) {
   return (
-    <section {...resto} className="ranked-moldura" data-bloqueada={bloqueada ? '' : undefined}>
+    <section {...resto} className="ranked-moldura" data-bloqueada={bloqueada ? '' : undefined} style={linhas ? { display: 'grid', gridTemplateRows: 'subgrid', gridRow: `span ${linhas}` } : undefined}>
       <span aria-hidden className="ranked-canto ranked-canto-a" />
       <span aria-hidden className="ranked-canto ranked-canto-b" />
       <span aria-hidden className="ranked-canto ranked-canto-c" />
       <span aria-hidden className="ranked-canto ranked-canto-d" />
-      <div className="ranked-cartao">
+      <div className="ranked-cartao" style={linhas ? { display: 'grid', gridTemplateRows: 'subgrid', gridRow: '1 / -1', rowGap: 20 } : undefined}>
         <span aria-hidden className="ranked-topo" />
         <span aria-hidden className="ranked-calor" />
         {!bloqueada && (
@@ -227,7 +229,9 @@ export function MoldeRanked({ bloqueada = false, naFila = false, children, ...re
             ))}
           </span>
         )}
-        <div className="relative flex flex-1 flex-col gap-5">{children}</div>
+        {linhas
+          ? <div className="relative" style={{ display: 'grid', gridTemplateRows: 'subgrid', gridRow: '1 / -1', rowGap: 20 }}>{children}</div>
+          : <div className="relative flex flex-1 flex-col gap-5">{children}</div>}
       </div>
     </section>
   )
@@ -300,11 +304,16 @@ export function EscadaRanks({ tier, tipo }: { tier: number; tipo: FilaTipo }) {
  * A aberta é um cartão normal; a ranked tem a moldura laranja. Os dois têm a escada de ranks e o botão encostado ao fundo,
  * por isso, lado a lado, ficam com a mesma altura e o botão à mesma altura nos dois.
  */
-export function CartaoFila({ tipo, rodape, id }: { tipo: FilaTipo; rodape?: ReactNode; id: string }) {
+export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
+  tipo: FilaTipo; rodape?: ReactNode; id: string
+  /** Dentro de uma grelha com dois cartões: cada bloco (título, escada, etiquetas, botão) fica na mesma linha nos dois, seja qual for o texto. */
+  alinhada?: boolean
+}) {
   const v = useVistaFila(tipo)
   const { perfil } = useSessao()
   const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const ranked = tipo === 'ranked'
+  const linhas = alinhada ? 5 + (rodape ? 1 : 0) : undefined
   const faltam = 10 - v.contagem
   const modo = v.bloqueada ? 'bloqueada' : v.naOutra ? 'ocupada' : 'livre'
   const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
@@ -350,13 +359,13 @@ export function CartaoFila({ tipo, rodape, id }: { tipo: FilaTipo; rodape?: Reac
 
       <div className="flex flex-wrap items-center gap-x-[26px] gap-y-5">
         <AnelFila tamanho={168} contagem={v.contagem} naFila={v.naFila} legenda={legenda} modo={modo} />
-        <div className="flex min-w-[min(200px,100%)] flex-1 flex-col gap-2.5">
+        <div className="flex min-w-[min(180px,100%)] flex-1 flex-col gap-2.5">
           <h2 id={id} className="m-0 text-[30px] leading-[1.05] font-extrabold tracking-[-0.035em]">{ranked ? l('Fila ranked', 'Ranked queue') : l('Fila aberta', 'Open queue')}</h2>
           <p className="m-0 text-[14px] leading-[1.55] text-suave">{descricao}</p>
         </div>
       </div>
 
-      {perfil && <EscadaRanks tier={perfil.tier} tipo={tipo} />}
+      {perfil ? <EscadaRanks tier={perfil.tier} tipo={tipo} /> : alinhada ? <div aria-hidden /> : null}
 
       <div className="flex flex-wrap gap-2">
         <span className={chip}>{SEGUNDOS_CONFIRMAR} s {l('para aceitar', 'to accept')}</span>
@@ -374,10 +383,14 @@ export function CartaoFila({ tipo, rodape, id }: { tipo: FilaTipo; rodape?: Reac
   )
 
   if (ranked) {
-    return <MoldeRanked aria-labelledby={id} bloqueada={v.bloqueada} naFila={v.naFila}>{corpo}</MoldeRanked>
+    return <MoldeRanked aria-labelledby={id} bloqueada={v.bloqueada} naFila={v.naFila} linhas={linhas}>{corpo}</MoldeRanked>
   }
   return (
-    <section aria-labelledby={id} className={`painel flex flex-1 flex-col gap-5 p-[26px] ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}>
+    <section
+      aria-labelledby={id}
+      className={`painel p-[26px] ${linhas ? '' : 'flex flex-1 flex-col gap-5'} ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}
+      style={linhas ? { display: 'grid', gridTemplateRows: 'subgrid', gridRow: `span ${linhas}`, rowGap: 20 } : undefined}
+    >
       {corpo}
     </section>
   )

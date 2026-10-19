@@ -1591,12 +1591,13 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     avisarMudanca('partida')
   },
 
-  async partidas({ minhas, cursor, mapa, perfilId, limite = 20 }) {
+  async partidas({ minhas, cursor, mapa, perfilId, limite = 20, fila }) {
     const e = await pronto()
     const ref = perfilId ?? (minhas ? e.sessao?.perfilId ?? null : null)
     let lista = e.partidas.filter((p) => p.estado === 'COMPLETED')
     if (ref) lista = lista.filter((p) => p.jogadores.some((j) => j.perfilId === ref && j.equipa))
     if (mapa) lista = lista.filter((p) => p.mapa === mapa)
+    if (fila) lista = lista.filter((p) => (p.fila ?? 'aberta') === fila)
     lista.sort((x, y) => ms(y.terminouEm) - ms(x.terminouEm))
     const inicio = cursor ? Number(cursor) : 0
     const pagina = lista.slice(inicio, inicio + limite)

@@ -5,7 +5,7 @@
  *   node scripts/testar-torneios-demo.mjs      (corre também com npm run testar-sql)
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 
 let falhas = 0
@@ -22,15 +22,15 @@ globalThis.window = { dispatchEvent() {}, addEventListener() {}, localStorage: g
 globalThis.CustomEvent = class { constructor(t, o) { this.type = t; this.detail = o?.detail } }
 
 const r = await build({
-  entryPoints: [new URL('../src/lib/dados/local-torneios.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'node', write: false,
-  alias: { '@': new URL('../src', import.meta.url).pathname }, logLevel: 'error', external: ['react'],
+  entryPoints: [fileURLToPath(new URL('../src/lib/dados/local-torneios.ts', import.meta.url))], bundle: true, format: 'esm', platform: 'node', write: false,
+  alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) }, logLevel: 'error', external: ['react'],
 })
 // O módulo compilado vai para dentro de node_modules, para o "react" (que o idioma usa) se resolver a partir do projeto.
 const pasta = new URL('../node_modules/.cache/rangify/', import.meta.url)
 mkdirSync(pasta, { recursive: true })
 const ficheiro = new URL('local-torneios.mjs', pasta)
 writeFileSync(ficheiro, r.outputFiles[0].text)
-const { criarTorneiosLocais, calendarioGrupo, ordemChaves, passosVeto } = await import(pathToFileURL(ficheiro.pathname).href)
+const { criarTorneiosLocais, calendarioGrupo, ordemChaves, passosVeto } = await import(pathToFileURL(fileURLToPath(ficheiro)).href)
 
 // ---------------------------------------------------------------- perfis de mentira
 const mk = (i, extra = {}) => ({

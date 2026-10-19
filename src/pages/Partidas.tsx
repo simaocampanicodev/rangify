@@ -8,7 +8,7 @@ import { Cabecalho, Carregando, Chip, LinhasEsqueleto, Modal, Painel, Segmentado
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { avisarMudanca, dados, type ResumoPartida } from '@/lib/dados'
+import { avisarMudanca, dados, type FilaTipo, type ResumoPartida } from '@/lib/dados'
 import { MAPAS } from '@/lib/mapas'
 import { l as tx } from '@/lib/idioma'
 import { dataHora } from '@/lib/tempo'
@@ -84,20 +84,21 @@ export function Partidas() {
   const acao = useAcao()
   const [params, setParams] = useSearchParams()
   const [ambito, setAmbito] = useState<'minhas' | 'todas'>('minhas')
+  const [fila, setFila] = useState<'todas' | FilaTipo>('todas')
   const [mapa, setMapa] = useState<string | null>(null)
   const [linhas, setLinhas] = useState<ResumoPartida[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [mais, setMais] = useState(false)
   const aberta = params.get('p')
 
-  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa, limite: POR_PAGINA }), [ambito, mapa], ['partida'], { minimo: 450, chave: `partidas:${ambito}:${mapa ?? ''}` })
+  const pagina = useCarregar(() => dados.partidas({ minhas: ambito === 'minhas', mapa, limite: POR_PAGINA, fila: fila === 'todas' ? null : fila }), [ambito, mapa, fila], ['partida'], { minimo: 450, chave: `partidas:${ambito}:${mapa ?? ''}:${fila}` })
   useEffect(() => {
     if (pagina.valor) { setLinhas(pagina.valor.linhas); setCursor(pagina.valor.cursor) }
   }, [pagina.valor])
 
   const carregarMais = async () => {
     setMais(true)
-    const r = await acao(() => dados.partidas({ minhas: ambito === 'minhas', mapa, cursor, limite: POR_PAGINA }))
+    const r = await acao(() => dados.partidas({ minhas: ambito === 'minhas', mapa, cursor, limite: POR_PAGINA, fila: fila === 'todas' ? null : fila }))
     if (r) { setLinhas((l) => [...l, ...r.linhas]); setCursor(r.cursor) }
     setMais(false)
   }
@@ -119,7 +120,12 @@ export function Partidas() {
             eyebrow={ambito === 'minhas' && minhas.length ? tx(`${vit}V · ${minhas.length - vit}D NESTA LISTA · ${saldo >= 0 ? '+' : ''}${saldo} PTS`, `${vit}W · ${minhas.length - vit}L IN THIS LIST · ${saldo >= 0 ? '+' : ''}${saldo} PTS`) : tx('HISTÓRICO', 'HISTORY')}
             titulo={ambito === 'minhas' ? tx('As tuas partidas', 'Your matches') : tx('Todas as partidas do hub', 'All hub matches')}
             id="rg-partidas"
-            direita={<Segmentado rotulo={tx('Que partidas', 'Which matches')} valor={ambito} onChange={setAmbito} opcoes={[{ valor: 'minhas', texto: tx('As minhas', 'Mine') }, { valor: 'todas', texto: tx('Todas', 'All') }]} />}
+            direita={(
+              <div className="flex flex-wrap items-center justify-end gap-2.5">
+                <Segmentado rotulo={tx('Fila', 'Queue')} valor={fila} onChange={setFila} opcoes={[{ valor: 'todas', texto: tx('Todas as filas', 'All queues') }, { valor: 'aberta', texto: tx('Aberta', 'Open') }, { valor: 'ranked', texto: 'Ranked' }]} />
+                <Segmentado rotulo={tx('Que partidas', 'Which matches')} valor={ambito} onChange={setAmbito} opcoes={[{ valor: 'minhas', texto: tx('As minhas', 'Mine') }, { valor: 'todas', texto: tx('Todas', 'All') }]} />
+              </div>
+            )}
           />
           <div role="group" aria-label={tx('Filtrar por mapa', 'Filter by map')} className="flex flex-wrap gap-1.5">
             {[null, ...MAPAS.map((m) => m.nome)].map((m) => (
@@ -140,7 +146,7 @@ export function Partidas() {
         ) : (
           <Vazio
             icone={ambito === 'minhas' ? <Swords size={22} /> : <Flag size={22} />}
-            titulo={mapa ? tx(`Sem partidas em ${mapa}`, `No matches on ${mapa}`) : tx('Ainda sem partidas', 'No matches yet')}
+            titulo={mapa || fila !== 'todas' ? tx(`Sem partidas${fila !== 'todas' ? ` na fila ${fila === 'ranked' ? 'ranked' : 'aberta'}` : ''}${mapa ? ` em ${mapa}` : ''}`, `No${fila !== 'todas' ? ` ${fila === 'ranked' ? 'ranked' : 'open'}` : ''} matches${mapa ? ` on ${mapa}` : ''}`) : tx('Ainda sem partidas', 'No matches yet')}
             texto={ambito === 'minhas' ? tx('Entra na fila: cada partida confirmada aparece aqui.', 'Join the queue: every confirmed match shows up here.') : tx('Quando o hub tiver partidas terminadas, aparecem aqui.', 'When the hub has finished matches, they show up here.')}
           />
         )}

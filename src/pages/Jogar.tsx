@@ -227,9 +227,10 @@ export function Jogar() {
         titulo={l('Jogar', 'Play')}
         descricao={l('Escolhe a fila. A aberta é para toda a gente; a ranked é só para Ascendente 1 ou mais. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Pick a queue. Open is for everyone; ranked is for Ascendant 1 or higher only. When there are 10 players, you get the accept alert and go on to the draft.')}
       />
-      <div className="flex flex-wrap items-stretch gap-x-6 gap-y-7">
-        <div className="flex min-w-[min(100%,440px)] flex-[1_1_440px] flex-col"><CartaoFila tipo="aberta" id="rg-fila-aberta" /></div>
-        <div className="flex min-w-[min(100%,440px)] flex-[1_1_440px] flex-col"><CartaoFila tipo="ranked" id="rg-fila-ranked" /></div>
+      {/* Uma grelha em vez de duas colunas soltas: os cartões partilham as linhas, por isso o título, a escada de ranks, as etiquetas e o botão ficam alinhados. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,440px),1fr))] gap-x-6 gap-y-5">
+        <CartaoFila tipo="aberta" id="rg-fila-aberta" alinhada />
+        <CartaoFila tipo="ranked" id="rg-fila-ranked" alinhada />
       </div>
       <ConviteExtensao className="max-w-[560px]" />
       <DuasFilas />

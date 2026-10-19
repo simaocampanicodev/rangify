@@ -488,7 +488,7 @@ export function Ranking() {
         acoes={<BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>}
       />
 
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3">
+      <div className="flex flex-wrap items-center justify-end gap-x-[18px] gap-y-3">
         {tipo === 'pontos' && <Segmentado rotulo={tx('Fila', 'Queue')} valor={fila} onChange={mudarFila} opcoes={[{ valor: 'ranked', texto: 'Ranked' }, { valor: 'aberta', texto: tx('Aberta', 'Open') }]} />}
         <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }, { valor: 'agentes', texto: tx('Agentes', 'Agents') }]} />
       </div>
