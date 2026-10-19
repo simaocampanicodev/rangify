@@ -1,7 +1,7 @@
 import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { DiscordStaff, DivulgacaoStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Moderacao } from '@/components/StaffModeracao'
 import { StaffTorneios } from '@/components/torneios/StaffTorneios'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -68,7 +68,7 @@ function estaParada(p: Partida) {
 function JogadoresDaPartida({ p }: { p: Partida }) {
   const linha = (j: Partida['jogadores'][number]) => (
     <li key={j.perfilId} className="flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.03]">
-      <Avatar nome={nomeJogador(j)} url={j.avatarUrl} tamanho={26} perfilId={j.perfilId} />
+      <Avatar nome={nomeJogador(j)} url={j.avatarUrl} tamanho={26} />
       <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 flex-1 items-baseline gap-1.5 text-texto no-underline hover:text-pessego">
         <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
         <span className="font-mono text-[11px] text-mudo">{tagJogador(j)}</span>
@@ -276,7 +276,7 @@ function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; a
   const podeAcertar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-white/6 py-3">
-      <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
+      <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} />
       <span className="flex min-w-0 flex-1 basis-[160px] flex-col">
         <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
         <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
@@ -365,7 +365,7 @@ function Denuncias({ lista }: { lista: Denuncia[] }) {
   )
 }
 
-type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao' | 'torneios'
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'divulgacao' | 'torneios'
 
 export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
@@ -420,7 +420,7 @@ export function Admin() {
             { valor: 'mapas', texto: tx('Mapas', 'Maps') },
             { valor: 'novidades', texto: tx('Novidades', 'News') },
             { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
-            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
+            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
           ]}
         />
         {aba === 'resultados' && (
@@ -490,12 +490,6 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="DISCORD" titulo={tx('Servidor obrigatório para a fila', 'Server required for the queue')} />
             <DiscordStaff />
-          </div>
-        )}
-        {aba === 'loja' && ownerDev && (
-          <div className="flex flex-col gap-3">
-            <TituloPainel eyebrow={tx('LOJA', 'SHOP')} titulo={tx('Abrir a loja a toda a gente', 'Open the shop to everyone')} />
-            <LojaStaff />
           </div>
         )}
         {aba === 'divulgacao' && ownerDev && (

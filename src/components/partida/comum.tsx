@@ -4,7 +4,6 @@ import type { ReactNode } from 'react'
 import type { FuncaoJogo, JogadorPartida } from '@/lib/dados'
 import { iniciais } from '../ui'
 import { EmDireto } from '../AoVivo'
-import { DecoracaoAvatar } from '../Cosmeticos'
 import { nomeJogador, tagJogador } from '@/lib/partida'
 import { nomeRank } from '@/lib/ranks'
 import { l, nomeFuncaoJogo } from '@/lib/idioma'
@@ -17,16 +16,7 @@ export const ICONE_FUNCAO: Record<FuncaoJogo, ReactNode> = {
 }
 
 /** Quadrado com iniciais: laranja para a Equipa A, escuro para a B. */
-/** Com perfilId, a foto leva as decorações da loja que o jogador tem equipadas. */
-export function Iniciais({ nome, equipa, tamanho = 34, url, perfilId }: { nome: string; equipa: 'A' | 'B' | null; tamanho?: number; url?: string | null; perfilId?: string }) {
-  return (
-    <DecoracaoAvatar perfilId={perfilId} tamanho={tamanho} raio={Math.round(tamanho * 0.27)}>
-      <IniciaisBase nome={nome} equipa={equipa} tamanho={tamanho} url={url} />
-    </DecoracaoAvatar>
-  )
-}
-
-function IniciaisBase({ nome, equipa, tamanho, url }: { nome: string; equipa: 'A' | 'B' | null; tamanho: number; url?: string | null }) {
+export function Iniciais({ nome, equipa, tamanho = 34, url }: { nome: string; equipa: 'A' | 'B' | null; tamanho?: number; url?: string | null }) {
   if (url) {
     return <img src={urlAvatar(url, tamanho)} alt="" width={tamanho} height={tamanho} loading="lazy" decoding="async" className="shrink-0 object-cover" style={{ borderRadius: Math.round(tamanho * 0.27), border: equipa === 'A' ? '1px solid rgba(255,91,31,0.45)' : '1px solid rgba(255,255,255,0.12)' }} />
   }
@@ -59,7 +49,7 @@ export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jog
           key={j.perfilId}
           className={`entra flex min-h-[54px] items-center gap-2.5 rounded-xl border px-2.5 ${j.perfilId === eu ? 'border-laranja/40 bg-laranja/8' : 'border-white/7 bg-white/[0.025]'}`}
         >
-          <Iniciais nome={nomeJogador(j)} equipa={eq} url={j.avatarUrl} perfilId={j.perfilId} />
+          <Iniciais nome={nomeJogador(j)} equipa={eq} url={j.avatarUrl} />
           <span className="flex min-w-0 flex-1 flex-col gap-px">
             <span className="truncate text-[13.5px] font-bold">
               {nomeJogador(j)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(j)}</span>{j.capitao && <span className="ml-1 font-mono text-[11px] font-bold text-laranja">(C)</span>}

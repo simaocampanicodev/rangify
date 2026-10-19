@@ -43,7 +43,7 @@ O overlay mostra o **mapa e o cronómetro** da partida em curso, mas não o plac
 - A recompensa paga-se quando ele **acaba a primeira partida a sério** (nem simulada, nem automática): quem convida ganha **150 coins** e o convidado **100**. A cada 5 convidados pagos há **+300** de bónus. O limite são **20 convites pagos por mês** por jogador.
 - O Riot ID é único por conta, por isso não se repete a recompensa com a mesma pessoa.
 - Os números estão em `_convite_valores()` (migração 0029) e em `src/lib/convites.ts`: se mudares um, muda o outro.
-- Enquanto a loja não for pública, as coins ficam guardadas na conta e só se gastam quando ela abrir.
+- A loja foi retirada: as coins dos convites ficam guardadas na conta, sem onde gastar por agora.
 - Na Staff › Divulgação vês quantos foram convidados e pagos, as coins dadas e quem mais convida.
 
 ## O endereço do site na marca

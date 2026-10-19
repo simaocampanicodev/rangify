@@ -1,5 +1,5 @@
 import {
-  Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
+  Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, Swords, Target, Trophy, User, Users, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -9,7 +9,6 @@ import { aoMudarDados, avisarMudanca, dados } from '@/lib/dados'
 import { caminhoPerfil, nomeJogador } from '@/lib/partida'
 import { Marca } from './Marca'
 import { Avatar, Modal } from './ui'
-import { TituloJogador, useClassesCosmeticos } from './Cosmeticos'
 import { useCarregar } from '@/hooks/useCarregar'
 import { l } from '@/lib/idioma'
 
@@ -74,8 +73,6 @@ export function Sidebar() {
   const [pedidos, setPedidos] = useState(0)
   const navegar = useNavigate()
   const local = useLocation()
-  const cz = useClassesCosmeticos(perfil?.id)
-  const loja = useCarregar(() => dados.lojaVisivel(), [perfil?.id, perfil?.funcao], ['loja', 'staff'])
   const divulgar = useCarregar(() => dados.streamersVisivel(), [perfil?.id, perfil?.funcao], ['streamers', 'staff'])
   const torneios = useCarregar(() => dados.torneiosVisivel(), [perfil?.id, perfil?.funcao], ['torneios', 'staff'])
   const convitesTorneio = useCarregar(() => (torneios.valor ? dados.meusConvitesTorneio() : Promise.resolve([])), [perfil?.id, torneios.valor], ['torneios'], { chave: 'torneios:convites' })
@@ -144,7 +141,6 @@ export function Sidebar() {
         { para: '/missoes', texto: l('Missões', 'Missions'), icone: <Target size={18} />, tour: 'missoes' },
         { para: '/amigos', texto: l('Amigos', 'Friends'), icone: <Users size={18} />, tour: 'amigos', extra: pedidos ? <Contador>{pedidos}</Contador> : null },
         { para: '/sugestoes', texto: l('Sugestões', 'Suggestions'), icone: <Lightbulb size={18} />, tour: 'sugestoes' },
-        ...(loja.valor ? [{ para: '/loja', texto: l('Loja', 'Shop'), icone: <ShoppingBag size={18} />, tour: 'loja' }] : []),
         ...(divulgar.valor ? [{ para: '/divulgar', texto: l('Divulgar', 'Share'), icone: <Megaphone size={18} />, tour: 'divulgar' }] : []),
       ],
     },
@@ -196,13 +192,12 @@ export function Sidebar() {
         {perfil && (
           <Link
             to={perfil.riotId ? caminhoPerfil(perfil.riotId) : '/definicoes'}
-            className={`mt-auto flex items-center rounded-xl border border-white/7 bg-white/[0.025] text-texto no-underline transition-[padding,background-color] hover:bg-white/[0.045] ${ANIM} ${rec ? 'p-[10px]' : 'p-2.5'} ${cz.placa}`}
+            className={`mt-auto flex items-center rounded-xl border border-white/7 bg-white/[0.025] text-texto no-underline transition-[padding,background-color] hover:bg-white/[0.045] ${ANIM} ${rec ? 'p-[10px]' : 'p-2.5'}`}
           >
-            <Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} destaque perfilId={perfil.id} />
+            <Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} destaque />
             <Rotulo recolhido={rec}>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="cz-nome truncate text-[14px] font-semibold">{nomeJogador(perfil)}</span>
-                <TituloJogador perfilId={perfil.id} className="truncate" />
+                <span className="truncate text-[14px] font-semibold">{nomeJogador(perfil)}</span>
                 <span className="truncate font-mono text-[11px] text-mudo">{perfil.riotId ?? perfil.utilizador}</span>
               </span>
               <span className="font-mono text-[12px] font-semibold text-pessego">{perfil.pontos}</span>

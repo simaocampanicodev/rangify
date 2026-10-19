@@ -17,10 +17,6 @@ import {
 } from '../regras'
 import { blobParaDataUrl } from '../imagem'
 import { nivelDe } from '../experiencia'
-import {
-  COINS_POR_DIARIA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, ITEM_POR_ID, ITENS_LOJA, gifValida,
-  type CategoriaLoja, type Cosmeticos, type Raridade,
-} from '../loja'
 import { periodoSemana } from '../tempo'
 import { VALORES_CONVITE } from '../convites'
 import { aoMudarDados, avisarMudanca } from './eventos'
@@ -34,7 +30,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -68,8 +64,6 @@ interface Estado {
   novidades: Novidade[]
   /** Discord obrigatório para a fila. No demo, "verificar" faz de conta que entraste no servidor. */
   discord?: { obrigatorio: boolean; convite: string | null; membro: boolean }
-  /** A loja de Rangify Coins (só aparece a Owner e Dev até ser pública). */
-  loja?: LojaDemo
   /** Avisos e bans da staff. */
   avisos?: AvisoGuardado[]
   /** Overlay, Twitch e convites (só Owner e Dev até a área ser pública). */
@@ -86,16 +80,6 @@ interface StreamersDemo {
 }
 
 interface AvisoGuardado extends AvisoStaff { alvoId: string; autorId: string }
-
-interface RotacaoLoja { dia: string; diarios: string[]; semanais: string[]; destaque: string | null; semana: string; bloco: number }
-interface LojaDemo {
-  publica: boolean
-  rotacoes: RotacaoLoja[]
-  inventario: { perfilId: string; itemId: string; origem: 'compra' | 'conquista'; em: string }[]
-  equipados: Record<string, Partial<Record<CategoriaLoja, string>>>
-  movimentos: { perfilId: string; delta: number; motivo: 'compra' | 'devolucao' | 'teste' | 'convite'; itemId: string | null; em: string }[]
-  gifs: Record<string, string>
-}
 
 interface Rotacao { id: string; inicio: string; ids: string[] }
 interface Conclusao { perfilId: string; missaoId: string; chave: string; xp: number; em: string }
@@ -245,9 +229,6 @@ function premiarConvite(e: Estado, c: ConvidadoGuardado) {
   if (doMes >= v.limiteMes) { c.estado = 'limite'; c.premiadoEm = iso(agora); return }
   const premiados = s.convidados.filter((x) => x.convidadorId === c.convidadorId && x.estado === 'premiado').length + 1
   const total = v.convidador + (premiados % v.marcoACada === 0 ? v.bonusMarco : 0)
-  const mov = lojaDemo(e).movimentos
-  mov.push({ perfilId: c.convidadoId, delta: v.convidado, motivo: 'convite', itemId: null, em: iso(agora) })
-  mov.push({ perfilId: c.convidadorId, delta: total, motivo: 'convite', itemId: null, em: iso(agora) })
   c.estado = 'premiado'; c.premiadoEm = iso(agora); c.moedasConvidador = total; c.moedasConvidado = v.convidado
 }
 
@@ -861,147 +842,6 @@ function noRankingDeNivel(e: Estado) {
 }
 
 // ---------------------------------------------------------------- a interface
-
-// ---------------------------------------------------------------- loja
-// As mesmas regras da 0015_loja.sql: coins derivadas do Experience mais o histórico,
-// loja de Lisboa (8 diários, 2 semanais, 1 destaque), 14 dias sem repetir.
-
-const CATEGORIAS_DIARIAS: CategoriaLoja[] = ['borda', 'efeito', 'placa', 'banner', 'titulo', 'cartao', 'linha', 'mvp']
-const PESO_RARIDADE: Record<Raridade, number> = { comum: 52, raro: 32, epico: 16, lendario: 10 }
-const DIA_ZERO = '2026-01-01'
-
-function diaLisboa(quando = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(quando)
-}
-const diaMs = (dia: string) => { const [y, m, d] = dia.split('-').map(Number); return Date.UTC(y, m - 1, d) }
-const somarDias = (dia: string, n: number) => new Date(diaMs(dia) + n * 86400000).toISOString().slice(0, 10)
-const diasEntre = (a: string, b: string) => Math.round((diaMs(b) - diaMs(a)) / 86400000)
-const segundaDe = (dia: string) => somarDias(dia, -((new Date(diaMs(dia)).getUTCDay() + 6) % 7))
-
-/** A meia-noite de Lisboa desse dia (no verão, Lisboa está uma hora à frente de UTC). */
-function meiaNoiteLisboa(dia: string) {
-  const utc = diaMs(dia)
-  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Lisbon', hour: '2-digit', hourCycle: 'h23' }).format(utc))
-  return new Date(utc - h * 3600000).toISOString()
-}
-
-function lojaDemo(e: Estado): LojaDemo {
-  if (!e.loja) e.loja = { publica: false, rotacoes: [], inventario: [], equipados: {}, movimentos: [], gifs: {} }
-  return e.loja
-}
-
-/** Um item ao calhas, com mais peso nos comuns. */
-function sortearItem(categorias: CategoriaLoja[], raridades: Raridade[], fora: string[]) {
-  const candidatos = ITENS_LOJA.filter((i) => categorias.includes(i.categoria) && raridades.includes(i.raridade) && !i.conquista && i.id !== 'gif' && !fora.includes(i.id))
-  let melhor: string | null = null
-  let chave = Infinity
-  for (const i of candidatos) {
-    const k = -Math.log(Math.max(Math.random(), 1e-9)) / PESO_RARIDADE[i.raridade]
-    if (k < chave) { chave = k; melhor = i.id }
-  }
-  return melhor
-}
-
-function lojaHoje(e: Estado, forcar = false): RotacaoLoja {
-  const l = lojaDemo(e)
-  const dia = diaLisboa()
-  const atual = l.rotacoes.find((r) => r.dia === dia)
-  if (atual && !forcar) return atual
-  const semana = segundaDe(dia)
-  const bloco = Math.floor(diasEntre(DIA_ZERO, dia) / 3)
-  const recentes = l.rotacoes.filter((r) => r.dia < dia && diasEntre(r.dia, dia) <= 13).flatMap((r) => [...r.diarios, ...r.semanais, r.destaque ?? ''])
-  const anterior = l.rotacoes.filter((r) => r.dia < dia).sort((a, b) => b.dia.localeCompare(a.dia))[0]
-  const todas = [...new Set(ITENS_LOJA.map((i) => i.categoria))]
-
-  let semanais: string[] = []
-  if (!forcar && anterior?.semana === semana) semanais = anterior.semanais
-  else for (let n = 0; n < 2; n++) {
-    const usadas = semanais.map((id) => ITEM_POR_ID[id].categoria)
-    const id = sortearItem(todas.filter((c) => c !== 'gif' && !usadas.includes(c)), ['epico'], [...recentes, ...semanais])
-      ?? sortearItem(todas, ['epico'], semanais)
-    if (id) semanais.push(id)
-  }
-  const destaque = !forcar && anterior?.bloco === bloco ? anterior.destaque
-    : sortearItem(todas, ['lendario'], recentes) ?? sortearItem(todas, ['lendario'], [])
-  const diarios = CATEGORIAS_DIARIAS.map((c) => sortearItem([c], ['comum', 'raro', 'epico'], [...recentes, ...semanais]) ?? sortearItem([c], ['comum', 'raro', 'epico'], semanais))
-    .filter((x): x is string => !!x)
-
-  const nova: RotacaoLoja = { dia, diarios, semanais, destaque, semana, bloco }
-  l.rotacoes = [...l.rotacoes.filter((r) => r.dia !== dia && diasEntre(r.dia, dia) <= 30), nova]
-  guardar()
-  return nova
-}
-
-const mvpsDe = (e: Estado, perfilId: string) => e.partidas.filter((p) => p.estado === 'COMPLETED' && !p.automatica && p.jogadores.some((j) => j.perfilId === perfilId && j.mvp)).length
-
-function moedasGanhas(e: Estado, perfilId: string) {
-  const { nivel } = nivelDe(xpDe(e, perfilId))
-  const ambito = (id: string) => MISSOES.find((m) => m.id === id)?.ambito
-  const diarias = e.conclusoes.filter((c) => c.perfilId === perfilId && ambito(c.missaoId) === 'diaria').length
-  const semanais = e.conclusoes.filter((c) => c.perfilId === perfilId && ambito(c.missaoId) === 'semanal').length
-  return {
-    nivel,
-    porNivel: COINS_POR_NIVEL * Math.max(0, nivel - 1),
-    porMarcos: COINS_POR_MARCO * Math.floor(nivel / 5),
-    porDiarias: COINS_POR_DIARIA * diarias,
-    porSemanais: COINS_POR_SEMANAL * semanais,
-    porMvp: COINS_POR_MVP * mvpsDe(e, perfilId),
-  }
-}
-
-function moedas(e: Estado, perfilId: string) {
-  const g = moedasGanhas(e, perfilId)
-  return g.porNivel + g.porMarcos + g.porDiarias + g.porSemanais + g.porMvp + lojaDemo(e).movimentos.reduce((t, m) => t + (m.perfilId === perfilId ? m.delta : 0), 0)
-}
-
-const staffLoja = (p: Perfil) => p.funcao === 'owner' || p.funcao === 'dev'
-const lojaVisivel = (e: Estado, p: Perfil) => lojaDemo(e).publica || staffLoja(p)
-const temItem = (e: Estado, perfilId: string, itemId: string) => lojaDemo(e).inventario.some((i) => i.perfilId === perfilId && i.itemId === itemId)
-
-function darConquistas(e: Estado, perfilId: string) {
-  const l = lojaDemo(e)
-  const dar = (itemId: string) => { if (!temItem(e, perfilId, itemId)) l.inventario.push({ perfilId, itemId, origem: 'conquista', em: new Date().toISOString() }) }
-  if (mvpsDe(e, perfilId) >= 10) dar('t-mvp')
-  const pessoas = Object.values(e.perfis).filter((p) => !p.bot).sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))
-  if (pessoas.slice(0, 100).some((p) => p.id === perfilId)) dar('t-primeiro')
-  const primeiro = pessoas.filter((p) => p.riotId).sort((a, b) => b.pontos - a.pontos || b.vitorias - a.vitorias || a.utilizador.localeCompare(b.utilizador))[0]
-  if (primeiro?.id === perfilId) dar('t-topo')
-}
-
-function equipar(e: Estado, perfilId: string, itemId: string) {
-  const l = lojaDemo(e)
-  l.equipados[perfilId] = { ...l.equipados[perfilId], [ITEM_POR_ID[itemId].categoria]: itemId }
-}
-
-function estadoLoja(e: Estado): EstadoLoja {
-  const me = eu(e)
-  if (!lojaVisivel(e, me)) return { visivel: false }
-  darConquistas(e, me.id)
-  const l = lojaDemo(e)
-  const h = lojaHoje(e)
-  return {
-    visivel: true,
-    publica: l.publica,
-    staff: staffLoja(me),
-    moedas: moedas(e, me.id),
-    ganhas: { ...moedasGanhas(e, me.id), testes: l.movimentos.reduce((t, m) => t + (m.perfilId === me.id && m.motivo === 'teste' ? m.delta : 0), 0), porConvites: l.movimentos.reduce((t, m) => t + (m.perfilId === me.id && m.motivo === 'convite' ? m.delta : 0), 0) },
-    hoje: {
-      dia: h.dia, diarios: h.diarios, semanais: h.semanais, destaque: h.destaque,
-      mudaEm: meiaNoiteLisboa(somarDias(h.dia, 1)),
-      semanaisAte: meiaNoiteLisboa(somarDias(h.semana, 7)),
-      destaqueAte: meiaNoiteLisboa(somarDias(DIA_ZERO, (h.bloco + 1) * 3)),
-    },
-    inventario: l.inventario.filter((i) => i.perfilId === me.id).map((i) => i.itemId),
-    equipados: { ...l.equipados[me.id] },
-    avatarGif: l.gifs[me.id] ?? null,
-  }
-}
-
-function mudouLoja(e: Estado) {
-  guardar()
-  avisarMudanca('loja')
-  return estadoLoja(e)
-}
 
 /** O que o módulo dos torneios precisa do demo: quem sou eu, os perfis e a criação de bots. */
 const contextoTorneios: ContextoTorneios = {
@@ -1884,134 +1724,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     return { movido: false, foraDaVoz: true }
   },
 
-  async lojaVisivel() {
-    const e = await carregar()
-    const me = e.sessao?.perfilId ? e.perfis[e.sessao.perfilId] : null
-    return !!me && lojaVisivel(e, me)
-  },
-
-  async loja() {
-    const e = await pronto()
-    const r = estadoLoja(e)
-    guardar()
-    return r
-  },
-
-  async comprarItem(id) {
-    const e = await pronto()
-    const me = eu(e)
-    if (!lojaVisivel(e, me)) throw new Error('A loja ainda não está aberta.')
-    const it = ITEM_POR_ID[id]
-    if (!it) throw new Error('Este item não existe.')
-    if (temItem(e, me.id, id)) throw new Error('Já tens este item.')
-    // Owner e Dev compram qualquer item, para testar. Os outros só o que está hoje na loja.
-    if (!staffLoja(me)) {
-      if (it.conquista) throw new Error('Este item não se compra: ganha-se a jogar.')
-      const h = lojaHoje(e)
-      if (id !== 'gif' && ![...h.diarios, ...h.semanais, h.destaque].includes(id)) throw new Error('Este item já não está na loja hoje.')
-    }
-    if (moedas(e, me.id) < it.preco) throw new Error('Não tens coins suficientes.')
-    const l = lojaDemo(e)
-    const agora = new Date().toISOString()
-    if (it.preco > 0) l.movimentos.push({ perfilId: me.id, delta: -it.preco, motivo: 'compra', itemId: id, em: agora })
-    l.inventario.push({ perfilId: me.id, itemId: id, origem: 'compra', em: agora })
-    if (it.categoria !== 'gif' || l.gifs[me.id]) equipar(e, me.id, id)
-    return mudouLoja(e)
-  },
-
-  async equiparItem(id) {
-    const e = await pronto()
-    const me = eu(e)
-    if (!lojaVisivel(e, me)) throw new Error('A loja ainda não está aberta.')
-    if (!ITEM_POR_ID[id]) throw new Error('Este item não existe.')
-    if (!temItem(e, me.id, id)) throw new Error('Ainda não tens este item.')
-    if (id === 'gif' && !lojaDemo(e).gifs[me.id]) throw new Error('Põe primeiro o link da tua GIF.')
-    equipar(e, me.id, id)
-    return mudouLoja(e)
-  },
-
-  async desequiparItem(categoria) {
-    const e = await pronto()
-    const me = eu(e)
-    const l = lojaDemo(e)
-    const { [categoria]: _, ...resto } = l.equipados[me.id] ?? {}
-    l.equipados[me.id] = resto
-    return mudouLoja(e)
-  },
-
-  async definirAvatarGif(url) {
-    const e = await pronto()
-    const me = eu(e)
-    const l = lojaDemo(e)
-    const v = url?.trim() || null
-    if (!v) {
-      delete l.gifs[me.id]
-      const { gif: _, ...resto } = l.equipados[me.id] ?? {}
-      l.equipados[me.id] = resto
-      return mudouLoja(e)
-    }
-    if (!temItem(e, me.id, 'gif')) throw new Error('Compra primeiro a Foto em GIF na loja.')
-    if (!gifValida(v)) throw new Error('O link tem de ser https e acabar em .gif ou .webp (ou ser do Giphy, Tenor ou Discord).')
-    l.gifs[me.id] = v
-    equipar(e, me.id, 'gif')
-    return mudouLoja(e)
-  },
-
-  async cosmeticos(ids) {
-    const e = await carregar()
-    const me = e.sessao?.perfilId ? e.perfis[e.sessao.perfilId] : null
-    if (!me || !lojaVisivel(e, me)) return {}
-    const l = lojaDemo(e)
-    const r: Record<string, Cosmeticos> = {}
-    for (const id of ids) {
-      const eq = { ...l.equipados[id] }
-      if (eq.gif) { if (l.gifs[id]) eq.gif = l.gifs[id]; else delete eq.gif }
-      if (Object.keys(eq).length) r[id] = eq
-    }
-    return r
-  },
-
-  async definirLojaPublica(publica) {
-    const e = await pronto()
-    exigirDev(e)
-    lojaDemo(e).publica = publica
-    avisarMudanca('staff')
-    return mudouLoja(e)
-  },
-
-  async lojaResetar() {
-    const e = await pronto()
-    exigirDev(e)
-    lojaHoje(e, true)
-    return mudouLoja(e)
-  },
-
-  async lojaMoedasTeste(quantidade) {
-    const e = await pronto()
-    const me = exigirDev(e)
-    if (!Number.isInteger(quantidade) || quantidade === 0 || Math.abs(quantidade) > 100000) throw new Error('Escolhe uma quantidade entre 1 e 100 000.')
-    lojaDemo(e).movimentos.push({ perfilId: me.id, delta: quantidade, motivo: 'teste', itemId: null, em: new Date().toISOString() })
-    return mudouLoja(e)
-  },
-
-  async lojaDevolver(id) {
-    const e = await pronto()
-    const me = exigirDev(e)
-    const l = lojaDemo(e)
-    const agora = new Date().toISOString()
-    // Os títulos ganhos a jogar ficam.
-    const sair = l.inventario.filter((i) => i.perfilId === me.id && i.origem === 'compra' && (id === null || i.itemId === id))
-    for (const i of sair) {
-      const preco = ITEM_POR_ID[i.itemId]?.preco ?? 0
-      if (preco > 0) l.movimentos.push({ perfilId: me.id, delta: preco, motivo: 'devolucao', itemId: i.itemId, em: agora })
-    }
-    const ids = new Set(sair.map((i) => i.itemId))
-    l.inventario = l.inventario.filter((i) => !(i.perfilId === me.id && ids.has(i.itemId)))
-    l.equipados[me.id] = Object.fromEntries(Object.entries(l.equipados[me.id] ?? {}).filter(([, v]) => !ids.has(v as string)))
-    if (!temItem(e, me.id, 'gif')) { delete l.gifs[me.id]; delete l.equipados[me.id].gif }
-    return mudouLoja(e)
-  },
-
   async estadoDiscord(verificar) {
     const e = await carregar()
     const d = e.discord ?? { obrigatorio: false, convite: null, membro: false }
@@ -2531,7 +2243,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     s.convidados.push(c)
     premiarConvite(e, c)
     guardar()
-    avisarMudanca('streamers'); avisarMudanca('loja')
+    avisarMudanca('streamers')
   },
 
   async divulgacaoEstado() {

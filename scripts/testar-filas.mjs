@@ -85,6 +85,17 @@ ok(migracoes().includes('0032_filas_ranked.sql'), 'as migrações aplicam-se sem
 await db.exec(sql('0032_filas_ranked.sql'))
 ok(true, 'correr a 0032 outra vez não dá erro')
 
+// A 0035 tirou a loja: nem tabelas, nem funções, nem colunas dela; o registo de coins dos convites fica.
+const resto = await raiz(`select
+  (select count(*)::int from pg_tables where schemaname = 'public' and tablename like 'shop\_%') as tabelas,
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('loja', 'comprar_item', 'equipar_item', 'cosmeticos', 'loja_visivel', '_moedas', '_loja_hoje')) as funcoes,
+  (select count(*)::int from information_schema.columns where table_schema = 'public' and ((table_name = 'profiles' and column_name = 'avatar_gif') or (table_name = 'config' and column_name = 'shop_public'))) as colunas,
+  to_regclass('public.coin_ledger') is not null as registo`)
+ok(resto[0].tabelas === 0 && resto[0].funcoes === 0 && resto[0].colunas === 0, 'a 0035 apagou a loja: tabelas, funções e colunas')
+ok(resto[0].registo === true, 'o registo de coins dos convites continua')
+await db.exec(sql('0035_sem_loja.sql'))
+ok(true, 'correr a 0035 outra vez não dá erro')
+
 // ------------------------------------------------------------ contas
 // 0 owner (Imortal), 1..19 Ascendente 1 ou mais, 20..23 abaixo (Diamante 3 e Ouro), 24 sem rank, 25 sem Riot ID.
 console.log('\nContas')

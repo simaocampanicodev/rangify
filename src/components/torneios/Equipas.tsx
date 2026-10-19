@@ -41,7 +41,7 @@ export function EquipaCartao({ equipa, eu, destaque = false }: { equipa: Torneio
 function LinhaMembro({ m, eu }: { m: TorneioMembro; eu?: string }) {
   return (
     <li className="flex min-w-0 items-center gap-2.5 text-[13.5px]">
-      <Avatar nome={m.utilizador} url={m.avatarUrl} tamanho={26} destaque={m.perfilId === eu} perfilId={m.bot ? undefined : m.perfilId} />
+      <Avatar nome={m.utilizador} url={m.avatarUrl} tamanho={26} destaque={m.perfilId === eu} />
       <span className="min-w-0 flex-1 truncate font-semibold">{m.utilizador}</span>
       {m.capitao && <Crown size={13} className="shrink-0 text-ouro" aria-label={l('Capitão', 'Captain')} />}
       {m.funcao !== 'jogador' && <span className="font-mono text-[10px] tracking-[0.12em] text-mudo uppercase">{nomeFuncao(m.funcao)}</span>}
@@ -105,7 +105,7 @@ export function MinhaEquipa({ torneio, equipa, eu, aoMudar }: { torneio: Torneio
     const pendente = m.estado === 'convidado'
     return (
       <li key={m.perfilId} className={`flex items-center gap-3 rounded-[14px] border px-3 py-2.5 ${pendente ? 'border-pessego/35 bg-white/[0.025]' : 'border-white/9 bg-white/[0.03]'}`}>
-        <span className={pendente ? 'opacity-60' : ''}><Avatar nome={m.utilizador} url={m.avatarUrl} tamanho={38} destaque={meu} perfilId={m.bot ? undefined : m.perfilId} /></span>
+        <span className={pendente ? 'opacity-60' : ''}><Avatar nome={m.utilizador} url={m.avatarUrl} tamanho={38} destaque={meu} /></span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex items-center gap-1.5 text-[14px] font-bold">
             <span className="truncate">{m.utilizador}</span>
@@ -220,7 +220,7 @@ export function MinhaEquipa({ torneio, equipa, eu, aoMudar }: { torneio: Torneio
                   {sugestoes.map((s) => (
                     <li key={s.perfilId} role="option" aria-selected={false}>
                       <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setConvidar(s.riotId ?? s.utilizador); setAberta(false); campo.current?.focus() }} className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2 py-1.5 text-left text-texto hover:bg-laranja/10">
-                        <Avatar nome={s.utilizador} url={s.avatarUrl} tamanho={26} perfilId={s.perfilId} />
+                        <Avatar nome={s.utilizador} url={s.avatarUrl} tamanho={26} />
                         <span className="text-[13.5px] font-bold">{s.utilizador}</span>
                         <span className="font-mono text-[11px] text-mudo">{s.riotId}</span>
                       </button>

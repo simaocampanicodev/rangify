@@ -8,10 +8,9 @@
 import { chaveSupabase, supabase, urlSupabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
-import type { Cosmeticos } from '../loja'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
-  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, Sugestao,
 } from './tipos'
 
 /**
@@ -313,17 +312,6 @@ export const dadosSupabase: Dados = {
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),
 
-  lojaVisivel: () => rpc<boolean>('loja_visivel'),
-  loja: () => rpc<EstadoLoja>('loja'),
-  comprarItem: (id) => rpc<EstadoLoja>('comprar_item', { p_item: id }),
-  equiparItem: (id) => rpc<EstadoLoja>('equipar_item', { p_item: id }),
-  desequiparItem: (categoria) => rpc<EstadoLoja>('desequipar_item', { p_categoria: categoria }),
-  definirAvatarGif: (url) => rpc<EstadoLoja>('definir_avatar_gif', { p_url: url }),
-  cosmeticos: (ids) => rpc<Record<string, Cosmeticos>>('cosmeticos', { p_ids: ids }),
-  definirLojaPublica: (publica) => rpc<EstadoLoja>('definir_loja_publica', { p_publica: publica }),
-  lojaResetar: () => rpc<EstadoLoja>('loja_resetar'),
-  lojaMoedasTeste: (quantidade) => rpc<EstadoLoja>('loja_moedas_teste', { p_quantidade: quantidade }),
-  lojaDevolver: (id) => rpc<EstadoLoja>('loja_devolver', { p_item: id }),
 
   poolMapas: () => rpc<string[]>('pool_mapas'),
   definirPoolMapas: (mapas) => rpc<string[]>('definir_pool_mapas', { p_mapas: mapas }),
@@ -478,9 +466,7 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   avisarJogador: ['staff'], banirDaFila: ['staff', 'fila'], levantarBan: ['staff'], confirmarAviso: ['perfil'],
   resolverDisputa: ['staff', 'partida'], submeterResultadoStaff: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'], recarregarPartida: ['partida', 'perfil', 'staff'],
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
-  comprarItem: ['loja'], equiparItem: ['loja'], desequiparItem: ['loja'], definirAvatarGif: ['loja'], definirLojaPublica: ['loja', 'staff'],
-  lojaResetar: ['loja'], lojaMoedasTeste: ['loja'], lojaDevolver: ['loja'],
-  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers', 'loja'],
+  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers'],
 }
 for (const [nome, tipos] of Object.entries(AVISOS)) {
   const tabela = dadosSupabase as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>

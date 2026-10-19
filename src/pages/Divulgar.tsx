@@ -295,8 +295,7 @@ const ESTADO_CONVIDADO: Record<ConvidadoLinha['estado'], { tom: 'neutro' | 'vito
 function PainelConvites() {
   const acao = useAcao()
   const copiar = useCopiar()
-  const info = useCarregar(() => dados.meuConvite(), [], ['streamers', 'loja'])
-  const loja = useCarregar(() => dados.lojaVisivel(), [], ['loja', 'staff'])
+  const info = useCarregar(() => dados.meuConvite(), [], ['streamers'])
   if (!info.valor) return <Painel className="p-[22px]"><Carregando /></Painel>
   const c = info.valor
   const v = c.valores
@@ -334,7 +333,6 @@ function PainelConvites() {
         <span className="flex items-center justify-between text-[12px] text-mudo"><span>{l('Para o próximo bónus', 'To the next bonus')} (+{v.bonusMarco})</span><span className="font-mono">{noMarco}/{v.marcoACada}</span></span>
         <span className="block h-1.5 overflow-hidden rounded-full bg-white/8"><span className="block h-full rounded-full bg-laranja transition-[width] duration-300" style={{ width: `${(noMarco / v.marcoACada) * 100}%` }} /></span>
       </div>
-      {loja.valor === false && <p className="m-0 text-[12px] text-mudo">{l('A loja de coins ainda não abriu ao público: as coins ficam guardadas na tua conta até abrir.', 'The coin shop is not open to the public yet: coins stay saved on your account until it opens.')}</p>}
       {c.convidados.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
           {c.convidados.map((x) => (
