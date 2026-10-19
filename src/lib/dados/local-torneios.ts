@@ -6,7 +6,7 @@
  * Num torneio no demo não há API da Riot: um jogo aberto fecha-se sozinho passados uns segundos, com um
  * resultado simulado, para se poder ver o fluxo todo. O sorteio, os grupos e a chave são os de verdade.
  *
- * Picks e bans de mapas: as mesmas regras do SQL (formatos 'bans' e 'ban_pick', 90 s por vez, bots a jogar logo,
+ * Picks e bans de mapas e jogos à melhor de 1, 3 ou 5: as mesmas regras do SQL (90 s por vez, bots a jogar logo,
  * tempo esgotado = ao calhas). Não há cron: passado o prazo joga-se ao calhas quando alguém abre o jogo ou o torneio.
  */
 import { avisarMudanca } from './eventos'
@@ -14,8 +14,8 @@ import { validarResultado } from '../regras'
 import { nomeJogador } from '../partida'
 import { MAPAS, NOMES_MAPAS, ROTACAO_PADRAO } from '../mapas'
 import type {
-  ConviteTorneio, Dados, DadosNovoTorneio, EstadoJogoTorneio, EstadoTorneio, FormatoVetoTorneio, FuncaoEquipaTorneio, ItemCalendarioTorneio,
-  JogadaVetoTorneio, JogadorSugerido, OrigemEquipaTorneio, PassoVetoTorneio, Perfil, TorneioDetalhe, TorneioEquipa, TorneioJogo, TorneioLinhaClassificacao, TorneioMembro, TorneioResumo,
+  ConviteTorneio, Dados, DadosNovoTorneio, EstadoJogoTorneio, EstadoTorneio, FuncaoEquipaTorneio, ItemCalendarioTorneio,
+  JogadaVetoTorneio, JogadorSugerido, MapaSerieTorneio, MelhorDe, OrigemEquipaTorneio, PassoVetoTorneio, Perfil, TorneioDetalhe, TorneioEquipa, TorneioJogo, TorneioLinhaClassificacao, TorneioMembro, TorneioResumo,
 } from './tipos'
 
 const CHAVE = 'rangify:demo:torneios:v1'
@@ -23,7 +23,7 @@ const CHAVE = 'rangify:demo:torneios:v1'
 interface TorneioG {
   id: string; nome: string; descricao: string | null; estado: EstadoTorneio; publico: boolean; teste: boolean
   tamanhoGrupo: number; passamPorGrupo: number; finalPresencial: boolean; minJogadores: number
-  vetoMapas: boolean; vetoFormato: FormatoVetoTorneio; poolMapas: string[] | null
+  vetoMapas: boolean; melhorDe: MelhorDe; poolMapas: string[] | null
   inscricoesAte: string; inicio: string | null; maxEquipas: number | null
   seed: number | null; sorteadoEm: string | null; campeaoId: string | null; criadoPor: string
 }
@@ -37,17 +37,23 @@ interface JogoG {
   comecouEm: string | null; terminouEm: string | null; scoreA: number | null; scoreB: number | null
   vencedorId: string | null; como: 'api' | 'staff' | 'simulado' | 'walkover' | 'bye' | null; riotMatchId: string | null
   /** Picks e bans: o mapa foi posto pela staff, o que estava em jogo, de quem é a vez e o lado escolhido. */
-  mapaStaff: boolean; poolMapas: string[] | null; vetoFormato: FormatoVetoTorneio | null; vetoPrazo: string | null
+  mapaStaff: boolean; poolMapas: string[] | null; vetoPrazo: string | null
+  /** Formato deste jogo (null = o do torneio) e o que valia quando os picks e bans começaram. */
+  melhorDe: MelhorDe | null; vetoMelhorDe: MelhorDe | null
+  /** Mapas ganhos por cada equipa e os mapas da série (vazio à melhor de 1). */
+  serieA: number; serieB: number; mapas: MapaSerieTorneio[]
   ladoEquipa: 'A' | 'B' | null; ladoEscolha: 'ataque' | 'defesa' | null; vetos: JogadaVetoTorneio[]
 }
 interface StatG {
-  jogoId: string; perfilId: string; equipaId: string; agente: string | null
+  jogoId: string; mapaOrdem: number; perfilId: string; equipaId: string; agente: string | null
   kills: number | null; deaths: number | null; assists: number | null; acs: number | null
   firstBloods: number | null; trades: number | null; hsPct: number | null; kastPct: number | null
 }
 interface EstadoTorneios {
   torneios: TorneioG[]; equipas: EquipaG[]; membros: MembroG[]; acessos: { torneioId: string; perfilId: string }[]
   jogos: JogoG[]; stats: StatG[]; codigos: Record<string, string>
+  /** A área de torneios está aberta a toda a gente (nasce fechada). */
+  areaAberta: boolean
 }
 
 /** O que o modo demo dá a este módulo: quem sou eu, os perfis e a criação de bots. */
@@ -78,10 +84,12 @@ function ler(): EstadoTorneios {
     const txt = localStorage.getItem(CHAVE)
     if (txt) estado = JSON.parse(txt) as EstadoTorneios
   } catch { estado = null }
-  if (!estado) estado = { torneios: [], equipas: [], membros: [], acessos: [], jogos: [], stats: [], codigos: {} }
-  // Dados guardados antes dos picks e bans não têm estes campos.
-  for (const t of estado.torneios) { t.vetoMapas ??= true; t.vetoFormato ??= 'bans'; t.poolMapas ??= null }
-  for (const j of estado.jogos) { j.mapaStaff ??= !!j.mapa; j.poolMapas ??= null; j.vetoFormato ??= null; j.vetoPrazo ??= null; j.ladoEscolha ??= null; j.ladoEquipa ??= null; j.vetos ??= [] }
+  if (!estado) estado = { torneios: [], equipas: [], membros: [], acessos: [], jogos: [], stats: [], codigos: {}, areaAberta: false }
+  // Dados guardados antes dos picks e bans (e da área aberta) não têm estes campos.
+  estado.areaAberta ??= false
+  for (const t of estado.torneios) { t.vetoMapas ??= true; t.melhorDe ??= 1; t.poolMapas ??= null }
+  for (const x of estado.stats) x.mapaOrdem ??= 1
+  for (const j of estado.jogos) { j.mapaStaff ??= !!j.mapa; j.poolMapas ??= null; j.melhorDe ??= null; j.vetoMelhorDe ??= null; j.serieA ??= 0; j.serieB ??= 0; j.mapas ??= []; j.vetoPrazo ??= null; j.ladoEscolha ??= null; j.ladoEquipa ??= null; j.vetos ??= [] }
   return estado
 }
 function guardar() {
@@ -110,7 +118,7 @@ const MIN_PARA_API = 8
 function visivel(s: EstadoTorneios, t: TorneioG, p: Perfil): boolean {
   if (eStaff(p)) return true
   if (t.estado === 'rascunho') return false
-  return t.publico
+  return (t.publico && s.areaAberta)
     || s.acessos.some((a) => a.torneioId === t.id && a.perfilId === p.id)
     || s.membros.some((m) => m.torneioId === t.id && m.perfilId === p.id)
 }
@@ -311,39 +319,29 @@ function novoJogo(torneioId: string, fase: 'grupo' | 'playoff', grupo: number | 
     id: novoId(), torneioId, fase, grupo, ronda, ordem, rotulo, equipaA: a, equipaB: b, origemA: oa, origemB: ob, seguinteId: null, seguinteLado: null,
     agendadoPara: null, mapa: null, presencial, estado: 'pendente', comecouEm: null, terminouEm: null, scoreA: null, scoreB: null,
     vencedorId: null, como: null, riotMatchId: null,
-    mapaStaff: false, poolMapas: null, vetoFormato: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [],
+    mapaStaff: false, poolMapas: null, melhorDe: null, vetoMelhorDe: null, serieA: 0, serieB: 0, mapas: [], vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [],
   }
 }
 
 type StatsEntrada = { perfilId: string; agente?: string | null; kills?: number; deaths?: number; assists?: number; acs?: number; firstBloods?: number; trades?: number; hsPct?: number; kastPct?: number }
 
-function aplicarResultado(s: EstadoTorneios, jogoId: string, a: number, b: number, stats: StatsEntrada[] | null, como: NonNullable<JogoG['como']>, riotMatch: string | null = null) {
-  const j = s.jogos.find((x) => x.id === jogoId)
-  if (!j) return erro('Jogo não encontrado.')
-  if (j.estado === 'concluido') erro('Este jogo já tem resultado.')
-  if (!j.equipaA || !j.equipaB) erro('Este jogo ainda não tem as duas equipas.')
-  const t = s.torneios.find((x) => x.id === j.torneioId)!
-  if (t.estado !== 'grupos' && t.estado !== 'playoffs') erro('O torneio não está a decorrer.')
-  if (como === 'walkover') {
-    /* 13-0 sem mais validações */
-  } else if (j.presencial && como === 'staff') {
-    if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < 0 || a === b) erro('Põe um resultado com vencedor (não há empates).')
-  } else {
-    const v = validarResultado(a, b)
-    if (!v.ok) erro(v.titulo)
-  }
-  const vencedor = a > b ? j.equipaA : j.equipaB
-  j.estado = 'concluido'; j.scoreA = a; j.scoreB = b; j.vencedorId = vencedor; j.como = como
-  j.terminouEm = iso(Date.now()); j.comecouEm = j.comecouEm ?? iso(Date.now()); j.riotMatchId = riotMatch
-  s.stats = s.stats.filter((x) => x.jogoId !== j.id)
+function guardarStats(s: EstadoTorneios, j: JogoG, ordem: number, stats: StatsEntrada[] | null) {
+  s.stats = s.stats.filter((x) => !(x.jogoId === j.id && x.mapaOrdem === ordem))
   for (const x of stats ?? []) {
     const m = s.membros.find((y) => y.estado === 'aceite' && y.perfilId === x.perfilId && (y.equipaId === j.equipaA || y.equipaId === j.equipaB))
     if (!m) continue
     s.stats.push({
-      jogoId: j.id, perfilId: x.perfilId, equipaId: m.equipaId, agente: x.agente ?? null, kills: x.kills ?? null, deaths: x.deaths ?? null,
+      jogoId: j.id, mapaOrdem: ordem, perfilId: x.perfilId, equipaId: m.equipaId, agente: x.agente ?? null, kills: x.kills ?? null, deaths: x.deaths ?? null,
       assists: x.assists ?? null, acs: x.acs ?? null, firstBloods: x.firstBloods ?? null, trades: x.trades ?? null, hsPct: x.hsPct ?? null, kastPct: x.kastPct ?? null,
     })
   }
+}
+
+/** O jogo (ou a série) acabou com este vencedor: fecha-o, sobe o vencedor na chave e fecha o torneio na final. */
+function fecharJogo(s: EstadoTorneios, j: JogoG, vencedor: string, como: NonNullable<JogoG['como']>, riotMatch: string | null) {
+  const t = s.torneios.find((x) => x.id === j.torneioId)!
+  j.estado = 'concluido'; j.vencedorId = vencedor; j.como = como
+  j.terminouEm = iso(Date.now()); j.comecouEm = j.comecouEm ?? iso(Date.now()); j.riotMatchId = riotMatch
   if (j.fase === 'playoff') {
     const n = j.seguinteId ? s.jogos.find((x) => x.id === j.seguinteId) : null
     if (n) {
@@ -355,6 +353,74 @@ function aplicarResultado(s: EstadoTorneios, jogoId: string, a: number, b: numbe
   } else if (!s.jogos.some((x) => x.torneioId === t.id && x.fase === 'grupo' && x.estado !== 'concluido')) {
     gerarPlayoffs(s, t)
   }
+}
+
+/**
+ * Chega um resultado. À melhor de 1 é o do jogo. Numa série online é o do mapa que se joga agora (o jogo só acaba
+ * quando uma equipa chega aos mapas precisos). Numa série presencial a staff põe os mapas ganhos. Falta de
+ * comparência: a equipa que apareceu ganha a série.
+ */
+function aplicarResultado(s: EstadoTorneios, jogoId: string, a: number, b: number, stats: StatsEntrada[] | null, como: NonNullable<JogoG['como']>, riotMatch: string | null = null, eBot: (perfilId: string) => boolean = () => false) {
+  const j = s.jogos.find((x) => x.id === jogoId)
+  if (!j) return erro('Jogo não encontrado.')
+  if (j.estado === 'concluido') erro('Este jogo já tem resultado.')
+  if (!j.equipaA || !j.equipaB) erro('Este jogo ainda não tem as duas equipas.')
+  const t = s.torneios.find((x) => x.id === j.torneioId)!
+  if (t.estado !== 'grupos' && t.estado !== 'playoffs') erro('O torneio não está a decorrer.')
+  const eqA = j.equipaA!, eqB = j.equipaB!
+  const n = melhorDeDoJogo(j, t)
+  const precisa = (n + 1) / 2
+  const ganhouA = a > b
+  const vencedor = ganhouA ? eqA : eqB
+
+  if (n > 1 && como === 'walkover') {
+    j.serieA = ganhouA ? precisa : 0; j.serieB = ganhouA ? 0 : precisa
+    j.scoreA = ganhouA ? 13 * precisa : 0; j.scoreB = ganhouA ? 0 : 13 * precisa
+    return fecharJogo(s, j, vencedor, como, null)
+  }
+  if (n > 1 && j.presencial) {
+    if (!Number.isFinite(a) || !Number.isFinite(b) || Math.max(a, b) !== precisa || Math.min(a, b) < 0 || Math.min(a, b) >= precisa) erro(`Num jogo à melhor de ${n} o vencedor ganha ${precisa} mapas e o outro menos do que isso.`)
+    j.serieA = a; j.serieB = b; j.scoreA = a; j.scoreB = b
+    return fecharJogo(s, j, vencedor, como, null)
+  }
+  if (n > 1) {
+    const v = validarResultado(a, b)
+    if (!v.ok) erro(v.titulo)
+    if (!j.mapas.length) {
+      // Ainda sem picks e bans (um resultado posto à mão): despacham-se ao calhas.
+      vetoCompletar(s, j, eBot)
+      if (!j.mapas.length) erro(`Este jogo é à melhor de ${n} e ainda não tem mapas: faz primeiro os picks e bans.`)
+    }
+    const k = j.serieA + j.serieB + 1
+    const mapa = j.mapas[k - 1]
+    guardarStats(s, j, k, stats)
+    Object.assign(mapa, {
+      estado: 'concluido', scoreA: a, scoreB: b, vencedorId: vencedor, como: como === 'api' || como === 'simulado' ? como : 'staff',
+      comecouEm: mapa.comecouEm ?? iso(Date.now()), terminouEm: iso(Date.now()),
+    })
+    if (ganhouA) j.serieA++; else j.serieB++
+    j.scoreA = (j.scoreA ?? 0) + a; j.scoreB = (j.scoreB ?? 0) + b
+    if (j.serieA >= precisa || j.serieB >= precisa) return fecharJogo(s, j, j.serieA >= precisa ? eqA : eqB, como, riotMatch)
+    // Segue-se o mapa seguinte, com o grupo do Valorant que já existe.
+    const prox = j.mapas[k]
+    Object.assign(j, {
+      mapa: prox.mapa, ladoEquipa: prox.ladoEquipa, ladoEscolha: prox.ladoEscolha, estado: j.agendadoPara ? 'agendado' : 'pendente',
+      comecouEm: null, terminouEm: null, riotMatchId: null,
+    })
+    return
+  }
+  // Melhor de 1.
+  if (como === 'walkover') {
+    /* 13-0 sem mais validações */
+  } else if (j.presencial && como === 'staff') {
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < 0 || a === b) erro('Põe um resultado com vencedor (não há empates).')
+  } else {
+    const v = validarResultado(a, b)
+    if (!v.ok) erro(v.titulo)
+  }
+  j.scoreA = a; j.scoreB = b
+  guardarStats(s, j, 1, stats)
+  fecharJogo(s, j, vencedor, como, riotMatch)
 }
 
 function desfazer(s: EstadoTorneios, jogoId: string) {
@@ -375,24 +441,43 @@ function desfazer(s: EstadoTorneios, jogoId: string) {
   }
   s.stats = s.stats.filter((x) => x.jogoId !== j.id)
   delete s.codigos[j.id]
-  Object.assign(j, { scoreA: null, scoreB: null, vencedorId: null, como: null, riotMatchId: null, comecouEm: null, terminouEm: null, estado: 'pendente' as EstadoJogoTorneio })
+  Object.assign(j, { scoreA: null, scoreB: null, serieA: 0, serieB: 0, vencedorId: null, como: null, riotMatchId: null, comecouEm: null, terminouEm: null, estado: 'pendente' as EstadoJogoTorneio })
+  // Numa série os mapas voltam a estar por jogar e o jogo volta ao primeiro.
+  if (j.mapas.length) {
+    for (const m of j.mapas) Object.assign(m, { estado: 'pendente', scoreA: null, scoreB: null, vencedorId: null, como: null, comecouEm: null, terminouEm: null })
+    Object.assign(j, { mapa: j.mapas[0].mapa, ladoEquipa: j.mapas[0].ladoEquipa, ladoEscolha: j.mapas[0].ladoEscolha })
+  }
   recalcularEstado(j)
 }
 
 const AGENTES = ['Jett', 'Sage', 'Omen', 'Sova', 'Reyna', 'Killjoy', 'Brimstone', 'Fade']
 const inteiro = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1))
 
-function simular(s: EstadoTorneios, jogoId: string, eBot: (perfilId: string) => boolean) {
-  const j = s.jogos.find((x) => x.id === jogoId)!
-  vetoCompletar(s, j, eBot)
+/** Um resultado inventado mas válido (de vez em quando com prolongamento) e estatísticas de mentira: o do jogo ou o do mapa em jogo. */
+function simularMapa(s: EstadoTorneios, j: JogoG, como: 'simulado' | 'api', eBot: (perfilId: string) => boolean) {
+  const t = s.torneios.find((x) => x.id === j.torneioId)!
+  const n = melhorDeDoJogo(j, t)
+  const precisa = (n + 1) / 2
   const ganhaA = Math.random() < 0.5
+  if (n > 1 && j.presencial) {
+    // Presencial à melhor de 3 ou 5: a série acaba logo, com os mapas ganhos.
+    const perde = inteiro(0, precisa - 1)
+    return aplicarResultado(s, j.id, ganhaA ? precisa : perde, ganhaA ? perde : precisa, null, como, null, eBot)
+  }
   let ganha = 13, perde = inteiro(0, 11)
   if (Math.random() < 0.15) { ganha = inteiro(14, 16); perde = ganha - 2 }
   const stats: StatsEntrada[] = s.membros.filter((m) => m.estado === 'aceite' && m.funcao === 'jogador' && (m.equipaId === j.equipaA || m.equipaId === j.equipaB)).map((m) => ({
     perfilId: m.perfilId, agente: AGENTES[inteiro(0, AGENTES.length - 1)], kills: inteiro(6, 25), deaths: inteiro(4, 19), assists: inteiro(0, 11),
     acs: inteiro(120, 349), firstBloods: inteiro(0, 5), trades: inteiro(0, 4), hsPct: inteiro(10, 44), kastPct: inteiro(55, 89),
   }))
-  aplicarResultado(s, jogoId, ganhaA ? ganha : perde, ganhaA ? perde : ganha, stats, 'simulado')
+  aplicarResultado(s, j.id, ganhaA ? ganha : perde, ganhaA ? perde : ganha, stats, como, null, eBot)
+}
+
+/** Simula o jogo todo: numa série joga os mapas até alguém ter os precisos. */
+function simular(s: EstadoTorneios, jogoId: string, eBot: (perfilId: string) => boolean) {
+  const j = s.jogos.find((x) => x.id === jogoId)!
+  vetoCompletar(s, j, eBot)
+  for (let k = 0; k < 6 && j.estado !== 'concluido'; k++) simularMapa(s, j, 'simulado', eBot)
 }
 
 
@@ -405,27 +490,45 @@ let rotacaoHub: () => string[] = () => ROTACAO_PADRAO
 /** Os mapas em jogo: os do torneio ou a rotação do hub, pela ordem do jogo. */
 const poolDoTorneio = (t: TorneioG): string[] => NOMES_MAPAS.filter((m) => (t.poolMapas ?? rotacaoHub()).includes(m))
 
-/** A ordem dos picks e bans com n mapas (a equipa A começa); o lado é sempre o último passo. */
-export function passosVeto(formato: FormatoVetoTorneio, n: number): PassoVetoTorneio[] {
+/** O formato do jogo: 1, 3 ou 5 mapas (os picks e bans já começados guardam o que valia na altura). */
+const melhorDeDoJogo = (j: JogoG, t: TorneioG): MelhorDe => j.vetoMelhorDe ?? j.melhorDe ?? t.melhorDe
+
+/**
+ * A ordem dos picks e bans de um jogo à melhor de N com n mapas (a equipa A começa). À melhor de 1: só bans. À melhor
+ * de 3 ou 5: dois bans, os picks (cada um com o lado escolhido pela outra equipa) e, se sobrarem mapas, mais bans; o que
+ * fica é o decisivo, cujo lado escolhe quem não fez a última jogada de mapa. O lado do decisivo é sempre o último passo.
+ */
+export function passosVeto(melhorDe: MelhorDe, n: number): PassoVetoTorneio[] {
   const passos: PassoVetoTorneio[] = []
-  const bans = Math.max(formato === 'ban_pick' ? n - 3 : n - 1, 0)
+  const picks = Math.max(melhorDe - 1, 0)
+  const bans = Math.max(n - melhorDe, 0)
+  const antes = melhorDe === 1 ? bans : Math.min(2, bans)
+  const depois = bans - antes
   let ultima: 'A' | 'B' = 'B'
-  for (let i = 1; i <= bans; i++) { ultima = i % 2 === 1 ? 'A' : 'B'; passos.push({ tipo: 'ban', equipa: ultima }) }
-  if (formato === 'ban_pick') { ultima = (bans + 1) % 2 === 1 ? 'A' : 'B'; passos.push({ tipo: 'pick', equipa: ultima }) }
-  passos.push({ tipo: 'lado', equipa: ultima === 'A' ? 'B' : 'A' })
+  const ban = (i: number) => { ultima = i % 2 === 1 ? 'A' : 'B'; passos.push({ tipo: 'ban', equipa: ultima }) }
+  for (let i = 1; i <= antes; i++) ban(i)
+  for (let i = 1; i <= picks; i++) {
+    ultima = i % 2 === 1 ? 'A' : 'B'
+    passos.push({ tipo: 'pick', equipa: ultima, alvo: i })
+    passos.push({ tipo: 'lado', equipa: ultima === 'A' ? 'B' : 'A', alvo: i })
+  }
+  for (let i = 1; i <= depois; i++) ban(i)
+  passos.push({ tipo: 'lado', equipa: ultima === 'A' ? 'B' : 'A', alvo: melhorDe })
   return passos
 }
 
 const poolDoJogo = (j: JogoG, t: TorneioG) => j.poolMapas ?? poolDoTorneio(t)
-const formatoDoJogo = (j: JogoG, t: TorneioG) => j.vetoFormato ?? t.vetoFormato
-const passosDoJogo = (j: JogoG, t: TorneioG) => passosVeto(formatoDoJogo(j, t), poolDoJogo(j, t).length)
+const passosDoJogo = (j: JogoG, t: TorneioG) => passosVeto(melhorDeDoJogo(j, t), poolDoJogo(j, t).length)
 function vezVeto(j: JogoG, t: TorneioG): (PassoVetoTorneio & { ordem: number }) | null {
   const passos = passosDoJogo(j, t)
   return j.vetos.length < passos.length ? { ...passos[j.vetos.length], ordem: j.vetos.length + 1 } : null
 }
 const mapasUsados = (j: JogoG) => new Set(j.vetos.filter((v) => v.tipo !== 'lado').map((v) => v.valor))
 
-/** Faz o passo que falta; no último o jogo volta a "agendado", pronto a abrir. */
+/**
+ * Faz o passo que falta. No último (o lado do decisivo) os picks e bans fecham: ficam os mapas da série e o jogo volta
+ * a "agendado", pronto a abrir. À melhor de 1 o mapa fica à vista logo que acabam os bans (falta só o lado).
+ */
 function vetoFazer(s: EstadoTorneios, j: JogoG, valor: string | null, auto: boolean) {
   const t = s.torneios.find((x) => x.id === j.torneioId)!
   if (j.estado !== 'veto') erro('Os picks e bans deste jogo não estão a decorrer.')
@@ -439,14 +542,25 @@ function vetoFazer(s: EstadoTorneios, j: JogoG, valor: string | null, auto: bool
   }
   j.vetos.push({ ordem: vez.ordem, tipo: vez.tipo, equipa: vez.equipa, valor: valor!, auto })
   const total = passosDoJogo(j, t).length
-  if (vez.tipo === 'lado') {
-    j.ladoEquipa = vez.equipa; j.ladoEscolha = valor as 'ataque' | 'defesa'; j.vetoPrazo = null
-    j.estado = j.agendadoPara ? 'agendado' : 'pendente'
-  } else {
-    j.vetoPrazo = iso(Date.now() + SEGUNDOS_VETO * 1000)
-    // Falta só o lado: o mapa é o escolhido ou o que sobrou dos bans.
-    if (vez.ordem === total - 1) j.mapa = vez.tipo === 'pick' ? valor : pool.find((m) => !mapasUsados(j).has(m)) ?? null
-  }
+  if (vez.ordem === total) return vetoFechar(j, pool)
+  j.vetoPrazo = iso(Date.now() + SEGUNDOS_VETO * 1000)
+  if (melhorDeDoJogo(j, t) === 1 && vez.ordem === total - 1) j.mapa = pool.find((m) => !mapasUsados(j).has(m)) ?? null
+}
+
+/** Acabaram os picks e bans: os mapas escolhidos e o decisivo (o que sobrou) ficam na ordem de jogo, cada um com o seu lado. */
+function vetoFechar(j: JogoG, pool: string[]) {
+  const picks = j.vetos.filter((v) => v.tipo === 'pick')
+  const lados = j.vetos.filter((v) => v.tipo === 'lado')
+  const decisivo = pool.find((m) => !mapasUsados(j).has(m)) ?? pool[0]
+  const mapas = [...picks.map((p) => ({ mapa: p.valor, por: p.equipa as 'A' | 'B' | 'decisivo' })), { mapa: decisivo, por: 'decisivo' as const }]
+  j.mapas = (j.vetoMelhorDe ?? 1) > 1 ? mapas.map((m, i) => ({
+    ordem: i + 1, mapa: m.mapa, escolhidaPor: m.por, ladoEquipa: lados[i]?.equipa ?? null, ladoEscolha: (lados[i]?.valor as 'ataque' | 'defesa' | undefined) ?? null,
+    estado: 'pendente', scoreA: null, scoreB: null, vencedorId: null, como: null, comecouEm: null, terminouEm: null,
+  })) : []
+  Object.assign(j, {
+    mapa: mapas[0].mapa, ladoEquipa: lados[0]?.equipa ?? null, ladoEscolha: lados[0]?.valor ?? null, vetoPrazo: null, serieA: 0, serieB: 0,
+    estado: j.agendadoPara ? 'agendado' : 'pendente',
+  })
 }
 
 /** Joga o passo que falta ao calhas (tempo esgotado, capitão bot ou staff a despachar). */
@@ -475,10 +589,12 @@ function vetoBots(s: EstadoTorneios, j: JogoG, eBot: (perfilId: string) => boole
 function vetoComecar(s: EstadoTorneios, j: JogoG, eBot: (perfilId: string) => boolean) {
   const t = s.torneios.find((x) => x.id === j.torneioId)!
   const pool = poolDoTorneio(t)
+  const n = j.melhorDe ?? t.melhorDe
   if (pool.length < 3) erro('A lista de mapas do torneio precisa de pelo menos 3 mapas.')
+  if (pool.length < n) erro(`Este jogo é à melhor de ${n} e só há ${pool.length} mapas em jogo: junta mais mapas ao torneio.`)
   Object.assign(j, {
-    estado: 'veto' as EstadoJogoTorneio, poolMapas: pool, vetoFormato: t.vetoFormato, vetoPrazo: iso(Date.now() + SEGUNDOS_VETO * 1000),
-    mapa: null, mapaStaff: false, ladoEquipa: null, ladoEscolha: null, vetos: [],
+    estado: 'veto' as EstadoJogoTorneio, poolMapas: pool, vetoMelhorDe: n, vetoPrazo: iso(Date.now() + SEGUNDOS_VETO * 1000),
+    mapa: null, mapaStaff: false, ladoEquipa: null, ladoEscolha: null, vetos: [], mapas: [], serieA: 0, serieB: 0,
   })
   vetoBots(s, j, eBot)
 }
@@ -510,11 +626,49 @@ function fixarMapa(j: JogoG, mapa: string | null | undefined) {
   const m = mapa.trim()
   if (m && !MAPAS.some((x) => x.nome === m)) erro(`Mapa desconhecido: ${m}.`)
   if (m) {
-    Object.assign(j, { mapa: m, mapaStaff: true, poolMapas: null, vetoFormato: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [] })
+    Object.assign(j, { mapa: m, mapaStaff: true, poolMapas: null, vetoMelhorDe: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [] })
     if (j.estado === 'veto') j.estado = 'pendente'
   } else if (j.mapaStaff) {
     j.mapa = null; j.mapaStaff = false
   }
+}
+
+/** O formato tem de ser 1, 3 ou 5 e haver mapas para os picks (3: 3 mapas; 5: 5 mapas). */
+function validarMelhorDe(n: number, pool: string[] | null, vetoMapas = true) {
+  if (n !== 1 && n !== 3 && n !== 5) erro('Escolhe melhor de 1, 3 ou 5.')
+  if (n > 1 && !vetoMapas) erro('Os jogos à melhor de 3 ou 5 precisam dos picks e bans de mapas: liga-os ou deixa os jogos à melhor de 1.')
+  const mapas = (pool ?? rotacaoHub()).length
+  if (n > mapas) erro(`Para jogar à melhor de ${n} são precisos pelo menos ${n} mapas em jogo (há ${mapas}).`)
+}
+
+/**
+ * Marca (ou muda) um jogo: data, mapa fixado pela staff, presencial e formato. O mapa só muda se vier (null/undefined =
+ * deixar; vazio = tirar o da staff); à melhor de 3 ou 5 não há mapa fixado (saem dos picks e bans).
+ */
+function agendarJogo(s: EstadoTorneios, j: JogoG, quando: string | null, mapa: string | null | undefined, presencial: boolean | null | undefined, melhorDe: MelhorDe | null | undefined) {
+  if (j.estado === 'a_decorrer' || j.estado === 'concluido') erro('Este jogo já começou.')
+  const t = s.torneios.find((x) => x.id === j.torneioId)!
+  const querMapa = !!mapa && !!mapa.trim()
+  if (querMapa && !MAPAS.some((x) => x.nome === mapa!.trim())) erro(`Mapa desconhecido: ${mapa!.trim()}.`)
+  if (melhorDe != null && melhorDe !== 1 && melhorDe !== 3 && melhorDe !== 5) erro('Escolhe melhor de 1, 3 ou 5.')
+  const atual = j.melhorDe ?? t.melhorDe
+  const n = melhorDe ?? atual
+  if (melhorDe != null && melhorDe > 1 && !t.vetoMapas) erro('Os jogos à melhor de 3 ou 5 precisam dos picks e bans de mapas: liga-os ou deixa os jogos à melhor de 1.')
+  if (j.serieA + j.serieB > 0 && (querMapa || n !== atual)) erro('A série já começou: desfaz o jogo para mudares o formato ou o mapa.')
+  if (n !== atual) {
+    if (j.estado === 'veto' || j.ladoEscolha) erro('Reinicia primeiro os picks e bans deste jogo para mudares o formato.')
+    const mapas = poolDoTorneio(t).length
+    if (n > mapas) erro(`Para jogar à melhor de ${n} são precisos pelo menos ${n} mapas em jogo (há ${mapas}).`)
+  }
+  if (querMapa && n > 1) erro(`Num jogo à melhor de ${n} os mapas saem dos picks e bans: muda o jogo para melhor de 1 para fixares o mapa.`)
+  j.agendadoPara = quando || null
+  if (presencial != null) j.presencial = presencial
+  if (melhorDe != null) {
+    j.melhorDe = melhorDe === t.melhorDe ? null : melhorDe
+    if (melhorDe > 1 && j.mapaStaff) { j.mapa = null; j.mapaStaff = false }
+  }
+  fixarMapa(j, mapa)
+  recalcularEstado(j)
 }
 
 /** Dados do torneio sobre a lista de mapas (criar e editar). */
@@ -536,7 +690,7 @@ function jsonResumo(s: EstadoTorneios, t: TorneioG, p: Perfil): TorneioResumo {
   return {
     id: t.id, nome: t.nome, descricao: t.descricao, estado: t.estado, publico: t.publico, teste: t.teste,
     tamanhoGrupo: t.tamanhoGrupo, passamPorGrupo: t.passamPorGrupo, finalPresencial: t.finalPresencial,
-    vetoMapas: t.vetoMapas, vetoFormato: t.vetoFormato, poolMapas: t.poolMapas, poolEfetiva: poolDoTorneio(t), minJogadores: t.minJogadores,
+    vetoMapas: t.vetoMapas, melhorDe: t.melhorDe, poolMapas: t.poolMapas, poolEfetiva: poolDoTorneio(t), minJogadores: t.minJogadores,
     inscricoesAte: t.inscricoesAte, inicio: t.inicio, maxEquipas: t.maxEquipas, sorteadoEm: t.sorteadoEm,
     inscricoesAbertas: inscricoesAbertas(t), equipas: doTorneio.length, completas: doTorneio.filter((e) => completa(s, e)).length,
     campeao: campeao ? { id: campeao.id, nome: campeao.nome } : null,
@@ -567,16 +721,17 @@ function jsonJogo(s: EstadoTorneios, j: JogoG, p: Perfil, perfis: Map<string, Pe
   return {
     id: j.id, fase: j.fase, grupo: j.grupo, ronda: j.ronda, ordem: j.ordem, rotulo: j.rotulo, equipaA: ref(j.equipaA), equipaB: ref(j.equipaB),
     origemA: j.origemA, origemB: j.origemB, agendadoPara: j.agendadoPara, mapa: j.mapa, presencial: j.presencial, estado: j.estado,
+    melhorDe: melhorDeDoJogo(j, t), serieA: j.serieA, serieB: j.serieB, mapas: j.mapas.map((m) => ({ ...m })),
     veto: t.vetoMapas && !j.presencial ? {
-      formato: formatoDoJogo(j, t), pool: poolDoJogo(j, t), passos: passosDoJogo(j, t), feitos: j.vetos.map((v) => ({ ...v })),
+      melhorDe: melhorDeDoJogo(j, t), pool: poolDoJogo(j, t), passos: passosDoJogo(j, t), feitos: j.vetos.map((v) => ({ ...v })),
       prazo: j.vetoPrazo, ladoEquipa: j.ladoEquipa, ladoEscolha: j.ladoEscolha, mapaStaff: j.mapaStaff,
     } : null,
     comecouEm: j.comecouEm, terminouEm: j.terminouEm, scoreA: j.scoreA, scoreB: j.scoreB, vencedorId: j.vencedorId, como: j.como,
     semResultadoAuto: j.estado === 'a_decorrer' && Date.now() - ms(j.comecouEm) > 60 * 60_000,
     codigo: vejoCodigo ? s.codigos[j.id] ?? null : null,
     jogadores: s.stats.filter((x) => x.jogoId === j.id)
-      .sort((x, y) => Number(y.equipaId === eqA) - Number(x.equipaId === eqA) || (y.acs ?? -1) - (x.acs ?? -1))
-      .map((x) => ({ perfilId: x.perfilId, equipaId: x.equipaId, utilizador: nomeJogador(perfis.get(x.perfilId)!), agente: x.agente, kills: x.kills, deaths: x.deaths, assists: x.assists, acs: x.acs, firstBloods: x.firstBloods, trades: x.trades, hsPct: x.hsPct, kastPct: x.kastPct })),
+      .sort((x, y) => x.mapaOrdem - y.mapaOrdem || Number(y.equipaId === eqA) - Number(x.equipaId === eqA) || (y.acs ?? -1) - (x.acs ?? -1))
+      .map((x) => ({ mapaOrdem: x.mapaOrdem, perfilId: x.perfilId, equipaId: x.equipaId, utilizador: nomeJogador(perfis.get(x.perfilId)!), agente: x.agente, kills: x.kills, deaths: x.deaths, assists: x.assists, acs: x.acs, firstBloods: x.firstBloods, trades: x.trades, hsPct: x.hsPct, kastPct: x.kastPct })),
   }
 }
 
@@ -587,7 +742,7 @@ const sugerido = (p: Perfil): JogadorSugerido => ({ perfilId: p.id, utilizador: 
 export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
   'torneiosVisivel' | 'torneiosLista' | 'torneioDetalhe' | 'meusConvitesTorneio' | 'torneioProcurarJogadores' | 'torneioCriarEquipa' | 'torneioRenomearEquipa'
   | 'torneioConvidar' | 'torneioResponderConvite' | 'torneioRemoverMembro' | 'torneioMudarFuncao' | 'torneioSairEquipa' | 'torneioApagarEquipa'
-  | 'torneioAbrirJogo' | 'torneioVetoIniciar' | 'torneioVetoAgir' | 'torneioVetoAvancar' | 'torneioVetoConcluir' | 'torneioVetoReiniciar' | 'torneioProcessarJogo' | 'torneioCriar' | 'torneioEditar' | 'torneioMudarEstado' | 'torneioApagar' | 'torneioAcesso'
+  | 'torneiosAreaAberta' | 'torneiosDefinirArea' | 'torneioAbrirJogo' | 'torneioVetoIniciar' | 'torneioVetoAgir' | 'torneioVetoAvancar' | 'torneioVetoConcluir' | 'torneioVetoReiniciar' | 'torneioProcessarJogo' | 'torneioCriar' | 'torneioEditar' | 'torneioMudarEstado' | 'torneioApagar' | 'torneioAcesso'
   | 'torneioAcessos' | 'torneioStaffAdicionar' | 'torneioSortear' | 'torneioAgendar' | 'torneioAgendarVarios' | 'torneioResolverJogo'
   | 'torneioWalkover' | 'torneioDesfazerJogo' | 'torneioGerarPlayoffs' | 'torneioTesteEquipas' | 'torneioTestePreencher'
   | 'torneioTesteSimular' | 'torneioTesteSimularTudo' | 'torneioTesteReiniciar'> {
@@ -615,8 +770,23 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       try {
         const { eu } = await ctx.perfis()
         const s = ler()
-        return eStaff(eu) || s.torneios.some((t) => visivel(s, t, eu))
+        return eStaff(eu) || s.areaAberta || s.torneios.some((t) => visivel(s, t, eu))
       } catch { return false }
+    },
+
+    async torneiosAreaAberta() {
+      const { eu } = await ctx.perfis()
+      exigirStaff(eu)
+      return ler().areaAberta
+    },
+
+    async torneiosDefinirArea(aberta) {
+      const { eu } = await ctx.perfis()
+      exigirStaff(eu)
+      ler().areaAberta = !!aberta
+      mudou()
+      avisarMudanca('staff')
+      return !!aberta
     },
 
     async torneiosLista() {
@@ -820,12 +990,15 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (!eStaff(eu) && !capitaes.includes(eu.id)) erro('Só os capitães das duas equipas abrem o jogo.')
       if (j.estado === 'veto') erro('Os picks e bans ainda não acabaram.')
       if (t.vetoMapas && !j.mapa) erro('Faltam os picks e bans de mapas: começa-os antes de abrir o jogo.')
-      if (!eStaff(eu) && !t.teste && (!j.agendadoPara || Date.now() < ms(j.agendadoPara) - 30 * 60_000)) erro('Ainda é cedo: o jogo abre 30 minutos antes da hora marcada.')
+      if (!eStaff(eu) && !t.teste && j.serieA + j.serieB === 0 && (!j.agendadoPara || Date.now() < ms(j.agendadoPara) - 30 * 60_000)) erro('Ainda é cedo: o jogo abre 30 minutos antes da hora marcada.')
       const v = (codigo ?? '').trim().toUpperCase()
       if (!/^[A-Z0-9]{6}$/.test(v)) erro('O código do grupo tem 6 letras ou números.')
       s.codigos[j.id] = v
       j.estado = 'a_decorrer'
       j.comecouEm = j.comecouEm ?? iso(Date.now())
+      // Numa série, o mapa que se joga agora é o seguinte ao último que acabou.
+      const mapaAgora = j.mapas[j.serieA + j.serieB]
+      if (mapaAgora) { mapaAgora.estado = 'a_decorrer'; mapaAgora.comecouEm = mapaAgora.comecouEm ?? iso(Date.now()) }
       mudou()
     },
 
@@ -912,7 +1085,8 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const j = s.jogos.find((x) => x.id === jogo)
       if (!j) return erro('Jogo não encontrado.')
       if (j.estado === 'a_decorrer' || j.estado === 'concluido') erro('Este jogo já começou.')
-      Object.assign(j, { poolMapas: null, vetoFormato: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [], mapa: j.mapaStaff ? j.mapa : null, estado: 'pendente' as EstadoJogoTorneio })
+      if (j.serieA + j.serieB > 0) erro('A série já começou: desfaz o jogo para refazeres os picks e bans.')
+      Object.assign(j, { poolMapas: null, vetoMelhorDe: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [], mapas: [], mapa: j.mapaStaff ? j.mapa : null, estado: 'pendente' as EstadoJogoTorneio })
       recalcularEstado(j)
       mudou()
     },
@@ -925,8 +1099,8 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (Date.now() - ms(j.comecouEm) < 15_000) return
       const t = s.torneios.find((x) => x.id === j.torneioId)!
       if (t.estado !== 'grupos' && t.estado !== 'playoffs') return
-      simular(s, j.id, () => false)
-      s.jogos.find((x) => x.id === j.id)!.como = 'api'
+      // A "API" do demo fecha o mapa que está em jogo (numa série, um de cada vez).
+      simularMapa(s, j, 'api', () => false)
       mudou()
     },
 
@@ -939,12 +1113,12 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const t: TorneioG = {
         id: novoId(), nome: p.nome.trim(), descricao: (p.descricao ?? '').trim() || null, estado: 'rascunho', publico: !!p.publico, teste: !!p.teste,
         tamanhoGrupo: p.tamanhoGrupo ?? 4, passamPorGrupo: p.passamPorGrupo ?? 2, finalPresencial: !!p.finalPresencial,
-        vetoMapas: p.vetoMapas ?? true, vetoFormato: p.vetoFormato ?? 'bans', poolMapas: poolDosDados(p.poolMapas),
+        vetoMapas: p.vetoMapas ?? true, melhorDe: p.melhorDe ?? 1, poolMapas: poolDosDados(p.poolMapas),
         minJogadores: p.minJogadores ?? (p.teste ? 2 : MIN_PARA_API), inscricoesAte: p.inscricoesAte, inicio: p.inicio || null,
         maxEquipas: p.maxEquipas ?? null, seed: null, sorteadoEm: null, campeaoId: null, criadoPor: eu.id,
       }
       if (t.passamPorGrupo >= t.tamanhoGrupo) erro('Têm de passar menos equipas do que as que há num grupo.')
-      if (t.vetoFormato !== 'bans' && t.vetoFormato !== 'ban_pick') erro('Formato de picks e bans desconhecido.')
+      validarMelhorDe(t.melhorDe, t.poolMapas, t.vetoMapas)
       s.torneios.push(t)
       mudou()
       return t.id
@@ -967,10 +1141,11 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
         t.finalPresencial = p.finalPresencial
         for (const j of s.jogos.filter((x) => x.torneioId === t.id && x.fase === 'playoff' && x.rotulo === 'final' && (x.estado === 'pendente' || x.estado === 'agendado'))) j.presencial = !!p.finalPresencial
       }
-      if (p.vetoFormato !== undefined && p.vetoFormato !== 'bans' && p.vetoFormato !== 'ban_pick') erro('Formato de picks e bans desconhecido.')
+      const novaPool = p.poolMapas !== undefined ? poolDosDados(p.poolMapas) : t.poolMapas
+      validarMelhorDe(p.melhorDe ?? t.melhorDe, novaPool, p.vetoMapas ?? t.vetoMapas)
       if (p.vetoMapas !== undefined) t.vetoMapas = p.vetoMapas
-      if (p.vetoFormato !== undefined) t.vetoFormato = p.vetoFormato
-      if (p.poolMapas !== undefined) t.poolMapas = poolDosDados(p.poolMapas)
+      if (p.melhorDe !== undefined) t.melhorDe = p.melhorDe
+      t.poolMapas = novaPool
       if (p.minJogadores !== undefined) t.minJogadores = p.minJogadores
       if (p.inscricoesAte !== undefined) t.inscricoesAte = p.inscricoesAte
       if (p.inicio !== undefined) t.inicio = p.inicio || null
@@ -1064,18 +1239,13 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       return { grupos: g, equipas: n, seed: semente }
     },
 
-    async torneioAgendar(jogo, quando, mapa, presencial) {
+    async torneioAgendar(jogo, quando, mapa, presencial, melhorDe) {
       const { eu } = await ctx.perfis()
       exigirStaff(eu)
       const s = ler()
       const j = s.jogos.find((x) => x.id === jogo)
       if (!j) return erro('Jogo não encontrado.')
-      if (j.estado === 'a_decorrer' || j.estado === 'concluido') erro('Este jogo já começou.')
-      if (mapa && mapa.trim() && !MAPAS.some((x) => x.nome === mapa.trim())) erro(`Mapa desconhecido: ${mapa.trim()}.`)
-      j.agendadoPara = quando || null
-      if (presencial != null) j.presencial = presencial
-      fixarMapa(j, mapa)
-      recalcularEstado(j)
+      agendarJogo(s, j, quando, mapa, presencial, melhorDe)
       mudou()
     },
 
@@ -1086,14 +1256,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       for (const x of itens ?? []) {
         const j = s.jogos.find((y) => y.id === x.jogo)
         if (!j) erro('Jogo não encontrado.')
-        else {
-          if (j.estado === 'a_decorrer' || j.estado === 'concluido') erro('Este jogo já começou.')
-          if (x.mapa && x.mapa.trim() && !MAPAS.some((y) => y.nome === x.mapa!.trim())) erro(`Mapa desconhecido: ${x.mapa.trim()}.`)
-          j.agendadoPara = x.quando || null
-          if (x.presencial != null) j.presencial = x.presencial
-          fixarMapa(j, x.mapa)
-          recalcularEstado(j)
-        }
+        else agendarJogo(s, j, x.quando, x.mapa, x.presencial, x.melhorDe)
       }
       mudou()
       return (itens ?? []).length
@@ -1106,7 +1269,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const j = s.jogos.find((x) => x.id === jogo)
       if (!j) return erro('Jogo não encontrado.')
       if (j.estado === 'concluido') desfazer(s, jogo)
-      aplicarResultado(s, jogo, a, b, null, 'staff')
+      aplicarResultado(s, jogo, a, b, null, 'staff', null, eBotDe((await ctx.perfis()).todos))
       mudou()
     },
 

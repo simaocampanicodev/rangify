@@ -219,6 +219,11 @@ export function Torneio() {
                 <Facto rotulo="Playoffs">{l('eliminação simples: quem perde está fora', 'single elimination: lose and you are out')}</Facto>
                 <Facto rotulo={l('Final', 'Final')}>{t.finalPresencial ? l('presencial (a staff põe o resultado)', 'in person (staff enters the result)') : l('online, como os outros jogos', 'online, like the other matches')}</Facto>
                 <Facto rotulo={l('Equipa', 'Team')}>{l('5 jogadores, 1 coach e 2 suplentes', '5 players, 1 coach and 2 substitutes')}</Facto>
+                <Facto rotulo={l('Mapas', 'Maps')}>
+                  {!t.vetoMapas ? l('à escolha das equipas', 'picked by the teams')
+                    : t.melhorDe === 1 ? l('picks e bans dos capitães, melhor de 1', 'captains\' picks and bans, best of 1')
+                      : l(`picks e bans dos capitães, melhor de ${t.melhorDe} (a staff pode mudar jogo a jogo)`, `captains' picks and bans, best of ${t.melhorDe} (staff can change it match by match)`)}
+                </Facto>
                 <Facto rotulo={l('Resultados', 'Results')}>{l('lidos da API da Riot', 'read from the Riot API')}</Facto>
               </div>
               <p className="mt-3.5 mb-0 text-[12px] leading-normal text-mudo">

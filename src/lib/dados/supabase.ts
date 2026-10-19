@@ -365,6 +365,12 @@ export const dadosSupabase: Dados = {
 
   // ---------------------------------------------------------------- torneios
   torneiosVisivel: () => rpc<boolean>('torneios_visivel').catch(() => false),
+  torneiosAreaAberta: () => rpc<boolean>('torneio_area_aberta'),
+  async torneiosDefinirArea(aberta) {
+    const r = await rpc<boolean>('torneio_definir_area', { p_aberta: aberta })
+    avisarMudanca('torneios'); avisarMudanca('staff')
+    return r
+  },
   torneiosLista: () => rpc<TorneioResumo[]>('torneios_lista'),
   torneioDetalhe: (id) => rpc<TorneioDetalhe>('torneio_detalhe', { p_torneio: id }),
   meusConvitesTorneio: () => rpc<ConviteTorneio[]>('meus_convites_torneio').catch(() => []),
@@ -424,8 +430,8 @@ export const dadosSupabase: Dados = {
     avisarMudanca('torneios')
     return r
   },
-  async torneioAgendar(jogo, quando, mapa, presencial) {
-    await rpc('torneio_agendar', { p_jogo: jogo, p_quando: quando, p_mapa: mapa ?? null, p_presencial: presencial ?? null })
+  async torneioAgendar(jogo, quando, mapa, presencial, melhorDe) {
+    await rpc('torneio_agendar', { p_jogo: jogo, p_quando: quando, p_mapa: mapa ?? null, p_presencial: presencial ?? null, p_melhor_de: melhorDe ?? null })
     avisarMudanca('torneios')
   },
   async torneioAgendarVarios(itens) { const n = await rpc<number>('torneio_agendar_varios', { p_itens: itens }); avisarMudanca('torneios'); return n },

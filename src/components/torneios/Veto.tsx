@@ -45,7 +45,7 @@ function Fila({ jogo, vez }: { jogo: TorneioJogo; vez: number }) {
                 : !mapa && <span className={atual ? 'text-pessego' : 'text-mudo'}>{p.equipa}</span>}
             </span>
             <span className={`max-w-full truncate font-mono text-[9px] tracking-[0.06em] ${atual ? 'text-pessego' : 'text-mudo'}`}>
-              {feito && feito.tipo !== 'lado' ? feito.valor.toUpperCase() : tipoTexto(p.tipo)}
+              {feito && feito.tipo !== 'lado' ? feito.valor.toUpperCase() : `${tipoTexto(p.tipo)}${v.melhorDe > 1 && p.alvo ? ` ${p.alvo}` : ''}`}
             </span>
             <span className="so-leitores">{p.equipa} {feito ? `${tipoTexto(p.tipo)} ${feito.valor}${feito.auto ? ` (${l('automático', 'automatic')})` : ''}` : tipoTexto(p.tipo)}</span>
           </li>
@@ -136,15 +136,24 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
   }
 
   const decidido = !!v.ladoEscolha || v.mapaStaff
-  const formatoTexto = v.formato === 'bans'
+  const formatoTexto = v.melhorDe === 1
     ? l('Os capitães banem mapas à vez até sobrar um; quem não baniu por último escolhe o lado.', 'Captains ban maps in turns until one is left; whoever did not make the last ban picks the side.')
-    : l('Os capitães banem à vez; depois a equipa da vez escolhe o mapa e a outra escolhe o lado.', 'Captains ban in turns; then the team on turn picks the map and the other picks the side.')
+    : v.melhorDe === 3
+      ? l('Melhor de 3: um ban cada, cada equipa escolhe um mapa (a outra escolhe o lado nesse mapa), um ban cada e o que sobra é o decisivo.', 'Best of 3: one ban each, each team picks a map (the other picks the side on it), one ban each and the map left is the decider.')
+      : l('Melhor de 5: um ban cada, depois cada equipa escolhe dois mapas (a outra escolhe o lado em cada um) e o que sobra é o decisivo.', 'Best of 5: one ban each, then each team picks two maps (the other picks the side on each) and the map left is the decider.')
+  // O mapa a que se refere um pick ou um lado (o decisivo é o que sobra no fim).
+  const mapaDoAlvo = (alvo?: number) => {
+    if (!alvo) return null
+    if (alvo < v.melhorDe) return v.feitos.filter((f) => f.tipo === 'pick')[alvo - 1]?.valor ?? null
+    const sobra = v.pool.filter((m) => !usados.has(m))
+    return sobra.length === 1 ? sobra[0] : null
+  }
 
   // ---- Tudo decidido
   if (decidido && jogo.mapa) {
     return (
       <div className="flex flex-col gap-2.5">
-        <Resumo jogo={jogo} />
+        {jogo.mapas.length === 0 && <Resumo jogo={jogo} />}
         {t.gerir && !v.mapaStaff && (jogo.estado === 'agendado' || jogo.estado === 'pendente') && (
           <div><button type="button" className="btn btn-fantasma !h-9" disabled={aFazer === 'staff'} onClick={() => staff(() => dados.torneioVetoReiniciar(jogo.id), l('Picks e bans apagados.', 'Picks and bans cleared.'))}>{l('Refazer os picks e bans', 'Redo picks and bans')}</button></div>
         )}
@@ -152,7 +161,7 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
     )
   }
   // Jogo já a decorrer ou acabado sem mapa (não devia acontecer com picks e bans ligados): nada a mostrar.
-  if (jogo.estado === 'a_decorrer' || jogo.estado === 'concluido') return jogo.mapa ? <Resumo jogo={jogo} /> : null
+  if (jogo.estado === 'a_decorrer' || jogo.estado === 'concluido') return jogo.mapa && jogo.mapas.length === 0 ? <Resumo jogo={jogo} /> : null
 
   // ---- Ainda não começaram
   if (!emCurso) {
@@ -160,7 +169,7 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
       <section aria-label={l('Picks e bans de mapas', 'Map picks and bans')} className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.035] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Papel>{l('PICKS E BANS DE MAPAS', 'MAP PICKS AND BANS')}</Papel>
-          <Chip>{v.formato === 'bans' ? l('Só bans', 'Bans only') : l('Bans e escolha', 'Bans and pick')}</Chip>
+          <Chip tom={v.melhorDe > 1 ? 'laranja' : 'neutro'}>{l(`Melhor de ${v.melhorDe}`, `Best of ${v.melhorDe}`)}</Chip>
         </div>
         <p className="m-0 text-[12.5px] leading-normal text-suave">
           {formatoTexto} {l(`Cada vez tem ${SEGUNDOS} segundos: passado o tempo, joga-se ao calhas.`, `Each turn lasts ${SEGUNDOS} seconds: when time runs out, a random move is played.`)}
@@ -183,11 +192,16 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
   // ---- A decorrer
   const livre = (nome: string) => !usados.has(nome)
   const eu = minhaVez
+  const quem = capVez?.utilizador ?? eqVez?.nome
+  const nSerie = v.melhorDe > 1
+  const alvoNome = vez?.tipo === 'lado' ? mapaDoAlvo(vez.alvo) : null
   const titulo = !vez ? '' : eu
-    ? vez.tipo === 'ban' ? l('Escolhe um mapa para banir', 'Pick a map to ban') : vez.tipo === 'pick' ? l('Escolhe o mapa do jogo', 'Pick the match map') : l('Escolhe o lado em que começas', 'Pick the side you start on')
-    : vez.tipo === 'ban' ? l(`${capVez?.utilizador ?? eqVez?.nome} está a banir um mapa`, `${capVez?.utilizador ?? eqVez?.nome} is banning a map`)
-      : vez.tipo === 'pick' ? l(`${capVez?.utilizador ?? eqVez?.nome} está a escolher o mapa`, `${capVez?.utilizador ?? eqVez?.nome} is picking the map`)
-        : l(`${capVez?.utilizador ?? eqVez?.nome} está a escolher o lado`, `${capVez?.utilizador ?? eqVez?.nome} is picking the side`)
+    ? vez.tipo === 'ban' ? l('Escolhe um mapa para banir', 'Pick a map to ban')
+      : vez.tipo === 'pick' ? (nSerie ? l(`Escolhe o mapa ${vez.alvo} da série`, `Pick map ${vez.alvo} of the series`) : l('Escolhe o mapa do jogo', 'Pick the match map'))
+        : l(`Escolhe o lado em que começas${alvoNome ? ` no ${alvoNome}` : ''}`, `Pick the side you start on${alvoNome ? ` on ${alvoNome}` : ''}`)
+    : vez.tipo === 'ban' ? l(`${quem} está a banir um mapa`, `${quem} is banning a map`)
+      : vez.tipo === 'pick' ? l(`${quem} está a escolher o mapa${nSerie ? ` ${vez.alvo}` : ''}`, nSerie ? `${quem} is picking map ${vez.alvo}` : `${quem} is picking the map`)
+        : l(`${quem} está a escolher o lado${alvoNome ? ` no ${alvoNome}` : ''}`, `${quem} is picking the side${alvoNome ? ` on ${alvoNome}` : ''}`)
   const pool = MAPAS.filter((m) => v.pool.includes(m.nome))
 
   return (
@@ -211,6 +225,16 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
       <Fila jogo={jogo} vez={indice} />
 
       {vez?.tipo === 'lado' ? (
+        <div className="flex flex-col gap-2.5">
+          {alvoNome && (
+            <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
+              <span className="mapa h-[42px] w-[68px] shrink-0 rounded-[9px] border border-laranja/50" style={{ backgroundImage: `url(${MAPAS.find((m) => m.nome === alvoNome)?.imagem})` }} aria-hidden />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-mono text-[10.5px] tracking-[0.1em] text-mudo">{nSerie ? l(`MAPA ${vez.alvo}${vez.alvo === v.melhorDe ? ' · DECISIVO' : ''}`, `MAP ${vez.alvo}${vez.alvo === v.melhorDe ? ' · DECIDER' : ''}`) : l('MAPA DO JOGO', 'MATCH MAP')}</span>
+                <b className="text-[16px] font-extrabold tracking-[-0.02em]">{alvoNome}</b>
+              </span>
+            </div>
+          )}
         <div className="grid grid-cols-2 gap-2.5" role="group" aria-label={l('Escolha do lado', 'Side pick')}>
           {(['ataque', 'defesa'] as const).map((lado) => (
             <button
@@ -225,6 +249,7 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
               <span className="font-mono text-[10px] font-semibold tracking-[0.08em] opacity-80">{aFazer === lado ? l('A ESCOLHER…', 'PICKING…') : eu ? l('ESCOLHER', 'PICK') : ''}</span>
             </button>
           ))}
+        </div>
         </div>
       ) : (
         <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2.5 p-0" aria-label={l('Mapas em jogo', 'Maps in play')}>
@@ -257,7 +282,7 @@ export function VetoJogo({ jogo, detalhe, meuId, aoMudar, podeComecar, cedo, abr
                     </button>
                   ) : (
                     <span className={`font-mono text-[9.5px] font-bold tracking-[0.1em] ${escolhido ? 'text-pessego' : 'text-mudo'}`}>
-                      {escolhido ? l('ESCOLHIDO', 'PICKED') : banido ? l('BANIDO', 'BANNED') : aFazer === m.nome ? l('A BANIR…', 'BANNING…') : l('DISPONÍVEL', 'AVAILABLE')}
+                      {escolhido ? (nSerie ? l(`MAPA ${v.feitos.filter((f) => f.tipo === 'pick').findIndex((f) => f.valor === m.nome) + 1} · EQUIPA ${feito!.equipa}`, `MAP ${v.feitos.filter((f) => f.tipo === 'pick').findIndex((f) => f.valor === m.nome) + 1} · TEAM ${feito!.equipa}`) : l('ESCOLHIDO', 'PICKED')) : banido ? l('BANIDO', 'BANNED') : aFazer === m.nome ? l('A BANIR…', 'BANNING…') : l('DISPONÍVEL', 'AVAILABLE')}
                     </span>
                   )}
                 </div>

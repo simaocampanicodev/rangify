@@ -60,6 +60,7 @@ async function processar(jogoId: string): Promise<{ estado: string; pendente?: b
     })
     // Um resultado que as regras recusam (a API ainda a meio, por exemplo) fica para o próximo ciclo.
     if (error) return { estado: 'a_decorrer', pendente: true, aviso: error.message }
+    // Aplicado: o resultado de um jogo ou, numa série à melhor de 3 ou 5, o de um mapa (o servidor decide se a série acabou).
     return { estado: 'concluido' }
   }
   return { estado: 'a_decorrer', pendente: true }

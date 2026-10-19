@@ -99,6 +99,8 @@ export function Torneios() {
   const lista = useCarregar(() => dados.torneiosLista(), [perfil?.id], ['torneios', 'staff'], { chave: 'torneios:lista', minimo: 250 })
   const convites = useCarregar(() => dados.meusConvitesTorneio(), [perfil?.id], ['torneios'], { chave: 'torneios:convites' })
   useIntervalo(() => { lista.recarregar(); convites.recarregar() }, 60_000)
+  const staff = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
+  const area = useCarregar(() => (staff ? dados.torneiosAreaAberta() : Promise.resolve(true)), [perfil?.id, staff], ['torneios', 'staff'], { chave: 'torneios:area' })
   if (!perfil || visivel.carregando) return <Carregando />
   if (!visivel.valor) return <Navigate to="/" replace />
   const torneios = lista.valor ?? []
@@ -115,6 +117,13 @@ export function Torneios() {
           ? <Link to="/admin?aba=torneios" className="btn btn-fantasma no-underline"><Settings2 size={16} aria-hidden />{l('Gerir na Staff', 'Manage in Staff')}</Link>
           : undefined}
       />
+      {staff && area.valor === false && (
+        <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[14px] border border-laranja/30 bg-laranja/[0.05] px-4 py-3 text-[13px] leading-normal text-suave">
+          <b className="text-pessego">{l('A área está fechada.', 'The area is closed.')}</b>
+          {l('Só tu e quem convidares (para uma equipa ou a testar) veem este separador.', 'Only you and whoever you invite (to a team or to test) see this tab.')}
+          <Link to="/admin?aba=torneios" className="font-semibold text-pessego-claro">{l('Abrir a toda a gente', 'Open to everyone')}</Link>
+        </p>
+      )}
       {meusConvites.length > 0 && (
         <Painel aria-label={l('Convites', 'Invites')} className="flex flex-col gap-3 p-[18px]">
           <ul className="m-0 flex list-none flex-col gap-3 p-0">{meusConvites.map((c) => <Convite key={`${c.equipaId}`} c={c} />)}</ul>
