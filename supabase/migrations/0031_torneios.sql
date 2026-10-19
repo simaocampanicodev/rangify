@@ -210,6 +210,31 @@ create table if not exists public.torneio_jogo_vetos (
 );
 alter table public.torneio_jogo_vetos enable row level security;
 
+-- ---------------------------------------------------------------- de versões anteriores
+-- Esta migração também corre por cima da versão anterior (picks e bans com "veto_formato", sem séries): o
+-- "create table if not exists" não mexe nas tabelas que já existem, por isso acrescenta-se aqui o que lhes falta.
+alter table public.torneios add column if not exists melhor_de int not null default 1 check (melhor_de in (1, 3, 5));
+alter table public.torneios drop column if exists veto_formato;
+alter table public.torneio_jogos add column if not exists melhor_de int check (melhor_de is null or melhor_de in (1, 3, 5));
+alter table public.torneio_jogos add column if not exists veto_melhor_de int check (veto_melhor_de is null or veto_melhor_de in (1, 3, 5));
+alter table public.torneio_jogos add column if not exists serie_a int not null default 0;
+alter table public.torneio_jogos add column if not exists serie_b int not null default 0;
+alter table public.torneio_jogos drop column if exists veto_formato;
+alter table public.torneio_jogo_jogadores add column if not exists mapa_ordem int not null default 1;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint c
+    where c.conrelid = 'public.torneio_jogo_jogadores'::regclass and c.contype = 'p' and array_length(c.conkey, 1) = 3
+  ) then
+    alter table public.torneio_jogo_jogadores drop constraint torneio_jogo_jogadores_pkey;
+    alter table public.torneio_jogo_jogadores add primary key (jogo_id, mapa_ordem, perfil_id);
+  end if;
+end $$;
+-- Funções cujos argumentos mudaram: sem isto ficavam duas versões lado a lado e o site não saberia qual chamar.
+drop function if exists public._torneio_veto_passos(text, int);
+drop function if exists public.torneio_agendar(uuid, timestamptz, text, boolean);
+
 -- ---------------------------------------------------------------- quem vê o quê
 
 -- A área de torneios aberta a toda a gente? (Staff › Torneios › Abrir a toda a gente)
