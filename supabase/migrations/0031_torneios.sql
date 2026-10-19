@@ -1,10 +1,12 @@
 -- Torneios: equipas de 5 + coach + 2 suplentes, fase de grupos, playoffs de eliminação simples e resultados
 -- detetados pela API da Riot (como as partidas normais do hub).
 --
--- Quem vê o quê:
+-- Quem vê o quê (a área nasce FECHADA, como a loja e a divulgação):
 --   * Owner e Dev veem e gerem tudo.
---   * Os outros só veem um torneio que já saiu de rascunho E que está aberto a todos (torneios.publico),
---     ou onde a staff os convidou a testar (torneio_acessos), ou onde são membros de uma equipa.
+--   * "Abrir a toda a gente" em Staff › Torneios (config.torneios_public) abre a área: o separador Torneios
+--     aparece a todos e cada um vê os torneios já publicados que estejam marcados como abertos (torneios.publico).
+--   * Com a área fechada, só veem o separador (e o torneio) quem foi convidado para uma equipa, quem a staff
+--     convidou a testar (torneio_acessos) e os membros de uma equipa. Um rascunho nunca aparece a ninguém.
 --   * Só Owner e Dev criam, sorteiam, marcam datas e resolvem jogos à mão.
 --   * Nenhuma equipa insere resultados: vêm da API (processar-torneio) ou da staff.
 --
@@ -175,6 +177,14 @@ alter table public.torneio_jogo_vetos enable row level security;
 
 -- ---------------------------------------------------------------- quem vê o quê
 
+-- A área de torneios aberta a toda a gente? (Staff › Torneios › Abrir a toda a gente)
+alter table public.config add column if not exists torneios_public boolean not null default false;
+
+create or replace function public._torneio_area_aberta() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select torneios_public from config where id), false)
+$$;
+
 create or replace function public._torneio_staff(p public.profiles) returns boolean
 language sql immutable as $$ select p.role in ('owner', 'dev') $$;
 
@@ -182,7 +192,7 @@ create or replace function public._torneio_visivel(t public.torneios, p public.p
 language sql stable security definer set search_path = public as $$
   select p.role in ('owner', 'dev')
     or (t.estado <> 'rascunho' and (
-      t.publico
+      (t.publico and _torneio_area_aberta())
       or exists (select 1 from torneio_acessos a where a.torneio_id = t.id and a.perfil_id = p.id)
       or exists (select 1 from torneio_membros m where m.torneio_id = t.id and m.perfil_id = p.id)
     ))
@@ -455,14 +465,31 @@ begin
   ), '[]'::jsonb);
 end $$;
 
-/** A área aparece no menu a quem é Owner ou Dev, ou já tem pelo menos um torneio para ver. */
+/** A área aparece no menu a Owner e Dev, a toda a gente quando está aberta e a quem já tem um torneio para ver (convidado para uma equipa ou a testar). */
 create or replace function public.torneios_visivel() returns boolean
 language plpgsql stable security definer set search_path = public as $$
 declare me profiles;
 begin
   select * into me from profiles where auth_id = auth.uid();
   if not found then return false; end if;
-  return me.role in ('owner', 'dev') or exists (select 1 from torneios t where _torneio_visivel(t, me));
+  return me.role in ('owner', 'dev') or _torneio_area_aberta() or exists (select 1 from torneios t where _torneio_visivel(t, me));
+end $$;
+
+/** A área está aberta a toda a gente? (Para o botão da staff.) */
+create or replace function public.torneio_area_aberta() returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare me profiles := _exigir_owner_dev();
+begin
+  return _torneio_area_aberta();
+end $$;
+
+/** Abrir a área de torneios a toda a gente, ou voltar a fechá-la (só Owner e Dev). */
+create or replace function public.torneio_definir_area(p_aberta boolean) returns boolean
+language plpgsql volatile security definer set search_path = public as $$
+declare me profiles := _exigir_owner_dev();
+begin
+  update config set torneios_public = coalesce(p_aberta, false), updated_at = now(), updated_by = me.id where id;
+  return _torneio_area_aberta();
 end $$;
 
 /** Os convites para equipas que ainda posso aceitar (as inscrições têm de estar abertas). */

@@ -141,9 +141,38 @@ await rpc(uids[0], 'torneio_acesso', { p_torneio: T, p_nome: riot(3), p_dar: fal
 ok((await rpc(uids[3], 'torneios_lista')).length === 0, 'tirar o acesso volta a escondê-lo')
 await falha(rpc(uids[3], 'torneio_acesso', { p_torneio: T, p_nome: riot(4), p_dar: true }), 'Só Owner e Dev', 'um jogador não dá acessos')
 await rpc(uids[0], 'torneio_editar', { p_torneio: T, p: { publico: true } })
-ok((await rpc(uids[3], 'torneios_lista')).length === 1, 'aberto a todos: qualquer jogador vê')
+ok((await rpc(uids[3], 'torneios_lista')).length === 0 && !(await rpc(uids[3], 'torneios_visivel')), 'o torneio está marcado como aberto, mas com a área fechada continua escondido')
+
+// A área abre-se (e fecha-se) de uma vez para toda a gente
+console.log('\nAbrir a área a toda a gente')
+await falha(rpc(uids[3], 'torneio_definir_area', { p_aberta: true }), 'Só Owner e Dev', 'um jogador não abre a área')
+await falha(rpc(uids[2], 'torneio_definir_area', { p_aberta: true }), 'Só Owner e Dev', 'nem um mod')
+await falha(rpc(uids[3], 'torneio_area_aberta'), 'Só Owner e Dev', 'e só a staff lê o estado do botão')
+ok(await rpc(uids[0], 'torneio_area_aberta') === false, 'a área nasce fechada')
+ok(await rpc(uids[1], 'torneio_definir_area', { p_aberta: true }) === true, 'o Dev abre a área a toda a gente')
+ok(await rpc(uids[0], 'torneio_area_aberta') === true, 'e o botão da staff mostra-a aberta')
+ok((await rpc(uids[3], 'torneios_lista')).length === 1 && (await rpc(uids[3], 'torneios_visivel')), 'aberta: qualquer jogador vê o separador e o torneio marcado como aberto')
 ok((await rpc(uids[3], 'torneio_detalhe', { p_torneio: T })).torneio.gerir === false, 'mas não gere')
 await rpc(uids[0], 'torneio_editar', { p_torneio: T, p: { publico: false } })
+ok((await rpc(uids[3], 'torneios_lista')).length === 0 && (await rpc(uids[3], 'torneios_visivel')), 'um torneio que não está marcado como aberto continua escondido (mas o separador aparece)')
+await rpc(uids[0], 'torneio_editar', { p_torneio: T, p: { publico: true } })
+ok(await rpc(uids[0], 'torneio_definir_area', { p_aberta: false }) === false, 'a staff volta a fechar a área')
+ok((await rpc(uids[3], 'torneios_lista')).length === 0 && !(await rpc(uids[3], 'torneios_visivel')), 'fechada: o separador e os torneios desaparecem outra vez')
+{
+  // Quem é convidado para uma equipa vê o separador e o torneio mesmo com a área fechada.
+  const tA = await rpc(uids[0], 'torneio_criar', { p: { nome: 'Só convidados', inscricoesAte: futuro, teste: true, publico: true } })
+  await publicar(tA)
+  const eA = await equipa(uids[0], tA, 'Equipa da staff')
+  ok(!(await rpc(uids[5], 'torneios_visivel')) && (await rpc(uids[5], 'torneios_lista')).length === 0, 'sem convite, a pessoa não vê nada')
+  await convidar(uids[0], eA, riot(5))
+  ok(await rpc(uids[5], 'torneios_visivel') && (await rpc(uids[5], 'torneios_lista')).some((x) => x.id === tA) && (await rpc(uids[5], 'meus_convites_torneio')).length === 1, 'convidada para uma equipa: vê o separador, o torneio e o convite')
+  await aceitar(uids[5], eA)
+  ok((await det(uids[5], tA)).torneio.minhaEquipa?.nome === 'Equipa da staff', 'aceita e fica na equipa para testar')
+  await rpc(uids[5], 'torneio_sair_equipa', { p_equipa: eA })
+  ok(!(await rpc(uids[5], 'torneios_visivel')), 'sai da equipa: o separador volta a desaparecer')
+  await rpc(uids[0], 'torneio_apagar', { p_torneio: tA })
+}
+await rpc(uids[0], 'torneio_definir_area', { p_aberta: true })
 
 // ------------------------------------------------------------ equipas
 console.log('\nEquipas e convites')

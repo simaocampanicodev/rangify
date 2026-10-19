@@ -48,6 +48,8 @@ interface StatG {
 interface EstadoTorneios {
   torneios: TorneioG[]; equipas: EquipaG[]; membros: MembroG[]; acessos: { torneioId: string; perfilId: string }[]
   jogos: JogoG[]; stats: StatG[]; codigos: Record<string, string>
+  /** A área de torneios está aberta a toda a gente (nasce fechada). */
+  areaAberta: boolean
 }
 
 /** O que o modo demo dá a este módulo: quem sou eu, os perfis e a criação de bots. */
@@ -78,8 +80,9 @@ function ler(): EstadoTorneios {
     const txt = localStorage.getItem(CHAVE)
     if (txt) estado = JSON.parse(txt) as EstadoTorneios
   } catch { estado = null }
-  if (!estado) estado = { torneios: [], equipas: [], membros: [], acessos: [], jogos: [], stats: [], codigos: {} }
-  // Dados guardados antes dos picks e bans não têm estes campos.
+  if (!estado) estado = { torneios: [], equipas: [], membros: [], acessos: [], jogos: [], stats: [], codigos: {}, areaAberta: false }
+  // Dados guardados antes dos picks e bans (e da área aberta) não têm estes campos.
+  estado.areaAberta ??= false
   for (const t of estado.torneios) { t.vetoMapas ??= true; t.vetoFormato ??= 'bans'; t.poolMapas ??= null }
   for (const j of estado.jogos) { j.mapaStaff ??= !!j.mapa; j.poolMapas ??= null; j.vetoFormato ??= null; j.vetoPrazo ??= null; j.ladoEscolha ??= null; j.ladoEquipa ??= null; j.vetos ??= [] }
   return estado
@@ -110,7 +113,7 @@ const MIN_PARA_API = 8
 function visivel(s: EstadoTorneios, t: TorneioG, p: Perfil): boolean {
   if (eStaff(p)) return true
   if (t.estado === 'rascunho') return false
-  return t.publico
+  return (t.publico && s.areaAberta)
     || s.acessos.some((a) => a.torneioId === t.id && a.perfilId === p.id)
     || s.membros.some((m) => m.torneioId === t.id && m.perfilId === p.id)
 }
@@ -587,7 +590,7 @@ const sugerido = (p: Perfil): JogadorSugerido => ({ perfilId: p.id, utilizador: 
 export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
   'torneiosVisivel' | 'torneiosLista' | 'torneioDetalhe' | 'meusConvitesTorneio' | 'torneioProcurarJogadores' | 'torneioCriarEquipa' | 'torneioRenomearEquipa'
   | 'torneioConvidar' | 'torneioResponderConvite' | 'torneioRemoverMembro' | 'torneioMudarFuncao' | 'torneioSairEquipa' | 'torneioApagarEquipa'
-  | 'torneioAbrirJogo' | 'torneioVetoIniciar' | 'torneioVetoAgir' | 'torneioVetoAvancar' | 'torneioVetoConcluir' | 'torneioVetoReiniciar' | 'torneioProcessarJogo' | 'torneioCriar' | 'torneioEditar' | 'torneioMudarEstado' | 'torneioApagar' | 'torneioAcesso'
+  | 'torneiosAreaAberta' | 'torneiosDefinirArea' | 'torneioAbrirJogo' | 'torneioVetoIniciar' | 'torneioVetoAgir' | 'torneioVetoAvancar' | 'torneioVetoConcluir' | 'torneioVetoReiniciar' | 'torneioProcessarJogo' | 'torneioCriar' | 'torneioEditar' | 'torneioMudarEstado' | 'torneioApagar' | 'torneioAcesso'
   | 'torneioAcessos' | 'torneioStaffAdicionar' | 'torneioSortear' | 'torneioAgendar' | 'torneioAgendarVarios' | 'torneioResolverJogo'
   | 'torneioWalkover' | 'torneioDesfazerJogo' | 'torneioGerarPlayoffs' | 'torneioTesteEquipas' | 'torneioTestePreencher'
   | 'torneioTesteSimular' | 'torneioTesteSimularTudo' | 'torneioTesteReiniciar'> {
@@ -615,8 +618,23 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       try {
         const { eu } = await ctx.perfis()
         const s = ler()
-        return eStaff(eu) || s.torneios.some((t) => visivel(s, t, eu))
+        return eStaff(eu) || s.areaAberta || s.torneios.some((t) => visivel(s, t, eu))
       } catch { return false }
+    },
+
+    async torneiosAreaAberta() {
+      const { eu } = await ctx.perfis()
+      exigirStaff(eu)
+      return ler().areaAberta
+    },
+
+    async torneiosDefinirArea(aberta) {
+      const { eu } = await ctx.perfis()
+      exigirStaff(eu)
+      ler().areaAberta = !!aberta
+      mudou()
+      avisarMudanca('staff')
+      return !!aberta
     },
 
     async torneiosLista() {

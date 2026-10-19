@@ -2,7 +2,10 @@
 
 Torneios com equipas, fase de grupos, playoffs de eliminação simples, **picks e bans de mapas** e resultados lidos da API da Riot (como as partidas normais do hub, por isso ninguém escreve resultados). Feito para o **T7 x LGW Cup**, mas serve qualquer torneio do mesmo género.
 
-Tudo nasce **fechado**: só Owner e Dev criam e gerem torneios. Os outros jogadores só veem um torneio depois de ele sair de rascunho **e** estar aberto a todos, ou se a staff os convidou a testar, ou se estão numa equipa dele.
+Tudo nasce **fechado**: só Owner e Dev criam e gerem torneios. Em **Staff › Torneios** há um botão (segura para confirmar) que **abre a área a toda a gente** ou volta a fechá-la, como na Divulgação e na Loja:
+
+- **Área fechada** (por defeito): o separador Torneios só aparece a Owner e Dev e a quem foi **convidado para uma equipa** ou **convidado a testar** (Staff › Torneios › Quem vê). Essas pessoas veem o separador e só esse torneio.
+- **Área aberta**: o separador aparece a todos e cada pessoa vê os torneios já publicados que estejam marcados como **visíveis a toda a gente** (um torneio novo vem marcado, menos os de teste). Um rascunho nunca aparece a ninguém.
 
 ## O formato
 
@@ -33,7 +36,8 @@ Os torneios **não mexem** nos pontos, no rank nem nas estatísticas do hub.
 |---|---|
 | **Novo** | Nome, descrição, inscrições até, grupos, final presencial, picks e bans (formato e mapas), jogadores mínimos na API, torneio de teste. Há um botão com o **modelo do T7 x LGW Cup** (grupos de 4, passam 2, final presencial). |
 | **Publicar** | Rascunho → inscrições abertas. Pode voltar a rascunho se ainda não houver equipas. Cancelar e apagar pedem para **segurar** o botão. Um torneio a sério já publicado não se apaga: cancela-se. |
-| **Quem vê** | "Aberto a todos" liga e desliga. Fechado, só a staff, quem convidares a testar (pelo nome) e as pessoas das equipas inscritas veem o torneio. |
+| **Área** | O botão no topo abre/fecha o separador Torneios para toda a gente (ver acima). |
+| **Quem vê** | "Visível a toda a gente quando a área estiver aberta" liga e desliga por torneio. Desligado, só a staff, quem convidares a testar (pelo nome) e as pessoas das equipas inscritas veem o torneio. |
 | **Sorteio** | Segura para sortear: fecha as inscrições e cria os grupos (só equipas com 5 jogadores aceites) e o calendário. Dá para repetir enquanto nenhum jogo tiver começado; a seed fica guardada e podes pôr uma à mão. |
 | **Calendário** | Data, hora, mapa fixo (ou picks e bans) e "presencial" de cada jogo, com "Guardar tudo". Mostra o estado dos picks e bans de cada jogo, com "Despachar ao calhas" e "Reiniciar". |
 | **Resultados** | Põe o resultado à mão (final presencial, falha da API), W.O. e desfazer. Os jogos sem resultado há mais de 1 hora aparecem primeiro. |
@@ -50,7 +54,7 @@ Cria o torneio com **Torneio de teste** ligado. Nesses torneios (e só nesses):
 - **Simular os grupos** / **Simular tudo**: resultados e estatísticas de mentira até ao campeão (os jogos simulados também têm mapa e picks e bans);
 - **Reiniciar**: volta às inscrições, apaga grupos, jogos e resultados e mantém as equipas.
 
-Para testar com **amigos de verdade**: dá-lhes acesso em Staff › Torneios › Quem vê › Convidar a testar (ou liga "Aberto a todos"). Eles criam a equipa e convidam-se uns aos outros pelo nome; se faltar gente, enches o resto com bots. Para os resultados serem lidos de verdade, joga-se um jogo personalizado no Valorant com o código do grupo (num torneio de teste bastam 2 jogadores da API).
+Para testar com **amigos de verdade**, com a área fechada: convida-os para uma equipa (cria a equipa e convida pelo nome) ou dá-lhes acesso em Staff › Torneios › Quem vê › Convidar a testar. Eles criam a equipa e convidam-se uns aos outros pelo nome; se faltar gente, enches o resto com bots. Para os resultados serem lidos de verdade, joga-se um jogo personalizado no Valorant com o código do grupo (num torneio de teste bastam 2 jogadores da API).
 
 No **modo demo** (sem Supabase) não há API da Riot: um jogo aberto fecha-se sozinho passados 15 segundos com um resultado simulado, e os bots da comunidade aceitam os convites, para se ver o fluxo todo.
 

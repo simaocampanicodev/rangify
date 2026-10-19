@@ -365,6 +365,12 @@ export const dadosSupabase: Dados = {
 
   // ---------------------------------------------------------------- torneios
   torneiosVisivel: () => rpc<boolean>('torneios_visivel').catch(() => false),
+  torneiosAreaAberta: () => rpc<boolean>('torneio_area_aberta'),
+  async torneiosDefinirArea(aberta) {
+    const r = await rpc<boolean>('torneio_definir_area', { p_aberta: aberta })
+    avisarMudanca('torneios'); avisarMudanca('staff')
+    return r
+  },
   torneiosLista: () => rpc<TorneioResumo[]>('torneios_lista'),
   torneioDetalhe: (id) => rpc<TorneioDetalhe>('torneio_detalhe', { p_torneio: id }),
   meusConvitesTorneio: () => rpc<ConviteTorneio[]>('meus_convites_torneio').catch(() => []),

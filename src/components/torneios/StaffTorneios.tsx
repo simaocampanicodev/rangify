@@ -2,7 +2,7 @@
  * Staff › Torneios (só Owner e Dev): criar e editar torneios, publicar, convidar a testar, sortear, marcar o calendário,
  * pôr resultados à mão (final presencial, falta de comparência, falha da API) e as ferramentas de teste com bots.
  */
-import { Bot, CalendarClock, Dices, ExternalLink, Eye, EyeOff, Plus, RotateCcw, Save, Swords, Trash2, Trophy, UserPlus, X } from 'lucide-react'
+import { Bot, CalendarClock, Dices, ExternalLink, Eye, EyeOff, Lock, Megaphone, Plus, RotateCcw, Save, Swords, Trash2, Trophy, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BotaoSegurar, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -97,6 +97,8 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
   const [presencial, setPresencial] = useState(inicial?.finalPresencial ?? false)
   const [maxEquipas, setMaxEquipas] = useState(inicial?.maxEquipas ? String(inicial.maxEquipas) : '')
   const [teste, setTeste] = useState(false)
+  // Visível a toda a gente quando a área estiver aberta: sim, menos num torneio de teste.
+  const [publico, setPublico] = useState(true)
   const [minJogadores, setMinJogadores] = useState(inicial ? String(inicial.minJogadores) : '')
   const [veto, setVeto] = useState(inicial?.vetoMapas ?? true)
   const [formato, setFormato] = useState<FormatoVetoTorneio>(inicial?.vetoFormato ?? 'bans')
@@ -115,7 +117,7 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
     if (grupoEditavel) { base.tamanhoGrupo = tamanho; base.passamPorGrupo = passam }
     const id = await acao(async () => {
       if (inicial) { await dados.torneioEditar(inicial.id, base); return inicial.id }
-      return dados.torneioCriar({ ...base, teste, nome: nome.trim(), inscricoesAte: deInput(inscricoesAte)! } as DadosNovoTorneio)
+      return dados.torneioCriar({ ...base, teste, publico, nome: nome.trim(), inscricoesAte: deInput(inscricoesAte)! } as DadosNovoTorneio)
     }, editar ? l('Torneio guardado.', 'Tournament saved.') : l('Torneio criado como rascunho. Publica-o quando estiver pronto.', 'Tournament created as a draft. Publish it when it is ready.'))
     if (id) aoGuardar(id)
   }
@@ -165,7 +167,8 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
       </Campo>
       <div className="flex flex-col gap-3.5 rounded-xl border border-white/8 bg-white/[0.025] p-4">
         <Interruptor ligado={presencial} aoMudar={setPresencial} texto={l('Final presencial', 'In-person final')} ajuda={l('Não se abre no hub: a staff põe o resultado. Os restantes jogos são detetados pela API.', 'Not opened in the hub: staff enters the result. All other matches are detected by the API.')} />
-        {!editar && <Interruptor ligado={teste} aoMudar={setTeste} texto={l('Torneio de teste', 'Test tournament')} ajuda={l('Liga as ferramentas com bots (equipas de bots, encher a tua equipa, simular jogos). Os jogos abrem a qualquer hora e a API precisa só de 2 jogadores.', 'Turns on the bot tools (bot teams, fill your team, simulate matches). Matches open at any time and the API only needs 2 players.')} />}
+        {!editar && <Interruptor ligado={teste} aoMudar={(v) => { setTeste(v); setPublico(!v) }} texto={l('Torneio de teste', 'Test tournament')} ajuda={l('Liga as ferramentas com bots (equipas de bots, encher a tua equipa, simular jogos). Os jogos abrem a qualquer hora e a API precisa só de 2 jogadores.', 'Turns on the bot tools (bot teams, fill your team, simulate matches). Matches open at any time and the API only needs 2 players.')} />}
+        {!editar && <Interruptor ligado={publico} aoMudar={setPublico} texto={l('Visível a toda a gente quando a área estiver aberta', 'Visible to everyone once the area is open')} ajuda={l('Desligado, só a staff, quem convidares a testar e as pessoas das equipas inscritas veem este torneio (bom para testes).', 'Off, only staff, whoever you invite to test and people on registered teams see this tournament (good for tests).')} />}
         <Interruptor ligado={veto} aoMudar={setVeto} texto={l('Picks e bans de mapas', 'Map picks and bans')} ajuda={l('Antes de cada jogo os capitães vetam os mapas à vez. Desligado: o mapa é livre (ou fixado por ti no calendário).', 'Before each match the captains veto maps in turns. Off: the map is free (or set by you in the calendar).')} />
         {veto && (
           <div className="flex flex-col gap-3.5 border-t border-white/8 pt-3.5">
@@ -199,18 +202,25 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
 }
 
 /** Aberto a todos ou só a quem convidares a testar (e às equipas inscritas). */
-function Visibilidade({ t }: { t: TorneioResumo }) {
+function Visibilidade({ t, area }: { t: TorneioResumo; area: boolean }) {
   const acao = useAcao()
   const acessos = useCarregar(() => dados.torneioAcessos(t.id), [t.id], ['torneios'], { chave: `torneio:acessos:${t.id}` })
   const [nome, setNome] = useState('')
   return (
     <Painel aria-label={l('Visibilidade', 'Visibility')} className="flex flex-col gap-4 p-[22px]">
-      <TituloPainel eyebrow={l('QUEM VÊ', 'WHO SEES IT')} titulo={t.publico ? l('Aberto a todos', 'Open to everyone') : l('Fechado: só a staff e quem convidares', 'Closed: staff and whoever you invite')} />
+      <TituloPainel
+        eyebrow={l('QUEM VÊ', 'WHO SEES IT')}
+        titulo={t.publico && area ? l('Visível a toda a gente', 'Visible to everyone')
+          : t.publico ? l('Marcado como aberto, mas a área está fechada', 'Marked as open, but the area is closed')
+            : l('Privado: só a staff e quem convidares', 'Private: staff and whoever you invite')}
+      />
       <Interruptor
         ligado={t.publico}
-        aoMudar={(v) => acao(() => dados.torneioEditar(t.id, { publico: v }), v ? l('O torneio está aberto a todos.', 'The tournament is open to everyone.') : l('O torneio voltou a ser privado.', 'The tournament is private again.'))}
-        texto={l('Aberto a todos', 'Open to everyone')}
-        ajuda={t.estado === 'rascunho' ? l('Um rascunho nunca aparece aos jogadores, mesmo aberto: publica-o primeiro.', 'A draft never shows to players, even when open: publish it first.') : l('Desligado: só a staff, quem convidares a testar e as pessoas das equipas inscritas veem o torneio.', 'Off: only staff, whoever you invite to test and people on registered teams see the tournament.')}
+        aoMudar={(v) => acao(() => dados.torneioEditar(t.id, { publico: v }), v ? l('O torneio fica visível a toda a gente quando a área estiver aberta.', 'The tournament will be visible to everyone once the area is open.') : l('O torneio voltou a ser privado.', 'The tournament is private again.'))}
+        texto={l('Visível a toda a gente quando a área estiver aberta', 'Visible to everyone once the area is open')}
+        ajuda={t.estado === 'rascunho' ? l('Um rascunho nunca aparece aos jogadores: publica-o primeiro.', 'A draft never shows to players: publish it first.')
+          : !area ? l('A área de Torneios está fechada (botão lá em cima): por agora só veem a staff, quem convidares a testar e as pessoas das equipas inscritas.', 'The Tournaments area is closed (button above): for now only staff, whoever you invite to test and people on registered teams see it.')
+            : l('Desligado: só a staff, quem convidares a testar e as pessoas das equipas inscritas veem o torneio.', 'Off: only staff, whoever you invite to test and people on registered teams see the tournament.')}
       />
       <div className="flex flex-col gap-2.5 border-t border-white/8 pt-4">
         <Papel>{l('CONVIDAR A TESTAR (AMIGOS)', 'INVITE TO TEST (FRIENDS)')}</Papel>
@@ -527,7 +537,7 @@ function Testes({ d }: { d: TorneioDetalhe }) {
   )
 }
 
-function Gerir({ id, aoApagar }: { id: string; aoApagar: () => void }) {
+function Gerir({ id, area, aoApagar }: { id: string; area: boolean; aoApagar: () => void }) {
   const acao = useAcao()
   const [editar, setEditar] = useState(false)
   const detalhe = useCarregar(() => dados.torneioDetalhe(id), [id], ['torneios', 'staff'], { chave: `torneio:${id}` })
@@ -576,7 +586,7 @@ function Gerir({ id, aoApagar }: { id: string; aoApagar: () => void }) {
       <Modal aberto={editar} onFechar={() => setEditar(false)} eyebrow={l('EDITAR', 'EDIT')} titulo={t.nome} largura={760}>
         <FormTorneio inicial={t} aoGuardar={() => { setEditar(false); detalhe.recarregar() }} aoCancelar={() => setEditar(false)} />
       </Modal>
-      <Visibilidade t={t} />
+      <Visibilidade t={t} area={area} />
       {t.estado !== 'cancelado' && <Sorteio d={d} />}
       <Calendario d={d} />
       <Resultados d={d} />
@@ -585,15 +595,47 @@ function Gerir({ id, aoApagar }: { id: string; aoApagar: () => void }) {
   )
 }
 
+/** O botão que abre a área de Torneios a toda a gente (ou a fecha), como nas outras áreas da staff. */
+function AreaTorneios({ aberta, aoMudar }: { aberta: boolean | null; aoMudar: () => void }) {
+  const acao = useAcao()
+  if (aberta == null) return null
+  return (
+    <Painel aria-label={l('Área de Torneios', 'Tournaments area')} className="flex flex-wrap items-center justify-between gap-4 p-[18px]">
+      <div className="flex min-w-0 max-w-[720px] flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Chip tom={aberta ? 'vitoria' : 'laranja'}>{aberta ? l('ÁREA ABERTA A TODA A GENTE', 'AREA OPEN TO EVERYONE') : l('ÁREA FECHADA', 'AREA CLOSED')}</Chip>
+        </div>
+        <p className="m-0 text-[13px] leading-normal text-suave">
+          {aberta
+            ? l('O separador Torneios aparece a todos e cada pessoa vê os torneios publicados que estiverem marcados como visíveis.', 'The Tournaments tab shows for everyone and each person sees the published tournaments marked as visible.')
+            : l('Só tu (Owner e Dev) veem o separador Torneios. Quem for convidado para uma equipa, ou convidado a testar, passa a vê-lo e a ver esse torneio. Ao abrires a área, toda a gente vê os torneios marcados como visíveis.', 'Only you (Owner and Dev) see the Tournaments tab. Anyone invited to a team, or invited to test, starts seeing it and that tournament. Once you open the area, everyone sees the tournaments marked as visible.')}
+        </p>
+      </div>
+      {aberta ? (
+        <BotaoSegurar rotulo={l('Segura para fechar a área ao público', 'Hold to close the area to the public')} className="btn btn-fantasma" onConfirmar={async () => { await acao(() => dados.torneiosDefinirArea(false), l('A área de Torneios voltou a estar fechada.', 'The Tournaments area is closed again.')); aoMudar() }}>
+          <Lock size={16} aria-hidden />{l('Fechar ao público', 'Close to the public')}
+        </BotaoSegurar>
+      ) : (
+        <BotaoSegurar rotulo={l('Segura para abrir a área a toda a gente', 'Hold to open the area to everyone')} className="btn btn-primario" onConfirmar={async () => { await acao(() => dados.torneiosDefinirArea(true), l('A área de Torneios está aberta a toda a gente.', 'The Tournaments area is open to everyone.')); aoMudar() }}>
+          <Megaphone size={16} aria-hidden />{l('Abrir a toda a gente', 'Open to everyone')}
+        </BotaoSegurar>
+      )}
+    </Painel>
+  )
+}
+
 export function StaffTorneios() {
   const [q, setQ] = useSearchParams()
   const [criar, setCriar] = useState(false)
+  const area = useCarregar(() => dados.torneiosAreaAberta(), [], ['torneios', 'staff'], { chave: 'torneios:area' })
   const lista = useCarregar(() => dados.torneiosLista(), [], ['torneios', 'staff'], { chave: 'staff:torneios' })
   const escolhido = q.get('torneio')
   const sel = lista.valor?.some((t) => t.id === escolhido) ? escolhido : lista.valor?.[0]?.id ?? null
   const escolher = (id: string) => { const p = new URLSearchParams(q); p.set('torneio', id); setQ(p, { replace: true }) }
 
   return (
+    <div className="flex min-w-0 flex-col gap-5">
+    <AreaTorneios aberta={area.valor} aoMudar={area.recarregar} />
     <div className="grid min-w-0 gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
       <aside aria-label={l('Os teus torneios', 'Your tournaments')} className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-2">
@@ -625,13 +667,14 @@ export function StaffTorneios() {
         )}
       </aside>
       <div className="min-w-0">
-        {sel ? <Gerir key={sel} id={sel} aoApagar={() => { lista.recarregar(); setQ(new URLSearchParams([...q].filter(([k]) => k !== 'torneio')), { replace: true }) }} /> : (
+        {sel ? <Gerir key={sel} id={sel} area={!!area.valor} aoApagar={() => { lista.recarregar(); setQ(new URLSearchParams([...q].filter(([k]) => k !== 'torneio')), { replace: true }) }} /> : (
           <Painel className="p-[22px]"><Vazio icone={<Trophy size={18} />} titulo={l('Escolhe ou cria um torneio', 'Pick or create a tournament')} /></Painel>
         )}
       </div>
       <Modal aberto={criar} onFechar={() => setCriar(false)} eyebrow={l('NOVO TORNEIO', 'NEW TOURNAMENT')} titulo={l('Criar um torneio', 'Create a tournament')} largura={760}>
         <FormTorneio aoGuardar={(id) => { setCriar(false); lista.recarregar(); escolher(id) }} aoCancelar={() => setCriar(false)} />
       </Modal>
+    </div>
     </div>
   )
 }

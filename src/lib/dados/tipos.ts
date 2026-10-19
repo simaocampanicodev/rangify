@@ -536,7 +536,7 @@ export interface TorneioResumo {
   nome: string
   descricao: string | null
   estado: EstadoTorneio
-  /** Aberto a todos (senão só a staff, quem foi convidado a testar e os membros das equipas). */
+  /** Visível a toda a gente quando a área de torneios está aberta (senão só a staff, quem foi convidado a testar e os membros das equipas). */
   publico: boolean
   /** Torneio de teste: a staff tem ferramentas com bots. */
   teste: boolean
@@ -928,8 +928,12 @@ export interface Dados {
   definirStreamersPublico(publico: boolean): Promise<DivulgacaoEstado>
 
   // ---------------------------------------------------------------- torneios
-  /** A área aparece a Owner e Dev, e a quem tem pelo menos um torneio para ver. */
+  /** O separador aparece a Owner e Dev, a toda a gente quando a área está aberta e a quem tem um torneio para ver (convidado para uma equipa ou a testar). */
   torneiosVisivel(): Promise<boolean>
+  /** Staff: a área de torneios está aberta a toda a gente? */
+  torneiosAreaAberta(): Promise<boolean>
+  /** Staff: abre a área a toda a gente ou volta a fechá-la. Devolve o novo estado. */
+  torneiosDefinirArea(aberta: boolean): Promise<boolean>
   torneiosLista(): Promise<TorneioResumo[]>
   torneioDetalhe(id: string): Promise<TorneioDetalhe>
   meusConvitesTorneio(): Promise<ConviteTorneio[]>
