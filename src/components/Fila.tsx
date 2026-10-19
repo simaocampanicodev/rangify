@@ -152,16 +152,20 @@ export function AnelFila({ tamanho = 200, contagem, naFila, legenda, modo = 'liv
   modo?: 'livre' | 'bloqueada' | 'ocupada'
 }) {
   const c = tamanho / 2
-  const r = c - 14
+  // A espessura acompanha o tamanho, e o espaço entre segmentos conta com as pontas redondas (que
+  // avançam meia espessura para cada lado): num anel pequeno, um espaço fixo em graus fazia-os fundir.
+  const espessura = Math.max(7, Math.round(tamanho * 0.058))
+  const r = c - espessura / 2 - 8
+  const vazio = ((espessura + 6) / r) * (180 / Math.PI) // graus entre o fim de um segmento e o início do seguinte
   const segmentos = Array.from({ length: 10 }, (_, i) => {
-    const a0 = ((-90 + i * 36 + 4) * Math.PI) / 180
-    const a1 = ((-90 + (i + 1) * 36 - 4) * Math.PI) / 180
+    const a0 = ((-90 + i * 36 + vazio / 2) * Math.PI) / 180
+    const a1 = ((-90 + (i + 1) * 36 - vazio / 2) * Math.PI) / 180
     const d = `M ${(c + r * Math.cos(a0)).toFixed(1)} ${(c + r * Math.sin(a0)).toFixed(1)} A ${r} ${r} 0 0 1 ${(c + r * Math.cos(a1)).toFixed(1)} ${(c + r * Math.sin(a1)).toFixed(1)}`
     const cor = modo === 'bloqueada' ? 'rgba(255,255,255,0.06)'
       : i >= contagem ? 'rgba(255,255,255,0.08)'
       : modo === 'ocupada' ? 'rgba(255,255,255,0.26)'
       : naFila && i === 0 ? '#ffb592' : '#ff5b1f'
-    return <path key={i} d={d} fill="none" stroke={cor} strokeWidth={11} strokeLinecap="round" style={{ transition: 'stroke .4s' }} />
+    return <path key={i} d={d} fill="none" stroke={cor} strokeWidth={espessura} strokeLinecap="round" style={{ transition: 'stroke .4s' }} />
   })
   const brilho = modo === 'livre'
   return (
@@ -345,7 +349,7 @@ export function CartaoFila({ tipo, rodape, id }: { tipo: FilaTipo; rodape?: Reac
       </div>
 
       <div className="flex flex-wrap items-center gap-x-[26px] gap-y-5">
-        <AnelFila tamanho={150} contagem={v.contagem} naFila={v.naFila} legenda={legenda} modo={modo} />
+        <AnelFila tamanho={168} contagem={v.contagem} naFila={v.naFila} legenda={legenda} modo={modo} />
         <div className="flex min-w-[min(200px,100%)] flex-1 flex-col gap-2.5">
           <h2 id={id} className="m-0 text-[30px] leading-[1.05] font-extrabold tracking-[-0.035em]">{ranked ? l('Fila ranked', 'Ranked queue') : l('Fila aberta', 'Open queue')}</h2>
           <p className="m-0 text-[14px] leading-[1.55] text-suave">{descricao}</p>
