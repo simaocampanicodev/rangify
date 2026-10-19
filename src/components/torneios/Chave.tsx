@@ -3,7 +3,7 @@ import { Crown, Trophy } from 'lucide-react'
 import { Painel, Vazio } from '@/components/ui'
 import type { TorneioDetalhe, TorneioJogo } from '@/lib/dados'
 import { l } from '@/lib/idioma'
-import { dataHoraCurta, origemTexto, rotuloJogo } from './comum'
+import { dataHoraCurta, nomeMelhorDe, origemTexto, pontosJogo, rotuloJogo } from './comum'
 
 const LARGURA = 250
 const ALTURA = 92
@@ -15,7 +15,7 @@ function Caixa({ j, meuId, aoAbrir }: { j: TorneioJogo; meuId: string | null; ao
   const linha = (lado: 'A' | 'B') => {
     const e = lado === 'A' ? j.equipaA : j.equipaB
     const origem = lado === 'A' ? j.origemA : j.origemB
-    const score = lado === 'A' ? j.scoreA : j.scoreB
+    const score = pontosJogo(j, lado)
     const ganhou = j.estado === 'concluido' && !!e && j.vencedorId === e.id
     const meu = !!e && e.id === meuId
     return (
@@ -41,6 +41,7 @@ function Caixa({ j, meuId, aoAbrir }: { j: TorneioJogo; meuId: string | null; ao
       {linha('B')}
       <span className={`mt-auto flex items-center gap-1.5 truncate border-t border-white/7 px-3 py-[5px] font-mono text-[10px] tracking-[0.1em] uppercase ${final ? 'text-ouro' : j.estado === 'a_decorrer' ? 'text-pessego' : 'text-mudo'}`}>
         {final && <Crown size={11} aria-hidden />}
+        {nomeMelhorDe(j.melhorDe) && <span className="text-pessego-claro">{nomeMelhorDe(j.melhorDe)}</span>}
         {j.estado === 'concluido' ? l('Concluído', 'Finished')
           : j.estado === 'a_decorrer' ? l('A decorrer', 'In progress')
           : j.presencial ? l('Presencial', 'In person')

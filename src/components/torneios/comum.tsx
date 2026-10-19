@@ -72,6 +72,15 @@ export function Contagem({ ate, vazio }: { ate: string | null | undefined; vazio
   return <>{faltaPara(ate, agora) ?? vazio}</>
 }
 
+/** "MD3" para um jogo à melhor de 3, ou nada à melhor de 1. */
+export const nomeMelhorDe = (n: number) => (n > 1 ? `MD${n}` : null)
+
+/** O que se mostra como pontos de cada lado: os mapas ganhos numa série, as rondas num jogo à melhor de 1. */
+export function pontosJogo(j: Pick<TorneioJogo, 'melhorDe' | 'serieA' | 'serieB' | 'scoreA' | 'scoreB' | 'estado'>, lado: 'A' | 'B'): number | null {
+  if (j.melhorDe > 1) return j.estado === 'concluido' || j.serieA + j.serieB > 0 ? (lado === 'A' ? j.serieA : j.serieB) : null
+  return lado === 'A' ? j.scoreA : j.scoreB
+}
+
 export const formatoTexto = (t: Pick<TorneioResumo, 'tamanhoGrupo' | 'passamPorGrupo'>) =>
   l(`Grupos de ${t.tamanhoGrupo}, passam ${t.passamPorGrupo}, eliminação simples`, `Groups of ${t.tamanhoGrupo}, top ${t.passamPorGrupo} advance, single elimination`)
 

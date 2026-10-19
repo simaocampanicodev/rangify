@@ -190,6 +190,11 @@ const EN: Record<string, string> = {
   'Torneio não encontrado.': 'Tournament not found.',
   'Um torneio a sério não se apaga: cancela-o.': 'A real tournament cannot be deleted: cancel it.',
   'Uma folga não se desfaz.': 'A bye cannot be undone.',
+  'Escolhe melhor de 1, 3 ou 5.': 'Pick best of 1, 3 or 5.',
+  'Os jogos à melhor de 3 ou 5 precisam dos picks e bans de mapas: liga-os ou deixa os jogos à melhor de 1.': 'Best-of-3 and best-of-5 matches need map picks and bans: turn them on or keep matches best of 1.',
+  'A série já começou: desfaz o jogo para refazeres os picks e bans.': 'The series has already started: undo the match to redo the picks and bans.',
+  'A série já começou: desfaz o jogo para mudares o formato ou o mapa.': 'The series has already started: undo the match to change the format or the map.',
+  'Reinicia primeiro os picks e bans deste jogo para mudares o formato.': 'Restart this match\'s picks and bans first to change the format.',
   'Têm de passar menos equipas do que as que há num grupo.': 'Fewer teams must advance than there are in a group.',
   'A seed tem de estar entre -1 e 1.': 'The seed must be between -1 and 1.',
 }
@@ -197,6 +202,11 @@ const EN: Record<string, string> = {
 /** Mensagens com partes variáveis (datas, motivos): o início é fixo e traduz-se por padrão. */
 const PADROES_EN: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Estás banido da fila para sempre\. Motivo: ([\s\S]*)$/, (m) => `You are permanently banned from the queue. Reason: ${m[1]}`],
+  [/^Para jogar à melhor de (\d+) são precisos pelo menos (\d+) mapas em jogo \(há (\d+)\)\.$/, (m) => `To play best of ${m[1]} you need at least ${m[2]} maps in play (there are ${m[3]}).`],
+  [/^Este jogo é à melhor de (\d+) e só há (\d+) mapas em jogo: junta mais mapas ao torneio\.$/, (m) => `This match is best of ${m[1]} and there are only ${m[2]} maps in play: add more maps to the tournament.`],
+  [/^Num jogo à melhor de (\d+) os mapas saem dos picks e bans: muda o jogo para melhor de 1 para fixares o mapa\.$/, (m) => `In a best-of-${m[1]} match the maps come from the picks and bans: change the match to best of 1 to fix the map.`],
+  [/^Num jogo à melhor de (\d+) o vencedor ganha (\d+) mapas e o outro menos do que isso\.$/, (m) => `In a best-of-${m[1]} match the winner takes ${m[2]} maps and the other fewer than that.`],
+  [/^Este jogo é à melhor de (\d+) e ainda não tem mapas: faz primeiro os picks e bans\.$/, (m) => `This match is best of ${m[1]} and has no maps yet: do the picks and bans first.`],
   [/^Mapa desconhecido: (.+)\.$/, (m) => `Unknown map: ${m[1]}.`],
   [/^São precisas pelo menos 4 equipas completas \(5 jogadores aceites\) e há (\d+)\.$/, (m) => `At least 4 complete teams (5 accepted players) are needed and there are ${m[1]}.`],
   [/^Com (\d+) equipas os grupos ficavam demasiado pequenos para passarem (\d+) de cada\. Muda o formato\.$/, (m) => `With ${m[1]} teams the groups would be too small for ${m[2]} to advance from each. Change the format.`],

@@ -502,11 +502,13 @@ export type FuncaoEquipaTorneio = 'jogador' | 'coach' | 'suplente'
 /** 'veto' = os capitães estão a banir e a escolher o mapa. */
 export type EstadoJogoTorneio = 'pendente' | 'agendado' | 'veto' | 'a_decorrer' | 'concluido'
 /**
- * Como se escolhe o mapa de cada jogo: 'bans' (banem à vez até sobrar um, quem não baniu por último escolhe o lado)
- * ou 'ban_pick' (banem à vez até sobrarem 3, a equipa da vez escolhe o mapa e a outra o lado).
+ * O formato de um jogo: à melhor de 1, 3 ou 5 mapas. À melhor de 1 banem à vez até sobrar um mapa (quem não baniu
+ * por último escolhe o lado). À melhor de 3 e 5: ban, ban, picks (cada um com o lado escolhido pela outra equipa),
+ * bans se sobrarem mapas e o decisivo.
  */
-export type FormatoVetoTorneio = 'bans' | 'ban_pick'
-export type PassoVetoTorneio = { tipo: 'ban' | 'pick' | 'lado'; equipa: 'A' | 'B' }
+export type MelhorDe = 1 | 3 | 5
+/** Um passo dos picks e bans; "alvo" é o n.º do mapa a que o pick ou o lado se refere. */
+export type PassoVetoTorneio = { tipo: 'ban' | 'pick' | 'lado'; equipa: 'A' | 'B'; alvo?: number }
 export interface JogadaVetoTorneio extends PassoVetoTorneio {
   ordem: number
   /** O mapa banido ou escolhido; no lado, 'ataque' ou 'defesa'. */
@@ -515,7 +517,7 @@ export interface JogadaVetoTorneio extends PassoVetoTorneio {
   auto: boolean
 }
 export interface VetoJogoTorneio {
-  formato: FormatoVetoTorneio
+  melhorDe: MelhorDe
   /** Os mapas em jogo (fixados quando o veto começa). */
   pool: string[]
   /** A ordem completa, mesmo do que ainda não aconteceu. */
@@ -545,7 +547,8 @@ export interface TorneioResumo {
   finalPresencial: boolean
   /** Picks e bans de mapas antes de cada jogo. */
   vetoMapas: boolean
-  vetoFormato: FormatoVetoTorneio
+  /** O formato de cada jogo por defeito (a staff muda-o jogo a jogo). */
+  melhorDe: MelhorDe
   /** Os mapas escolhidos para este torneio (null = a rotação do hub). */
   poolMapas: string[] | null
   /** Os mapas que realmente entram: os escolhidos ou a rotação do hub. */
@@ -593,6 +596,8 @@ export interface TorneioEquipa {
 }
 
 export interface TorneioJogadorJogo {
+  /** Em que mapa da série (sempre 1 à melhor de 1). */
+  mapaOrdem: number
   perfilId: string
   equipaId: string
   utilizador: string
@@ -609,6 +614,22 @@ export interface TorneioJogadorJogo {
 
 /** De onde vem uma equipa que ainda não se sabe: um lugar num grupo ou o vencedor de outro jogo. */
 export type OrigemEquipaTorneio = { tipo: 'grupo'; grupo: number; posicao: number } | { tipo: 'vencedor'; ronda: number; ordem: number }
+
+/** Um mapa de uma série à melhor de 3 ou 5. */
+export interface MapaSerieTorneio {
+  ordem: number
+  mapa: string
+  escolhidaPor: 'A' | 'B' | 'decisivo'
+  ladoEquipa: 'A' | 'B' | null
+  ladoEscolha: 'ataque' | 'defesa' | null
+  estado: 'pendente' | 'a_decorrer' | 'concluido'
+  scoreA: number | null
+  scoreB: number | null
+  vencedorId: string | null
+  como: 'api' | 'staff' | 'simulado' | null
+  comecouEm: string | null
+  terminouEm: string | null
+}
 
 export interface TorneioJogo {
   id: string
@@ -628,6 +649,13 @@ export interface TorneioJogo {
   mapa: string | null
   presencial: boolean
   estado: EstadoJogoTorneio
+  /** À melhor de 1, 3 ou 5 (os picks e bans já começados guardam o que valia na altura). */
+  melhorDe: MelhorDe
+  /** Mapas ganhos por cada equipa (só conta à melhor de 3 ou 5). */
+  serieA: number
+  serieB: number
+  /** Os mapas da série, na ordem em que se jogam (vazio à melhor de 1: aí o mapa é o do jogo). */
+  mapas: MapaSerieTorneio[]
   /** Picks e bans (null se o torneio os desligou ou se o jogo é presencial). */
   veto: VetoJogoTorneio | null
   comecouEm: string | null
@@ -684,7 +712,7 @@ export interface DadosNovoTorneio {
   passamPorGrupo?: number
   finalPresencial?: boolean
   vetoMapas?: boolean
-  vetoFormato?: FormatoVetoTorneio
+  melhorDe?: MelhorDe
   /** Vazio ou ausente = a rotação do hub. */
   poolMapas?: string[] | null
   minJogadores?: number
@@ -695,7 +723,7 @@ export interface DadosNovoTorneio {
   publico?: boolean
 }
 
-export interface ItemCalendarioTorneio { jogo: string; quando: string | null; mapa?: string | null; presencial?: boolean | null }
+export interface ItemCalendarioTorneio { jogo: string; quando: string | null; mapa?: string | null; presencial?: boolean | null; melhorDe?: MelhorDe | null }
 
 export interface Dados {
   modo: 'demo' | 'supabase'
@@ -970,7 +998,8 @@ export interface Dados {
   torneioAcessos(id: string): Promise<JogadorSugerido[]>
   torneioStaffAdicionar(equipa: string, nome: string, funcao: FuncaoEquipaTorneio): Promise<JogadorSugerido>
   torneioSortear(id: string, seed?: number | null): Promise<{ grupos: number; equipas: number; seed: number }>
-  torneioAgendar(jogo: string, quando: string | null, mapa?: string | null, presencial?: boolean | null): Promise<void>
+  /** mapa: vazio tira o que a staff pôs, ausente deixa como está. melhorDe: o formato deste jogo (1, 3 ou 5). */
+  torneioAgendar(jogo: string, quando: string | null, mapa?: string | null, presencial?: boolean | null, melhorDe?: MelhorDe | null): Promise<void>
   torneioAgendarVarios(itens: ItemCalendarioTorneio[]): Promise<number>
   torneioResolverJogo(jogo: string, a: number, b: number): Promise<void>
   torneioWalkover(jogo: string, vencedor: string): Promise<void>

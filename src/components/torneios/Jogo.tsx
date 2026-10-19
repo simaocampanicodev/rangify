@@ -6,7 +6,8 @@ import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useAgora } from '@/hooks/useAgora'
 import { dados, type TorneioDetalhe, type TorneioJogo } from '@/lib/dados'
 import { l } from '@/lib/idioma'
-import { ChipJogo, comoTexto, dataHoraCurta, nomeGrupo, origemTexto, Papel, rotuloJogo } from './comum'
+import { ChipJogo, comoTexto, dataHoraCurta, nomeGrupo, nomeMelhorDe, origemTexto, Papel, rotuloJogo } from './comum'
+import { SerieMapas } from './Serie'
 import { VetoJogo } from './Veto'
 
 /** O nome de uma equipa, ou de onde vem enquanto não se sabe. */
@@ -20,13 +21,18 @@ export function NomeEquipa({ j, lado, forte = false }: { j: TorneioJogo; lado: '
 
 /** O resultado: o vencedor a verde. */
 export function Placar({ j }: { j: TorneioJogo }) {
-  if (j.estado !== 'concluido' || j.scoreA == null || j.scoreB == null) return <span className="font-mono text-mudo">vs</span>
+  // Numa série mostram-se os mapas ganhos (desde que haja um); à melhor de 1, as rondas.
+  const serie = j.melhorDe > 1
+  const a0 = serie ? j.serieA : j.scoreA
+  const b0 = serie ? j.serieB : j.scoreB
+  if (serie ? j.estado !== 'concluido' && j.serieA + j.serieB === 0 : j.estado !== 'concluido' || a0 == null || b0 == null) return <span className="font-mono text-mudo">vs</span>
   const a = j.vencedorId === j.equipaA?.id
+  const acabou = j.estado === 'concluido'
   return (
     <span className="font-mono text-[14px] font-semibold tabular-nums">
-      <span className={a ? 'text-vitoria' : 'text-suave'}>{j.scoreA}</span>
+      <span className={acabou && a ? 'text-vitoria' : 'text-suave'}>{a0}</span>
       <span className="px-1 text-mudo">-</span>
-      <span className={!a ? 'text-vitoria' : 'text-suave'}>{j.scoreB}</span>
+      <span className={acabou && !a ? 'text-vitoria' : 'text-suave'}>{b0}</span>
     </span>
   )
 }
@@ -46,6 +52,7 @@ export function JogoLinha({ j, meuId, aoAbrir, mostrarFase = false }: { j: Torne
         <span className="flex min-w-0 text-[13.5px]"><NomeEquipa j={j} lado="B" /></span>
         <span className="col-span-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-mudo sm:col-span-1 sm:justify-end">
           {mostrarFase && <span>{j.fase === 'grupo' ? `${nomeGrupo(j.grupo)} · ` : ''}{rotuloJogo(j)}</span>}
+          {nomeMelhorDe(j.melhorDe) && <span className="text-pessego-claro">{nomeMelhorDe(j.melhorDe)}</span>}
           {j.estado === 'concluido' ? <ChipJogo j={j} /> : j.agendadoPara ? <span className={j.estado === 'a_decorrer' ? 'text-pessego' : ''}>{dataHoraCurta(j.agendadoPara)}{j.mapa ? ` · ${j.mapa}` : ''}</span> : <span>{l('Por marcar', 'To schedule')}</span>}
           {(j.estado === 'a_decorrer' || j.estado === 'veto') && <ChipJogo j={j} />}
         </span>
@@ -57,8 +64,10 @@ export function JogoLinha({ j, meuId, aoAbrir, mostrarFase = false }: { j: Torne
 /** As estatísticas de cada jogador, por equipa, lidas da partida da API. */
 export function EstatisticasJogo({ j }: { j: TorneioJogo }) {
   if (!j.jogadores.length) return null
-  const lado = (id: string | undefined, nome: string | undefined) => {
-    const linhas = j.jogadores.filter((x) => x.equipaId === id)
+  // Numa série há estatísticas de cada mapa que já se jogou.
+  const ordens = [...new Set(j.jogadores.map((x) => x.mapaOrdem))].sort((x, y) => x - y)
+  const lado = (id: string | undefined, nome: string | undefined, ordem: number) => {
+    const linhas = j.jogadores.filter((x) => x.equipaId === id && x.mapaOrdem === ordem)
     if (!linhas.length) return null
     return (
       <div className="flex flex-col gap-1.5">
@@ -86,22 +95,37 @@ export function EstatisticasJogo({ j }: { j: TorneioJogo }) {
       </div>
     )
   }
-  return <div className="flex flex-col gap-4">{lado(j.equipaA?.id, j.equipaA?.nome)}{lado(j.equipaB?.id, j.equipaB?.nome)}</div>
+  return (
+    <div className="flex flex-col gap-6">
+      {ordens.map((o) => {
+        const mapa = j.mapas.find((m) => m.ordem === o)
+        return (
+          <div key={o} className="flex flex-col gap-4">
+            {j.melhorDe > 1 && <Papel>{l('MAPA', 'MAP')} {o}{mapa ? ` · ${mapa.mapa.toUpperCase()}${mapa.scoreA != null ? ` · ${mapa.scoreA}-${mapa.scoreB}` : ''}` : ''}</Papel>}
+            {lado(j.equipaA?.id, j.equipaA?.nome, o)}{lado(j.equipaB?.id, j.equipaB?.nome, o)}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function Passos({ j }: { j: TorneioJogo }) {
   // Com picks e bans há um passo a mais (o mapa); com o mapa posto pela staff não há.
   const comVeto = !!j.veto && !j.veto.mapaStaff
+  const k = Math.min(j.serieA + j.serieB + 1, j.mapas.length)
+  const jogar = j.mapas.length > 0 ? l(`Mapa ${k} de ${j.mapas.length}`, `Map ${k} of ${j.mapas.length}`) : l('A jogar', 'Playing')
   const passos = comVeto
-    ? [l('Agendado', 'Scheduled'), l('Picks e bans', 'Picks and bans'), l('Grupo criado', 'Lobby created'), l('A jogar', 'Playing'), l('Resultado da API', 'API result')]
-    : [l('Agendado', 'Scheduled'), l('Grupo criado', 'Lobby created'), l('A jogar', 'Playing'), l('Resultado da API', 'API result')]
+    ? [l('Agendado', 'Scheduled'), l('Picks e bans', 'Picks and bans'), l('Grupo criado', 'Lobby created'), jogar, l('Resultado da API', 'API result')]
+    : [l('Agendado', 'Scheduled'), l('Grupo criado', 'Lobby created'), jogar, l('Resultado da API', 'API result')]
   const a = comVeto ? 1 : 0
   const vetoFeito = !!j.veto?.ladoEscolha
   // "feitos" = quantos já estão cumpridos; "agora" = o passo em curso (-1 = tudo feito).
   const feitos = j.estado === 'concluido' ? passos.length
     : j.estado === 'a_decorrer' ? 2 + a
       : j.estado === 'veto' ? 1
-        : j.estado === 'agendado' ? (comVeto && vetoFeito ? 2 : 1) : 0
+        // Entre dois mapas de uma série o grupo já existe: falta abrir o mapa seguinte.
+        : j.estado === 'agendado' ? (j.serieA + j.serieB > 0 ? 2 + a : comVeto && vetoFeito ? 2 : 1) : 0
   const agora = j.estado === 'concluido' ? -1 : feitos
   return (
     <ol className="m-0 flex list-none p-0" aria-label={l('Fases do jogo', 'Match steps')}>
@@ -131,7 +155,8 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
   const agora = useAgora(30_000)
   const [codigo, setCodigo] = useState('')
   const [trocar, setTrocar] = useState(false)
-  useEffect(() => { setCodigo(''); setTrocar(false) }, [jogo.id, jogo.estado])
+  // Entre os mapas de uma série o grupo do Valorant é o mesmo: o código já vem preenchido.
+  useEffect(() => { setCodigo(jogo.serieA + jogo.serieB > 0 ? jogo.codigo ?? '' : ''); setTrocar(false) }, [jogo.id, jogo.estado, jogo.serieA, jogo.serieB, jogo.codigo])
 
   const t = detalhe.torneio
   const eqA = detalhe.equipas.find((e) => e.id === jogo.equipaA?.id)
@@ -141,7 +166,8 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
   // Os capitães abrem o jogo quando ele já tem data (nos torneios de teste, quando quiserem); a staff abre sempre.
   const podeAbrir = !!jogo.equipaA && !!jogo.equipaB && !jogo.presencial && jogo.estado !== 'concluido' && (t.gerir || (souCapitao && (jogo.estado !== 'pendente' || t.teste)))
   const abreEm = jogo.agendadoPara ? new Date(jogo.agendadoPara).getTime() - 30 * 60_000 : null
-  const cedo = !t.gerir && !t.teste && (abreEm == null || agora < abreEm)
+  const nMapa = jogo.serieA + jogo.serieB + 1
+  const cedo = !t.gerir && !t.teste && nMapa === 1 && (abreEm == null || agora < abreEm)
   // Com picks e bans ligados o mapa tem de estar decidido antes de se abrir o jogo.
   const faltaVeto = !!jogo.veto && !jogo.mapa
   const podeComecarVeto = !!jogo.veto && !jogo.veto.mapaStaff && !jogo.veto.ladoEscolha && jogo.estado !== 'concluido' && jogo.estado !== 'a_decorrer'
@@ -175,7 +201,8 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
       <div className="flex flex-wrap gap-2">
         {emModal && <ChipJogo j={jogo} />}
         <Chip>{jogo.agendadoPara ? dataHoraCurta(jogo.agendadoPara) : l('Sem data', 'No date yet')}</Chip>
-        <Chip>{jogo.mapa ? `${l('Mapa', 'Map')}: ${jogo.mapa}` : jogo.veto ? l('Mapa por picks e bans', 'Map by picks and bans') : l('Mapa à escolha das equipas', 'Map picked by the teams')}</Chip>
+        {nomeMelhorDe(jogo.melhorDe) && <Chip tom="laranja">{l(`MELHOR DE ${jogo.melhorDe}`, `BEST OF ${jogo.melhorDe}`)}</Chip>}
+        <Chip>{jogo.mapa && jogo.estado !== 'concluido' ? `${l('Mapa', 'Map')}${jogo.mapas.length ? ` ${nMapa}` : ''}: ${jogo.mapa}` : jogo.estado === 'concluido' && jogo.mapas.length ? `${jogo.mapas.filter((m) => m.estado === 'concluido').length} ${l('mapas jogados', 'maps played')}` : jogo.mapa ? `${l('Mapa', 'Map')}: ${jogo.mapa}` : jogo.veto ? l('Mapa por picks e bans', 'Map by picks and bans') : l('Mapa à escolha das equipas', 'Map picked by the teams')}</Chip>
         {jogo.presencial && <Chip tom="ouro">{l('PRESENCIAL', 'IN PERSON')}</Chip>}
         {vencedor && <Chip tom="vitoria"><Crown size={12} aria-hidden />{vencedor.nome}</Chip>}
       </div>
@@ -189,6 +216,7 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
       {!jogo.presencial && jogo.veto && jogo.equipaA && jogo.equipaB && jogo.estado !== 'concluido' && (
         <VetoJogo jogo={jogo} detalhe={detalhe} meuId={meuId} aoMudar={aoMudar} podeComecar={podeComecarVeto} cedo={cedo} abreEm={abreEm} />
       )}
+      <SerieMapas jogo={jogo} />
 
       {jogo.semResultadoAuto && t.gerir && (
         <p role="alert" className="m-0 flex items-start gap-2.5 rounded-[14px] border border-derrota/35 bg-derrota/[0.05] px-4 py-3 text-[13px] leading-normal text-suave">
@@ -219,9 +247,11 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
 
       {podeAbrir && !faltaVeto && jogo.estado !== 'veto' && (jogo.estado !== 'a_decorrer' || trocar) && (
         <form className="flex flex-col gap-2.5 rounded-[14px] border border-white/8 bg-white/[0.035] p-4" onSubmit={abrir}>
-          <Papel>{jogo.estado === 'a_decorrer' ? l('TROCAR O CÓDIGO DO GRUPO', 'CHANGE THE LOBBY CODE') : l('ABRIR O JOGO', 'OPEN THE MATCH')}</Papel>
+          <Papel>{jogo.estado === 'a_decorrer' ? l('TROCAR O CÓDIGO DO GRUPO', 'CHANGE THE LOBBY CODE') : nMapa > 1 ? l(`ABRIR O MAPA ${nMapa} · ${jogo.mapa?.toUpperCase() ?? ''}`, `OPEN MAP ${nMapa} · ${jogo.mapa?.toUpperCase() ?? ''}`) : l('ABRIR O JOGO', 'OPEN THE MATCH')}</Papel>
           <p className="m-0 text-[12.5px] leading-normal text-suave">
-            {l('Cria o jogo personalizado no Valorant, copia o código do grupo e cola-o aqui. As duas equipas veem o código e o resultado é lido da API da Riot.', 'Create the custom game in Valorant, copy the lobby code and paste it here. Both teams see the code and the result is read from the Riot API.')}
+            {nMapa > 1 && jogo.estado !== 'a_decorrer'
+              ? l('Escolhe o mapa seguinte no mesmo grupo do Valorant (o código é o mesmo) e abre-o aqui. O resultado deste mapa é lido da API da Riot.', 'Pick the next map in the same Valorant lobby (the code is the same) and open it here. This map\'s result is read from the Riot API.')
+              : l('Cria o jogo personalizado no Valorant, copia o código do grupo e cola-o aqui. As duas equipas veem o código e o resultado é lido da API da Riot.', 'Create the custom game in Valorant, copy the lobby code and paste it here. Both teams see the code and the result is read from the Riot API.')}
           </p>
           <div className="flex flex-wrap gap-2.5">
             <label className="sr-only" htmlFor="rg-codigo-jogo">{l('Código do grupo', 'Lobby code')}</label>
@@ -235,7 +265,7 @@ export function JogoPainel({ jogo, detalhe, meuId, aoMudar, emModal = false }: {
               value={codigo}
               onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
             />
-            <button type="submit" className="btn btn-primario" disabled={codigo.length !== 6 || cedo}>{jogo.estado === 'a_decorrer' ? l('Guardar o código', 'Save the code') : l('Abrir o jogo', 'Open the match')}</button>
+            <button type="submit" className="btn btn-primario" disabled={codigo.length !== 6 || cedo}>{jogo.estado === 'a_decorrer' ? l('Guardar o código', 'Save the code') : nMapa > 1 ? l(`Abrir o mapa ${nMapa}`, `Open map ${nMapa}`) : l('Abrir o jogo', 'Open the match')}</button>
           </div>
           {cedo && <span className="text-[12px] text-pessego">{abreEm ? `${l('Abre às', 'Opens at')} ${new Date(abreEm).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, ${l('30 minutos antes da hora marcada.', '30 minutes before the scheduled time.')}` : l('A staff ainda não marcou a hora deste jogo.', 'Staff has not scheduled this match yet.')}</span>}
         </form>

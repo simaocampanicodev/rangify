@@ -8,7 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BotaoSegurar, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type DadosNovoTorneio, type FormatoVetoTorneio, type TorneioDetalhe, type TorneioJogo, type TorneioResumo } from '@/lib/dados'
+import { dados, type DadosNovoTorneio, type MelhorDe, type TorneioDetalhe, type TorneioJogo, type TorneioResumo } from '@/lib/dados'
 import { l } from '@/lib/idioma'
 import { MAPAS } from '@/lib/mapas'
 import { ChipEstado, ChipJogo, dataLimite, estadoLegivel, nomeGrupo, origemTexto, Papel, rotuloJogo } from './comum'
@@ -101,18 +101,19 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
   const [publico, setPublico] = useState(true)
   const [minJogadores, setMinJogadores] = useState(inicial ? String(inicial.minJogadores) : '')
   const [veto, setVeto] = useState(inicial?.vetoMapas ?? true)
-  const [formato, setFormato] = useState<FormatoVetoTorneio>(inicial?.vetoFormato ?? 'bans')
+  const [melhorDe, setMelhorDe] = useState<MelhorDe>(inicial?.melhorDe ?? 1)
   const [mapas, setMapas] = useState<string[]>(inicial?.poolMapas ?? [])
   const hub = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const grupoEditavel = !inicial || inicial.estado === 'rascunho' || inicial.estado === 'inscricoes'
-  const valido = nome.trim().length >= 3 && !!inscricoesAte && passam < tamanho && (mapas.length === 0 || mapas.length >= 3)
+  const nMapas = mapas.length || (hub.valor?.length ?? 7)
+  const valido = nome.trim().length >= 3 && !!inscricoesAte && passam < tamanho && (mapas.length === 0 || mapas.length >= 3) && (!veto || melhorDe <= nMapas)
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault()
     const base: Partial<DadosNovoTorneio> = {
       nome: nome.trim(), descricao: descricao.trim() || null, inscricoesAte: deInput(inscricoesAte) ?? undefined, inicio: deInput(inicio),
       finalPresencial: presencial, maxEquipas: maxEquipas ? Number(maxEquipas) : null,
-      minJogadores: minJogadores ? Number(minJogadores) : undefined, vetoMapas: veto, vetoFormato: formato, poolMapas: mapas,
+      minJogadores: minJogadores ? Number(minJogadores) : undefined, vetoMapas: veto, melhorDe: veto ? melhorDe : 1, poolMapas: mapas,
     }
     if (grupoEditavel) { base.tamanhoGrupo = tamanho; base.passamPorGrupo = passam }
     const id = await acao(async () => {
@@ -158,7 +159,7 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
         <Campo id="rg-t-max" rotulo={l('Máx. equipas', 'Max teams')} dica={l('Vazio = sem limite.', 'Empty = no limit.')}>
           <input id="rg-t-max" className="campo" inputMode="numeric" value={maxEquipas} onChange={(e) => setMaxEquipas(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="16" />
         </Campo>
-        <Campo id="rg-t-min" rotulo={l('Jogadores na API', 'Players in the API')} dica={l('Para dar o jogo como deste torneio.', 'To accept a match as this tournament\'s.')}>
+        <Campo id="rg-t-min" rotulo={l('Jogadores a reconhecer', 'Players to match')} dica={l('Quantos dos 10 jogadores têm de aparecer numa partida da API da Riot para a darmos como deste jogo. 8 deixa folga para quem joga com outra conta.', 'How many of the 10 players must appear in a Riot API match for us to accept it as this game. 8 leaves room for anyone playing on another account.')}>
           <input id="rg-t-min" className="campo" inputMode="numeric" value={minJogadores} onChange={(e) => setMinJogadores(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder={teste ? '2' : '8'} />
         </Campo>
       </div>
@@ -169,22 +170,26 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
         <Interruptor ligado={presencial} aoMudar={setPresencial} texto={l('Final presencial', 'In-person final')} ajuda={l('Não se abre no hub: a staff põe o resultado. Os restantes jogos são detetados pela API.', 'Not opened in the hub: staff enters the result. All other matches are detected by the API.')} />
         {!editar && <Interruptor ligado={teste} aoMudar={(v) => { setTeste(v); setPublico(!v) }} texto={l('Torneio de teste', 'Test tournament')} ajuda={l('Liga as ferramentas com bots (equipas de bots, encher a tua equipa, simular jogos). Os jogos abrem a qualquer hora e a API precisa só de 2 jogadores.', 'Turns on the bot tools (bot teams, fill your team, simulate matches). Matches open at any time and the API only needs 2 players.')} />}
         {!editar && <Interruptor ligado={publico} aoMudar={setPublico} texto={l('Visível a toda a gente quando a área estiver aberta', 'Visible to everyone once the area is open')} ajuda={l('Desligado, só a staff, quem convidares a testar e as pessoas das equipas inscritas veem este torneio (bom para testes).', 'Off, only staff, whoever you invite to test and people on registered teams see this tournament (good for tests).')} />}
-        <Interruptor ligado={veto} aoMudar={setVeto} texto={l('Picks e bans de mapas', 'Map picks and bans')} ajuda={l('Antes de cada jogo os capitães vetam os mapas à vez. Desligado: o mapa é livre (ou fixado por ti no calendário).', 'Before each match the captains veto maps in turns. Off: the map is free (or set by you in the calendar).')} />
+        <Interruptor ligado={veto} aoMudar={setVeto} texto={l('Picks e bans de mapas', 'Map picks and bans')} ajuda={l('Antes de cada jogo os capitães vetam os mapas à vez. Desligado: o mapa é livre (ou fixado por ti no calendário) e todos os jogos são à melhor de 1.', 'Before each match the captains veto maps in turns. Off: the map is free (or set by you in the schedule) and every match is best of 1.')} />
         {veto && (
           <div className="flex flex-col gap-3.5 border-t border-white/8 pt-3.5">
             <div className="flex flex-col gap-1.5">
-              <Papel>{l('FORMATO', 'FORMAT')}</Papel>
-              <Segmentado<FormatoVetoTorneio>
-                rotulo={l('Formato dos picks e bans', 'Pick and ban format')}
-                valor={formato}
-                onChange={setFormato}
-                opcoes={[{ valor: 'bans', texto: l('Só bans', 'Bans only') }, { valor: 'ban_pick', texto: l('Bans e escolha', 'Bans and pick') }]}
+              <Papel>{l('FORMATO DOS JOGOS', 'MATCH FORMAT')}</Papel>
+              <Segmentado<'1' | '3' | '5'>
+                rotulo={l('Formato dos jogos', 'Match format')}
+                valor={String(melhorDe) as '1' | '3' | '5'}
+                onChange={(v) => setMelhorDe(Number(v) as MelhorDe)}
+                opcoes={[{ valor: '1', texto: l('Melhor de 1', 'Best of 1') }, { valor: '3', texto: l('Melhor de 3', 'Best of 3') }, { valor: '5', texto: l('Melhor de 5', 'Best of 5') }]}
               />
               <span className="text-[11.5px] leading-snug text-mudo">
-                {formato === 'bans'
-                  ? l('Banem à vez até sobrar um mapa; quem não baniu por último escolhe o lado (como no hub).', 'Ban in turns until one map is left; whoever did not make the last ban picks the side (like the hub).')
-                  : l('Banem à vez até sobrarem 3; a equipa da vez escolhe o mapa e a outra o lado.', 'Ban in turns until 3 are left; the team on turn picks the map and the other the side.')}
+                {melhorDe === 1
+                  ? l('Um mapa por jogo: banem à vez até sobrar um; quem não baniu por último escolhe o lado (como no hub).', 'One map per match: ban in turns until one is left; whoever did not make the last ban picks the side (like the hub).')
+                  : melhorDe === 3
+                    ? l('Ganha quem fizer 2 mapas. Picks e bans: ban, ban, pick (a outra equipa escolhe o lado), pick (idem), ban, ban e o que sobra é o decisivo.', 'First to 2 maps wins. Picks and bans: ban, ban, pick (the other team picks the side), pick (same), ban, ban and the map left is the decider.')
+                    : l('Ganha quem fizer 3 mapas. Picks e bans: ban, ban, quatro picks (a outra equipa escolhe o lado em cada um) e o que sobra é o decisivo.', 'First to 3 maps wins. Picks and bans: ban, ban, four picks (the other team picks the side on each) and the map left is the decider.')}
+                {' '}{l('É o formato por defeito: depois mudas jogo a jogo no calendário (por exemplo só a final).', 'This is the default: you can change it match by match in the schedule (for example only the final).')}
               </span>
+              {melhorDe > nMapas && <span className="text-[11.5px] text-derrota">{l(`À melhor de ${melhorDe} são precisos pelo menos ${melhorDe} mapas em jogo (há ${nMapas}).`, `Best of ${melhorDe} needs at least ${melhorDe} maps in play (there are ${nMapas}).`)}</span>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Papel>{l('MAPAS EM JOGO', 'MAPS IN PLAY')}</Papel>
@@ -305,7 +310,7 @@ function Sorteio({ d }: { d: TorneioDetalhe }) {
   )
 }
 
-type Edicao = { quando: string; mapa: string; presencial: boolean }
+type Edicao = { quando: string; mapa: string; presencial: boolean; melhorDe: MelhorDe }
 
 function Calendario({ d }: { d: TorneioDetalhe }) {
   const acao = useAcao()
@@ -315,6 +320,7 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
     quando: paraInput(j.agendadoPara),
     mapa: j.veto?.mapaStaff || !t.vetoMapas ? j.mapa ?? '' : '',
     presencial: j.presencial,
+    melhorDe: j.melhorDe,
   })
   const [edits, setEdits] = useState<Record<string, Edicao>>({})
   const [inicio, setInicio] = useState(emDias(7, 21, 0))
@@ -324,7 +330,7 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
   useEffect(() => { setEdits({}) }, [d.jogos.length, t.id])
 
   const valor = (j: TorneioJogo) => edits[j.id] ?? original(j)
-  const mudou = (j: TorneioJogo) => { const e = edits[j.id]; if (!e) return false; const o = original(j); return e.quando !== o.quando || e.mapa !== o.mapa || e.presencial !== o.presencial }
+  const mudou = (j: TorneioJogo) => { const e = edits[j.id]; if (!e) return false; const o = original(j); return e.quando !== o.quando || e.mapa !== o.mapa || e.presencial !== o.presencial || e.melhorDe !== o.melhorDe }
   const alterados = jogos.filter(mudou)
   const bloqueado = (j: TorneioJogo) => j.estado === 'a_decorrer' || j.estado === 'concluido'
   const poe = (j: TorneioJogo, p: Partial<Edicao>) => setEdits((v) => ({ ...v, [j.id]: { ...valor(j), ...p } }))
@@ -344,7 +350,7 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
   const guardar = () => acao(async () => {
     const itens = alterados.map((j) => {
       const e = valor(j), o = original(j)
-      return { jogo: j.id, quando: deInput(e.quando), mapa: e.mapa !== o.mapa ? e.mapa : undefined, presencial: e.presencial !== o.presencial ? e.presencial : undefined }
+      return { jogo: j.id, quando: deInput(e.quando), mapa: e.mapa !== o.mapa ? e.mapa : undefined, presencial: e.presencial !== o.presencial ? e.presencial : undefined, melhorDe: e.melhorDe !== o.melhorDe ? e.melhorDe : undefined }
     })
     const n = await dados.torneioAgendarVarios(itens)
     setEdits({})
@@ -385,8 +391,10 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
           const e = valor(j)
           const fixo = bloqueado(j)
           const veto = j.veto
+          // O formato muda-se até começarem os picks e bans (depois, reinicia-os primeiro) e nunca a meio de uma série.
+          const formatoFixo = fixo || j.serieA + j.serieB > 0 || j.estado === 'veto' || !!veto?.ladoEscolha
           return (
-            <li key={j.id} className={`grid gap-x-3 gap-y-2 rounded-xl border px-3.5 py-3 sm:grid-cols-[minmax(0,1.3fr)_minmax(190px,auto)_minmax(140px,auto)_auto] sm:items-center ${mudou(j) ? 'border-laranja/45 bg-laranja/[0.05]' : 'border-white/8 bg-white/[0.02]'}`}>
+            <li key={j.id} className={`grid gap-x-3 gap-y-2 rounded-xl border px-3.5 py-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(190px,auto)_minmax(112px,auto)_minmax(140px,auto)_auto] sm:items-center ${mudou(j) ? 'border-laranja/45 bg-laranja/[0.05]' : 'border-white/8 bg-white/[0.02]'}`}>
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-mono text-[10.5px] tracking-[0.1em] text-mudo">{j.fase === 'grupo' ? `${nomeGrupo(j.grupo)} · ` : ''}{rotuloJogo(j).toUpperCase()}</span>
                 <span className="truncate text-[13.5px] font-semibold">{equipas(j)}</span>
@@ -396,8 +404,19 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
                 <input id={`rg-q-${j.id}`} type="datetime-local" className="campo !h-10 w-full" disabled={fixo} value={e.quando} onChange={(ev) => poe(j, { quando: ev.target.value })} />
               </div>
               <div>
+                <label className="sr-only" htmlFor={`rg-f-${j.id}`}>{l('Formato', 'Format')}</label>
+                {t.vetoMapas ? (
+                  <select id={`rg-f-${j.id}`} className="campo !h-10 w-full" disabled={formatoFixo} title={formatoFixo && !fixo ? l('Reinicia os picks e bans para mudares o formato.', 'Restart the picks and bans to change the format.') : undefined}
+                    value={e.melhorDe} onChange={(ev) => { const n = Number(ev.target.value) as MelhorDe; poe(j, { melhorDe: n, mapa: n > 1 ? '' : e.mapa }) }}>
+                    <option value={1}>{l('Melhor de 1', 'Best of 1')}</option>
+                    <option value={3}>{l('Melhor de 3', 'Best of 3')}</option>
+                    <option value={5}>{l('Melhor de 5', 'Best of 5')}</option>
+                  </select>
+                ) : <span className="text-[12px] text-mudo">{l('Melhor de 1', 'Best of 1')}</span>}
+              </div>
+              <div>
                 <label className="sr-only" htmlFor={`rg-m-${j.id}`}>{l('Mapa', 'Map')}</label>
-                <select id={`rg-m-${j.id}`} className="campo !h-10 w-full" disabled={fixo || j.presencial} value={e.mapa} onChange={(ev) => poe(j, { mapa: ev.target.value })}>
+                <select id={`rg-m-${j.id}`} className="campo !h-10 w-full" disabled={fixo || j.presencial || e.melhorDe > 1} value={e.mapa} onChange={(ev) => poe(j, { mapa: ev.target.value })}>
                   <option value="">{t.vetoMapas ? l('Picks e bans', 'Picks and bans') : l('Sem mapa fixo', 'No fixed map')}</option>
                   {MAPAS.map((m) => <option key={m.nome} value={m.nome}>{m.nome}</option>)}
                 </select>
@@ -407,7 +426,7 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
                 <ChipJogo j={j} />
               </div>
               {veto && !veto.mapaStaff && !fixo && (j.equipaA && j.equipaB) && !e.presencial && (
-                <div className="flex flex-wrap items-center gap-2 text-[12px] text-mudo sm:col-span-4">
+                <div className="flex flex-wrap items-center gap-2 text-[12px] text-mudo sm:col-span-5">
                   <span>{l('Picks e bans', 'Picks and bans')}: {veto.feitos.length}/{veto.passos.length}{j.mapa ? ` · ${j.mapa}` : ''}{veto.ladoEquipa ? ` · ${veto.ladoEquipa} ${veto.ladoEscolha === 'ataque' ? l('ataca', 'attacks') : l('defende', 'defends')}` : ''}</span>
                   {(!veto.ladoEscolha) && <button type="button" className="btn btn-fantasma !h-8 !px-3 !text-[12px]" onClick={() => acao(() => dados.torneioVetoConcluir(j.id), l('Picks e bans despachados ao calhas.', 'Picks and bans completed at random.'))}>{l('Despachar ao calhas', 'Complete at random')}</button>}
                   {(veto.feitos.length > 0) && <button type="button" className="btn btn-fantasma !h-8 !px-3 !text-[12px]" onClick={() => acao(() => dados.torneioVetoReiniciar(j.id), l('Picks e bans apagados.', 'Picks and bans cleared.'))}><RotateCcw size={13} aria-hidden />{l('Reiniciar', 'Restart')}</button>}
@@ -423,8 +442,12 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
 
 function ResultadoLinha({ j }: { j: TorneioJogo }) {
   const acao = useAcao()
-  const [a, setA] = useState('13')
+  // Série online: o resultado é o do mapa em jogo. Série presencial: os mapas ganhos. À melhor de 1: as rondas.
+  const serie = j.melhorDe > 1
+  const precisa = (j.melhorDe + 1) / 2
+  const [a, setA] = useState(serie && j.presencial ? String(precisa) : '13')
   const [b, setB] = useState('')
+  const nMapa = j.serieA + j.serieB + 1
   const na = j.equipaA?.nome ?? '?'
   const nb = j.equipaB?.nome ?? '?'
   const feito = j.estado === 'concluido'
@@ -442,12 +465,21 @@ function ResultadoLinha({ j }: { j: TorneioJogo }) {
         <div className="flex flex-wrap items-center gap-2">
           {j.semResultadoAuto && <Chip tom="derrota">{l('SEM RESULTADO HÁ 1 H', 'NO RESULT FOR 1 H')}</Chip>}
           {j.presencial && <Chip tom="ouro">{l('PRESENCIAL', 'IN PERSON')}</Chip>}
+          {serie && <Chip tom="laranja">{l(`MELHOR DE ${j.melhorDe}`, `BEST OF ${j.melhorDe}`)}{j.serieA + j.serieB > 0 && !feito ? ` · ${j.serieA}-${j.serieB}` : ''}</Chip>}
           <ChipJogo j={j} />
         </div>
       </div>
+      {serie && !feito && (
+        <span className="text-[12px] text-mudo">
+          {j.presencial
+            ? l(`Põe os mapas ganhos por cada equipa (o vencedor tem ${precisa}).`, `Enter the maps each team won (the winner has ${precisa}).`)
+            : l(`Resultado em rondas do mapa ${Math.min(nMapa, j.mapas.length || nMapa)}${j.mapa ? ` (${j.mapa})` : ''}. Se ainda não houver mapas, os picks e bans despacham-se ao calhas.`, `Round score of map ${Math.min(nMapa, j.mapas.length || nMapa)}${j.mapa ? ` (${j.mapa})` : ''}. If there are no maps yet, picks and bans are completed at random.`)}
+        </span>
+      )}
       {feito ? (
         <div className="flex flex-wrap items-center gap-3 text-[13px]">
-          <span className="font-mono text-[15px] font-semibold tabular-nums">{j.scoreA ?? '-'} - {j.scoreB ?? '-'}</span>
+          <span className="font-mono text-[15px] font-semibold tabular-nums">{serie ? `${j.serieA} - ${j.serieB}` : `${j.scoreA ?? '-'} - ${j.scoreB ?? '-'}`}</span>
+          {serie && !j.presencial && <span className="font-mono text-[12px] text-mudo">({j.scoreA}-{j.scoreB} {l('rondas', 'rounds')})</span>}
           <span className="text-mudo">{l('Ganhou', 'Winner')}: <b className="text-texto">{j.vencedorId === j.equipaA?.id ? na : j.vencedorId === j.equipaB?.id ? nb : '?'}</b> · {j.como}</span>
           <BotaoSegurar rotulo={l('Segura para desfazer o resultado', 'Hold to undo the result')} className="btn btn-fantasma !h-9" onConfirmar={() => acao(() => dados.torneioDesfazerJogo(j.id), l('Resultado desfeito.', 'Result undone.'))}>
             <RotateCcw size={14} aria-hidden />{l('Desfazer', 'Undo')}
@@ -461,8 +493,8 @@ function ResultadoLinha({ j }: { j: TorneioJogo }) {
           <button type="submit" className="btn btn-primario !h-10" disabled={a === '' || b === ''}>{l('Confirmar', 'Confirm')}</button>
           {!j.presencial && (
             <>
-              <BotaoSegurar rotulo={`W.O. ${na}`} className="btn btn-fantasma !h-10" onConfirmar={() => acao(() => dados.torneioWalkover(j.id, j.equipaA!.id), l('Falta de comparência registada (13-0).', 'Forfeit recorded (13-0).'))}>W.O. {na}</BotaoSegurar>
-              <BotaoSegurar rotulo={`W.O. ${nb}`} className="btn btn-fantasma !h-10" onConfirmar={() => acao(() => dados.torneioWalkover(j.id, j.equipaB!.id), l('Falta de comparência registada (13-0).', 'Forfeit recorded (13-0).'))}>W.O. {nb}</BotaoSegurar>
+              <BotaoSegurar rotulo={`W.O. ${na}`} className="btn btn-fantasma !h-10" onConfirmar={() => acao(() => dados.torneioWalkover(j.id, j.equipaA!.id), serie ? l(`Falta de comparência registada (${precisa}-0).`, `Forfeit recorded (${precisa}-0).`) : l('Falta de comparência registada (13-0).', 'Forfeit recorded (13-0).'))}>W.O. {na}</BotaoSegurar>
+              <BotaoSegurar rotulo={`W.O. ${nb}`} className="btn btn-fantasma !h-10" onConfirmar={() => acao(() => dados.torneioWalkover(j.id, j.equipaB!.id), serie ? l(`Falta de comparência registada (${precisa}-0).`, `Forfeit recorded (${precisa}-0).`) : l('Falta de comparência registada (13-0).', 'Forfeit recorded (13-0).'))}>W.O. {nb}</BotaoSegurar>
             </>
           )}
         </form>
@@ -557,7 +589,7 @@ function Gerir({ id, area, aoApagar }: { id: string; area: boolean; aoApagar: ()
               <ChipEstado t={t} />
               {t.teste && <Chip tom="laranja">{l('TESTE', 'TEST')}</Chip>}
               <Chip>{t.equipas} {l('equipas', 'teams')}</Chip>
-              <Chip>{t.vetoMapas ? (t.vetoFormato === 'bans' ? l('Picks e bans: só bans', 'Picks and bans: bans only') : l('Picks e bans: bans e escolha', 'Picks and bans: bans and pick')) : l('Sem picks e bans', 'No picks and bans')}</Chip>
+              <Chip>{t.vetoMapas ? l(`Picks e bans · melhor de ${t.melhorDe}`, `Picks and bans · best of ${t.melhorDe}`) : l('Sem picks e bans', 'No picks and bans')}</Chip>
               <span className="text-[12.5px] text-mudo">{l('Inscrições até', 'Registration until')} {dataLimite(t.inscricoesAte)}</span>
             </div>
           </div>
