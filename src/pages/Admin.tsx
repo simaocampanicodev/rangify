@@ -1,8 +1,9 @@
 import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Moderacao } from '@/components/StaffModeracao'
+import { StaffTorneios } from '@/components/torneios/StaffTorneios'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -362,12 +363,14 @@ function Denuncias({ lista }: { lista: Denuncia[] }) {
   )
 }
 
-type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao'
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao' | 'torneios'
 
 export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
   const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
-  const [aba, setAba] = useState<Aba>('resultados')
+  // O link "Gerir" de um torneio abre direto este separador (?aba=torneios&torneio=...).
+  const [params] = useSearchParams()
+  const [aba, setAba] = useState<Aba>(() => (params.get('aba') === 'torneios' ? 'torneios' : 'resultados'))
   const [inbox, setInbox] = useState<'denuncias' | 'sugestoes'>('denuncias')
   // As disputas já quase não acontecem (a API fecha a partida sozinha): só aparecem se houver alguma.
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
@@ -415,7 +418,7 @@ export function Admin() {
             { valor: 'mapas', texto: tx('Mapas', 'Maps') },
             { valor: 'novidades', texto: tx('Novidades', 'News') },
             { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
-            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }] : []),
+            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
           ]}
         />
         {aba === 'resultados' && (
@@ -499,6 +502,7 @@ export function Admin() {
             <DivulgacaoStaff />
           </div>
         )}
+        {aba === 'torneios' && ownerDev && <StaffTorneios />}
         {aba === 'mapas' && (
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('ROTAÇÃO', 'ROTATION')} titulo={tx('Mapas que se podem jogar', 'Maps that can be played')} />

@@ -389,6 +389,15 @@ export const dadosSupabase: Dados = {
     await rpc('torneio_abrir_jogo', { p_jogo: jogo, p_codigo: codigo })
     avisarMudanca('torneios')
   },
+  async torneioVetoIniciar(jogo) { await rpc('torneio_veto_iniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioVetoAgir(jogo, valor) { await rpc('torneio_veto_agir', { p_jogo: jogo, p_valor: valor }); avisarMudanca('torneios') },
+  async torneioVetoAvancar(jogo) {
+    const jogou = await rpc<boolean>('torneio_veto_avancar', { p_jogo: jogo })
+    if (jogou) avisarMudanca('torneios')
+    return jogou
+  },
+  async torneioVetoConcluir(jogo) { await rpc('torneio_veto_concluir', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioVetoReiniciar(jogo) { await rpc('torneio_veto_reiniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
   async torneioProcessarJogo(jogo) {
     // No máximo uma vez a cada 20 s por jogo (o servidor ainda limita a 1 consulta por minuto à API).
     const agora = Date.now()

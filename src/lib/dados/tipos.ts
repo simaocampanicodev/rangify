@@ -499,7 +499,35 @@ export interface DivulgacaoEstado {
 
 export type EstadoTorneio = 'rascunho' | 'inscricoes' | 'grupos' | 'playoffs' | 'concluido' | 'cancelado'
 export type FuncaoEquipaTorneio = 'jogador' | 'coach' | 'suplente'
-export type EstadoJogoTorneio = 'pendente' | 'agendado' | 'a_decorrer' | 'concluido'
+/** 'veto' = os capitães estão a banir e a escolher o mapa. */
+export type EstadoJogoTorneio = 'pendente' | 'agendado' | 'veto' | 'a_decorrer' | 'concluido'
+/**
+ * Como se escolhe o mapa de cada jogo: 'bans' (banem à vez até sobrar um, quem não baniu por último escolhe o lado)
+ * ou 'ban_pick' (banem à vez até sobrarem 3, a equipa da vez escolhe o mapa e a outra o lado).
+ */
+export type FormatoVetoTorneio = 'bans' | 'ban_pick'
+export type PassoVetoTorneio = { tipo: 'ban' | 'pick' | 'lado'; equipa: 'A' | 'B' }
+export interface JogadaVetoTorneio extends PassoVetoTorneio {
+  ordem: number
+  /** O mapa banido ou escolhido; no lado, 'ataque' ou 'defesa'. */
+  valor: string
+  /** Jogada feita pelo tempo ou por um bot, não por um capitão. */
+  auto: boolean
+}
+export interface VetoJogoTorneio {
+  formato: FormatoVetoTorneio
+  /** Os mapas em jogo (fixados quando o veto começa). */
+  pool: string[]
+  /** A ordem completa, mesmo do que ainda não aconteceu. */
+  passos: PassoVetoTorneio[]
+  feitos: JogadaVetoTorneio[]
+  /** Quando acaba o tempo da vez; passado, joga-se ao calhas. */
+  prazo: string | null
+  ladoEquipa: 'A' | 'B' | null
+  ladoEscolha: 'ataque' | 'defesa' | null
+  /** O mapa foi posto pela staff: não há picks e bans neste jogo. */
+  mapaStaff: boolean
+}
 /** Como se soube o resultado: API da Riot, staff, simulado (testes), falta de comparência ou folga na chave. */
 export type ComoJogoTorneio = 'api' | 'staff' | 'simulado' | 'walkover' | 'bye'
 
@@ -515,6 +543,13 @@ export interface TorneioResumo {
   tamanhoGrupo: number
   passamPorGrupo: number
   finalPresencial: boolean
+  /** Picks e bans de mapas antes de cada jogo. */
+  vetoMapas: boolean
+  vetoFormato: FormatoVetoTorneio
+  /** Os mapas escolhidos para este torneio (null = a rotação do hub). */
+  poolMapas: string[] | null
+  /** Os mapas que realmente entram: os escolhidos ou a rotação do hub. */
+  poolEfetiva: string[]
   /** Jogadores da API que têm de estar num jogo para o darmos como do torneio. */
   minJogadores: number
   inscricoesAte: string
@@ -589,9 +624,12 @@ export interface TorneioJogo {
   origemA: OrigemEquipaTorneio | null
   origemB: OrigemEquipaTorneio | null
   agendadoPara: string | null
+  /** O mapa do jogo: o que saiu dos picks e bans ou o que a staff fixou. */
   mapa: string | null
   presencial: boolean
   estado: EstadoJogoTorneio
+  /** Picks e bans (null se o torneio os desligou ou se o jogo é presencial). */
+  veto: VetoJogoTorneio | null
   comecouEm: string | null
   terminouEm: string | null
   scoreA: number | null
@@ -645,6 +683,10 @@ export interface DadosNovoTorneio {
   tamanhoGrupo?: number
   passamPorGrupo?: number
   finalPresencial?: boolean
+  vetoMapas?: boolean
+  vetoFormato?: FormatoVetoTorneio
+  /** Vazio ou ausente = a rotação do hub. */
+  poolMapas?: string[] | null
   minJogadores?: number
   inscricoesAte: string
   inicio?: string | null
@@ -903,6 +945,16 @@ export interface Dados {
   torneioApagarEquipa(equipa: string): Promise<void>
   /** O capitão partilha o código do grupo: o jogo passa a decorrer e o resultado é detetado na API. */
   torneioAbrirJogo(jogo: string, codigo: string): Promise<void>
+  /** Os capitães (ou a staff) começam os picks e bans do jogo. */
+  torneioVetoIniciar(jogo: string): Promise<void>
+  /** O capitão da vez bane/escolhe um mapa ou escolhe o lado ('ataque' | 'defesa'). */
+  torneioVetoAgir(jogo: string, valor: string): Promise<void>
+  /** Passou o tempo da vez? Joga ao calhas. Devolve se jogou. */
+  torneioVetoAvancar(jogo: string): Promise<boolean>
+  /** Staff: despacha o que falta dos picks e bans ao calhas. */
+  torneioVetoConcluir(jogo: string): Promise<void>
+  /** Staff: apaga os picks e bans para se fazerem de novo. */
+  torneioVetoReiniciar(jogo: string): Promise<void>
   /** Pede à API que veja se o jogo já acabou (o servidor também o faz sozinho a cada minuto). */
   torneioProcessarJogo(jogo: string): Promise<void>
   // Staff (Owner e Dev)

@@ -992,6 +992,10 @@ const contextoTorneios: ContextoTorneios = {
     const e = await pronto()
     return { eu: eu(e), todos: Object.values(e.perfis) }
   },
+  poolHub() {
+    const e = estado
+    return e ? NOMES_MAPAS.filter((m) => e.poolMapas.includes(m)) : [...ROTACAO_PADRAO]
+  },
   criarBot() {
     const e = estado!
     const sufixo = () => Array.from(crypto.getRandomValues(new Uint8Array(2)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
@@ -1008,8 +1012,8 @@ const contextoTorneios: ContextoTorneios = {
   },
 }
 
-export const dadosLocais: Dados = {
-  ...criarTorneiosLocais(contextoTorneios),
+/** O que se escreve aqui à mão; os torneios vêm de local-torneios.ts. */
+const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>> = {
   modo: 'demo',
 
   async sessao() {
@@ -2484,3 +2488,9 @@ export const dadosLocais: Dados = {
     return estadoDivulgacao(e)
   },
 }
+
+/**
+ * O adaptador do modo demo. O Object.assign marcado como puro deixa o Vite tirar tudo isto do site a sério
+ * (um spread com uma chamada à frente contava como efeito e arrastava o demo inteiro para o ficheiro final).
+ */
+export const dadosLocais: Dados = /* @__PURE__ */ Object.assign({}, /* @__PURE__ */ criarTorneiosLocais(contextoTorneios), dadosSemTorneios)

@@ -35,7 +35,7 @@ No modo demo:
 O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
 
 
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql`, `0027_discord_canal_fila.sql` `0028_codigo_dois_capitaes_cancelar_7.sql`, `0029_streamers_convites.sql` e `0030_tabelas_so_quem_jogou_agentes.sql` no SQL Editor (ou `supabase db push`).
+1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql`, `0027_discord_canal_fila.sql` `0028_codigo_dois_capitaes_cancelar_7.sql`, `0029_streamers_convites.sql`, `0030_tabelas_so_quem_jogou_agentes.sql` e `0031_torneios.sql` no SQL Editor (ou `supabase db push`).
 2. Em **Authentication > Providers** ativa o **Discord**:
    - cola o Client ID e o Secret da aplicação do Discord;
    - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
@@ -49,6 +49,7 @@ O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em 
    supabase functions deploy sincronizar-rank processar-partida entrar testar-api verificar-discord recarregar-partida discord-ping
    supabase functions deploy discord-partida discord-interacoes --no-verify-jwt   # canais de Discord, ver DISCORD.md
    supabase functions deploy twitch-ligar twitch-sincronizar --no-verify-jwt       # Twitch ligada ao perfil, ver STREAMERS.md
+   supabase functions deploy processar-torneio --no-verify-jwt                      # resultados dos torneios, ver TORNEIOS.md
    ```
 5. Cria o `.env` a partir do `.env.example` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 6. Entra uma vez com o Discord e torna-te Owner:
@@ -74,6 +75,7 @@ No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` ped
 - **Avisos e bans (Staff › Jogadores › Moderar)**: a staff avisa um jogador ou bane-o da fila (1 hora, 24 horas, 7 dias, 30 dias, permanente ou as horas que quiser), sempre com uma mensagem. O ban tira a pessoa da fila e impede-a de voltar a entrar, mas não cancela uma partida a decorrer nem mexe em pontos ou histórico. O jogador recebe uma mensagem privada do bot e um popup no site que tem de confirmar. Cada um só pune quem tem uma função abaixo da sua. Migração `0026`.
 - **Tabelas (pontos, nível, Rangify Score e Agentes)**: só aparece quem já acabou pelo menos uma partida (quem acabou de criar a conta vê "Ainda não estás na tabela"). O separador **Agentes** mostra o melhor jogador de cada agente (e os seguintes), pela média de Rangify Score com ele, com filtro por função e por partidas mínimas.
 - **Streamers e convites (página Divulgar)**: overlay do OBS com o rank e a partida, marca animada para o OBS (com o link de convite), canal da Twitch ligado ao perfil (com "AO VIVO" e o botão da live ao lado do jogador) e convites com recompensa em coins. Só Owner e Dev até abrirem a toda a gente em Staff › Divulgação. Ver `STREAMERS.md`.
+- **Torneios**: equipas de 5 + coach + 2 suplentes (convites pelo nome, o convidado aceita), fase de grupos, playoffs de eliminação simples, **picks e bans de mapas** com os capitães das duas equipas, sorteio e calendário pela staff e resultados lidos da API da Riot. Só Owner e Dev (a staff abre a quem quiser em Staff › Torneios), com ferramentas de teste com bots. Ver `TORNEIOS.md`.
 - **Desempenho**: o que se mediu, o que mudou e o que ficou de fora está em `DESEMPENHO.md`.
 - `supabase/functions/`: as Edge Functions.
   - `sincronizar-rank`: liga o Riot ID e lê o rank oficial, no máximo de 6 em 6 horas.

@@ -12,6 +12,11 @@
 -- jogos de grupo (todos contra todos) > playoffs (quem perde está fora) > concluído.
 -- A final pode ser presencial: então é a staff que põe o resultado.
 --
+-- Picks e bans de mapas: antes de cada jogo os capitães das duas equipas vetam os mapas à vez, como no hub
+-- ('bans': banem até sobrar um mapa e quem não baniu por último escolhe o lado; 'ban_pick': banem até sobrarem
+-- 3, a equipa da vez escolhe o mapa e a outra o lado). Cada jogada tem 90 s: se passar, joga-se ao calhas
+-- (cron + quem tiver a página aberta). Capitães bots jogam logo. A staff pode fixar o mapa de um jogo.
+--
 -- Os torneios não mexem nos pontos, no rank nem nas estatísticas do hub.
 --
 -- Torneios de teste (torneios.teste): Owner e Dev têm ferramentas com bots (equipas de bots, preencher a
@@ -31,6 +36,10 @@ create table if not exists public.torneios (
   tamanho_grupo int not null default 4 check (tamanho_grupo between 3 and 6),
   passam_por_grupo int not null default 2 check (passam_por_grupo between 1 and 3),
   final_presencial boolean not null default false,
+  -- Picks e bans de mapas antes de cada jogo (veja o cabeçalho). pool_mapas vazio = a rotação do hub na altura.
+  veto_mapas boolean not null default true,
+  veto_formato text not null default 'bans' check (veto_formato in ('bans', 'ban_pick')),
+  pool_mapas text[] check (pool_mapas is null or array_length(pool_mapas, 1) between 3 and 13),
   -- Quantos jogadores têm de estar na partida da API para a darmos como deste jogo (nos de teste pode ser menos).
   min_jogadores int not null default 8 check (min_jogadores between 1 and 10),
   inscricoes_ate timestamptz not null,
@@ -107,8 +116,16 @@ create table if not exists public.torneio_jogos (
   seguinte_lado text check (seguinte_lado in ('a', 'b')),
   agendado_para timestamptz,
   mapa text,
+  -- O mapa foi posto pela staff (então não há picks e bans) e não pelos capitães.
+  mapa_staff boolean not null default false,
   presencial boolean not null default false,
-  estado text not null default 'pendente' check (estado in ('pendente', 'agendado', 'a_decorrer', 'concluido')),
+  estado text not null default 'pendente' check (estado in ('pendente', 'agendado', 'veto', 'a_decorrer', 'concluido')),
+  -- Os picks e bans: o que estava em jogo quando começaram, de quem é a vez até quando e o lado escolhido.
+  pool_mapas text[],
+  veto_formato text check (veto_formato is null or veto_formato in ('bans', 'ban_pick')),
+  veto_prazo timestamptz,
+  lado_equipa text check (lado_equipa is null or lado_equipa in ('A', 'B')),
+  lado_escolha text check (lado_escolha is null or lado_escolha in ('ataque', 'defesa')),
   comecou_em timestamptz,
   terminou_em timestamptz,
   score_a int,
@@ -122,6 +139,7 @@ create table if not exists public.torneio_jogos (
 );
 create index if not exists torneio_jogos_torneio on public.torneio_jogos (torneio_id, fase, ronda, ordem);
 create index if not exists torneio_jogos_a_decorrer on public.torneio_jogos (estado) where estado = 'a_decorrer';
+create index if not exists torneio_jogos_veto on public.torneio_jogos (veto_prazo) where estado = 'veto';
 alter table public.torneio_jogos enable row level security;
 
 create table if not exists public.torneio_jogo_jogadores (
@@ -140,6 +158,20 @@ create table if not exists public.torneio_jogo_segredos (
   codigo text not null check (codigo ~ '^[A-Z0-9]{6}$')
 );
 alter table public.torneio_jogo_segredos enable row level security;
+
+-- Os picks e bans de cada jogo, por ordem: ban e pick levam o nome do mapa, lado leva "ataque" ou "defesa".
+create table if not exists public.torneio_jogo_vetos (
+  jogo_id uuid not null references public.torneio_jogos (id) on delete cascade,
+  ordem int not null,
+  tipo text not null check (tipo in ('ban', 'pick', 'lado')),
+  valor text not null,
+  equipa text not null check (equipa in ('A', 'B')),
+  por uuid references public.profiles (id) on delete set null,
+  auto boolean not null default false,
+  criado_em timestamptz not null default now(),
+  primary key (jogo_id, ordem)
+);
+alter table public.torneio_jogo_vetos enable row level security;
 
 -- ---------------------------------------------------------------- quem vê o quê
 
@@ -168,6 +200,48 @@ end $$;
 
 create or replace function public._torneio_inscricoes_abertas(t public.torneios) returns boolean
 language sql stable as $$ select t.estado = 'inscricoes' and now() < t.inscricoes_ate $$;
+
+/** Os mapas em jogo: os que a staff escolheu para o torneio ou, se não escolheu, a rotação do hub. Pela ordem do jogo. */
+create or replace function public._torneio_veto_pool(t public.torneios) returns text[]
+language sql stable security definer set search_path = public as $$
+  select array(select x from unnest(_mapas()) x where x = any (coalesce(t.pool_mapas, _pool_ativa())))
+$$;
+
+/**
+ * A ordem dos picks e bans com p_n mapas (a equipa A começa), como [{"tipo", "equipa"}]:
+ *   bans:     p_n - 1 bans à vez; sobra um mapa e a equipa que não baniu por último escolhe o lado.
+ *   ban_pick: p_n - 3 bans à vez; a equipa da vez escolhe o mapa (pick) e a outra escolhe o lado.
+ * O lado é sempre o último passo.
+ */
+create or replace function public._torneio_veto_passos(p_formato text, p_n int) returns jsonb
+language plpgsql immutable set search_path = public as $$
+declare
+  v jsonb := '[]'::jsonb;
+  v_bans int := greatest(case when p_formato = 'ban_pick' then p_n - 3 else p_n - 1 end, 0);
+  v_ultima text := 'B';
+  i int;
+begin
+  for i in 1..v_bans loop
+    v_ultima := case when i % 2 = 1 then 'A' else 'B' end;
+    v := v || jsonb_build_array(jsonb_build_object('tipo', 'ban', 'equipa', v_ultima));
+  end loop;
+  if p_formato = 'ban_pick' then
+    v_ultima := case when (v_bans + 1) % 2 = 1 then 'A' else 'B' end;
+    v := v || jsonb_build_array(jsonb_build_object('tipo', 'pick', 'equipa', v_ultima));
+  end if;
+  return v || jsonb_build_array(jsonb_build_object('tipo', 'lado', 'equipa', case when v_ultima = 'A' then 'B' else 'A' end));
+end $$;
+
+/** O passo que falta ({"tipo", "equipa", "ordem"}) ou null se os picks e bans acabaram. */
+create or replace function public._torneio_veto_vez(j public.torneio_jogos) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select case when n.feitos < jsonb_array_length(n.passos) then (n.passos -> n.feitos) || jsonb_build_object('ordem', n.feitos + 1) end
+  from (
+    select _torneio_veto_passos(coalesce(j.veto_formato, t.veto_formato), coalesce(array_length(coalesce(j.pool_mapas, _torneio_veto_pool(t)), 1), 0)) as passos,
+           (select count(*)::int from torneio_jogo_vetos v where v.jogo_id = j.id) as feitos
+    from torneios t where t.id = j.torneio_id
+  ) n
+$$;
 
 /** O jogador de carne e osso tem de ter o Riot ID ligado: é por ele que a API reconhece as partidas. */
 create or replace function public._torneio_perfil_valido(p public.profiles) returns boolean
@@ -263,6 +337,7 @@ language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
     'id', t.id, 'nome', t.nome, 'descricao', t.descricao, 'estado', t.estado, 'publico', t.publico, 'teste', t.teste,
     'tamanhoGrupo', t.tamanho_grupo, 'passamPorGrupo', t.passam_por_grupo, 'finalPresencial', t.final_presencial,
+    'vetoMapas', t.veto_mapas, 'vetoFormato', t.veto_formato, 'poolMapas', to_jsonb(t.pool_mapas), 'poolEfetiva', to_jsonb(_torneio_veto_pool(t)),
     'minJogadores', t.min_jogadores, 'inscricoesAte', t.inscricoes_ate, 'inicio', t.inicio, 'maxEquipas', t.max_equipas,
     'sorteadoEm', t.sorteado_em,
     'inscricoesAbertas', _torneio_inscricoes_abertas(t),
@@ -304,6 +379,19 @@ language sql stable security definer set search_path = public as $$
     'equipaB', (select jsonb_build_object('id', e.id, 'nome', e.nome) from torneio_equipas e where e.id = j.equipa_b),
     'origemA', j.origem_a, 'origemB', j.origem_b,
     'agendadoPara', j.agendado_para, 'mapa', j.mapa, 'presencial', j.presencial, 'estado', j.estado,
+    'veto', (
+      select case when t.veto_mapas and not j.presencial then jsonb_build_object(
+        'formato', coalesce(j.veto_formato, t.veto_formato),
+        'pool', to_jsonb(coalesce(j.pool_mapas, _torneio_veto_pool(t))),
+        'passos', _torneio_veto_passos(coalesce(j.veto_formato, t.veto_formato), coalesce(array_length(coalesce(j.pool_mapas, _torneio_veto_pool(t)), 1), 0)),
+        'feitos', coalesce((
+          select jsonb_agg(jsonb_build_object('ordem', v.ordem, 'tipo', v.tipo, 'valor', v.valor, 'equipa', v.equipa, 'auto', v.auto) order by v.ordem)
+          from torneio_jogo_vetos v where v.jogo_id = j.id
+        ), '[]'::jsonb),
+        'prazo', j.veto_prazo, 'ladoEquipa', j.lado_equipa, 'ladoEscolha', j.lado_escolha, 'mapaStaff', j.mapa_staff
+      ) end
+      from torneios t where t.id = j.torneio_id
+    ),
     'comecouEm', j.comecou_em, 'terminouEm', j.terminou_em,
     'scoreA', j.score_a, 'scoreB', j.score_b, 'vencedorId', j.vencedor_id, 'como', j.como,
     'semResultadoAuto', j.estado = 'a_decorrer' and j.comecou_em < now() - interval '60 minutes',
@@ -609,20 +697,35 @@ end $$;
 
 -- ---------------------------------------------------------------- staff: o torneio
 
+/** A lista de mapas dos dados do site ("poolMapas": ["Ascent", ...]); vazia ou ausente = a rotação do hub (null). */
+create or replace function public._torneio_pool_dos_dados(p jsonb) returns text[]
+language plpgsql stable security definer set search_path = public as $$
+declare v text[];
+begin
+  if p -> 'poolMapas' is null or jsonb_typeof(p -> 'poolMapas') <> 'array' or jsonb_array_length(p -> 'poolMapas') = 0 then return null; end if;
+  select array_agg(distinct x) into v from jsonb_array_elements_text(p -> 'poolMapas') x;
+  if exists (select 1 from unnest(v) x where not (x = any (_mapas()))) then raise exception 'Há um mapa que não existe no Valorant.'; end if;
+  if array_length(v, 1) < 3 then raise exception 'A lista de mapas do torneio precisa de pelo menos 3 mapas.'; end if;
+  return array(select x from unnest(_mapas()) x where x = any (v));
+end $$;
+
 create or replace function public.torneio_criar(p jsonb) returns uuid
 language plpgsql volatile security definer set search_path = public as $$
 declare
   me profiles := _exigir_owner_dev();
   v_id uuid;
   v_teste boolean := coalesce((p ->> 'teste')::boolean, false);
+  v_pool text[] := _torneio_pool_dos_dados(p);
 begin
   if char_length(trim(coalesce(p ->> 'nome', ''))) < 3 then raise exception 'O torneio precisa de um nome (pelo menos 3 letras).'; end if;
   if p ->> 'inscricoesAte' is null then raise exception 'Falta a data limite das inscrições.'; end if;
-  insert into torneios (nome, descricao, tamanho_grupo, passam_por_grupo, final_presencial, min_jogadores, inscricoes_ate, inicio, max_equipas, teste, publico, criado_por)
+  if coalesce(p ->> 'vetoFormato', 'bans') not in ('bans', 'ban_pick') then raise exception 'Formato de picks e bans desconhecido.'; end if;
+  insert into torneios (nome, descricao, tamanho_grupo, passam_por_grupo, final_presencial, veto_mapas, veto_formato, pool_mapas, min_jogadores, inscricoes_ate, inicio, max_equipas, teste, publico, criado_por)
   values (
     trim(p ->> 'nome'), nullif(trim(coalesce(p ->> 'descricao', '')), ''),
     coalesce((p ->> 'tamanhoGrupo')::int, 4), coalesce((p ->> 'passamPorGrupo')::int, 2),
     coalesce((p ->> 'finalPresencial')::boolean, false),
+    coalesce((p ->> 'vetoMapas')::boolean, true), coalesce(p ->> 'vetoFormato', 'bans'), v_pool,
     coalesce((p ->> 'minJogadores')::int, case when v_teste then 2 else 8 end),
     (p ->> 'inscricoesAte')::timestamptz, nullif(p ->> 'inicio', '')::timestamptz,
     nullif(p ->> 'maxEquipas', '')::int, v_teste, coalesce((p ->> 'publico')::boolean, false), me.id
@@ -642,12 +745,16 @@ begin
   if t.estado not in ('rascunho', 'inscricoes') and (p ? 'tamanhoGrupo' or p ? 'passamPorGrupo') then
     raise exception 'O formato dos grupos já não se muda depois do sorteio.';
   end if;
+  if p ? 'vetoFormato' and p ->> 'vetoFormato' not in ('bans', 'ban_pick') then raise exception 'Formato de picks e bans desconhecido.'; end if;
   update torneios set
     nome = coalesce(nullif(trim(p ->> 'nome'), ''), nome),
     descricao = case when p ? 'descricao' then nullif(trim(coalesce(p ->> 'descricao', '')), '') else descricao end,
     tamanho_grupo = coalesce((p ->> 'tamanhoGrupo')::int, tamanho_grupo),
     passam_por_grupo = coalesce((p ->> 'passamPorGrupo')::int, passam_por_grupo),
     final_presencial = coalesce((p ->> 'finalPresencial')::boolean, final_presencial),
+    veto_mapas = coalesce((p ->> 'vetoMapas')::boolean, veto_mapas),
+    veto_formato = coalesce(p ->> 'vetoFormato', veto_formato),
+    pool_mapas = case when p ? 'poolMapas' then _torneio_pool_dos_dados(p) else pool_mapas end,
     min_jogadores = coalesce((p ->> 'minJogadores')::int, min_jogadores),
     inscricoes_ate = coalesce((p ->> 'inscricoesAte')::timestamptz, inscricoes_ate),
     inicio = case when p ? 'inicio' then nullif(p ->> 'inicio', '')::timestamptz else inicio end,
@@ -796,7 +903,7 @@ begin
   where e.torneio_id = t.id and e.estado = 'inscrita'
     and (select count(*) from torneio_membros m where m.equipa_id = e.id and m.estado = 'aceite' and m.funcao = 'jogador') >= 5;
   v_n := coalesce(array_length(v_ids, 1), 0);
-  if v_n < 4 then raise exception 'São precisas pelo menos 4 equipas completas (5 jogadores aceites) e há % .', v_n; end if;
+  if v_n < 4 then raise exception 'São precisas pelo menos 4 equipas completas (5 jogadores aceites) e há %.', v_n; end if;
   v_g := ceil(v_n::numeric / t.tamanho_grupo)::int;
   v_min := v_n / v_g;
   if v_min <= t.passam_por_grupo then raise exception 'Com % equipas os grupos ficavam demasiado pequenos para passarem % de cada. Muda o formato.', v_n, t.passam_por_grupo; end if;
@@ -845,9 +952,16 @@ begin
   if not found then raise exception 'Jogo não encontrado.'; end if;
   if j.estado in ('a_decorrer', 'concluido') then raise exception 'Este jogo já começou.'; end if;
   if p_mapa is not null and trim(p_mapa) <> '' and not (trim(p_mapa) = any (_mapas())) then raise exception 'Mapa desconhecido: %.', p_mapa; end if;
-  update torneio_jogos set agendado_para = p_quando, mapa = nullif(trim(coalesce(p_mapa, '')), ''),
-    presencial = coalesce(p_presencial, presencial), atualizado_em = now()
+  update torneio_jogos set agendado_para = p_quando, presencial = coalesce(p_presencial, presencial), atualizado_em = now()
   where id = p_jogo;
+  -- O mapa só muda se vier (null = deixar como está; vazio = tirar o que a staff pôs). Pôr um mapa à mão dispensa os picks e bans.
+  if p_mapa is not null and trim(p_mapa) <> '' then
+    delete from torneio_jogo_vetos where jogo_id = j.id;
+    update torneio_jogos set mapa = trim(p_mapa), mapa_staff = true, pool_mapas = null, veto_formato = null, veto_prazo = null,
+      lado_equipa = null, lado_escolha = null, estado = case when estado = 'veto' then 'pendente' else estado end where id = j.id;
+  elsif p_mapa is not null and j.mapa_staff then
+    update torneio_jogos set mapa = null, mapa_staff = false where id = j.id;
+  end if;
   perform _torneio_recalcular_estado(p_jogo);
 end $$;
 
@@ -864,6 +978,267 @@ begin
     n := n + 1;
   end loop;
   return n;
+end $$;
+
+-- ---------------------------------------------------------------- picks e bans de mapas
+
+/**
+ * Faz o passo que falta (ban, escolha do mapa ou lado). Quando acabam os bans (ou a escolha) o mapa fica
+ * decidido; no último passo (o lado) o jogo volta a "agendado", pronto para o capitão criar o grupo.
+ */
+create or replace function public._torneio_veto_fazer(p_jogo uuid, p_valor text, p_por uuid, p_auto boolean) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  j torneio_jogos;
+  v_vez jsonb;
+  v_tipo text;
+  v_equipa text;
+  v_ordem int;
+  v_total int;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found or j.estado <> 'veto' then raise exception 'Os picks e bans deste jogo não estão a decorrer.'; end if;
+  v_vez := _torneio_veto_vez(j);
+  if v_vez is null then raise exception 'Os picks e bans já acabaram.'; end if;
+  v_tipo := v_vez ->> 'tipo';
+  v_equipa := v_vez ->> 'equipa';
+  v_ordem := (v_vez ->> 'ordem')::int;
+  v_total := jsonb_array_length(_torneio_veto_passos(j.veto_formato, array_length(j.pool_mapas, 1)));
+  if v_tipo = 'lado' then
+    if p_valor is null or p_valor not in ('ataque', 'defesa') then raise exception 'Escolhe Ataque ou Defesa.'; end if;
+  elsif p_valor is null or not (p_valor = any (j.pool_mapas))
+    or exists (select 1 from torneio_jogo_vetos v where v.jogo_id = j.id and v.tipo in ('ban', 'pick') and v.valor = p_valor) then
+    raise exception 'Esse mapa já não está disponível.';
+  end if;
+  insert into torneio_jogo_vetos (jogo_id, ordem, tipo, valor, equipa, por, auto) values (j.id, v_ordem, v_tipo, p_valor, v_equipa, p_por, coalesce(p_auto, false));
+  if v_tipo = 'lado' then
+    update torneio_jogos set lado_equipa = v_equipa, lado_escolha = p_valor, veto_prazo = null,
+      estado = case when agendado_para is not null then 'agendado' else 'pendente' end, atualizado_em = now() where id = j.id;
+  elsif v_ordem = v_total - 1 then
+    -- Falta só o lado: o mapa é o escolhido ou o que sobrou dos bans.
+    update torneio_jogos set veto_prazo = now() + interval '90 seconds', atualizado_em = now(),
+      mapa = case when v_tipo = 'pick' then p_valor else (
+        select m from unnest(j.pool_mapas) m
+        where m <> p_valor and not exists (select 1 from torneio_jogo_vetos v where v.jogo_id = j.id and v.tipo = 'ban' and v.valor = m) limit 1
+      ) end
+    where id = j.id;
+  else
+    update torneio_jogos set veto_prazo = now() + interval '90 seconds', atualizado_em = now() where id = j.id;
+  end if;
+end $$;
+
+/** Joga o passo que falta ao calhas (tempo esgotado, capitão bot ou a staff a despachar). */
+create or replace function public._torneio_veto_auto(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  j torneio_jogos;
+  v_vez jsonb := null;
+  v_valor text;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found or j.estado <> 'veto' then return; end if;
+  v_vez := _torneio_veto_vez(j);
+  if v_vez is null then return; end if;
+  if v_vez ->> 'tipo' = 'lado' then
+    v_valor := (array['ataque', 'defesa'])[1 + floor(random() * 2)::int];
+  else
+    select m into v_valor from unnest(j.pool_mapas) m
+    where not exists (select 1 from torneio_jogo_vetos v where v.jogo_id = j.id and v.tipo in ('ban', 'pick') and v.valor = m)
+    order by random() limit 1;
+  end if;
+  perform _torneio_veto_fazer(p_jogo, v_valor, null, true);
+end $$;
+
+/** Enquanto for a vez de uma equipa cujo capitão é um bot, o bot joga (só há bots em torneios de teste). */
+create or replace function public._torneio_veto_bots(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  j torneio_jogos;
+  v_vez jsonb;
+  v_bot boolean;
+  k int := 0;
+begin
+  loop
+    select * into j from torneio_jogos where id = p_jogo;
+    exit when not found or j.estado <> 'veto' or k >= 30;
+    v_vez := _torneio_veto_vez(j);
+    exit when v_vez is null;
+    select pr.is_bot into v_bot from torneio_equipas e join profiles pr on pr.id = e.capitao_id
+    where e.id = case when v_vez ->> 'equipa' = 'A' then j.equipa_a else j.equipa_b end;
+    exit when not coalesce(v_bot, false);
+    perform _torneio_veto_auto(p_jogo);
+    k := k + 1;
+  end loop;
+end $$;
+
+/** Arranca os picks e bans de um jogo (já validado): apaga o que houvesse e deixa os bots jogar. */
+create or replace function public._torneio_veto_comecar(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  j torneio_jogos;
+  t torneios;
+  v_pool text[];
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  select * into t from torneios where id = j.torneio_id;
+  v_pool := _torneio_veto_pool(t);
+  if coalesce(array_length(v_pool, 1), 0) < 3 then raise exception 'A lista de mapas do torneio precisa de pelo menos 3 mapas.'; end if;
+  delete from torneio_jogo_vetos where jogo_id = j.id;
+  update torneio_jogos set estado = 'veto', pool_mapas = v_pool, veto_formato = t.veto_formato, veto_prazo = now() + interval '90 seconds',
+    mapa = null, mapa_staff = false, lado_equipa = null, lado_escolha = null, atualizado_em = now() where id = j.id;
+  perform _torneio_veto_bots(j.id);
+end $$;
+
+/** Despacha os picks e bans todos ao calhas (staff, ou a simulação). Se ainda não tinham começado, começa-os. */
+create or replace function public._torneio_veto_completar(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  j torneio_jogos;
+  t torneios;
+  k int := 0;
+begin
+  select * into j from torneio_jogos where id = p_jogo;
+  select * into t from torneios where id = j.torneio_id;
+  if not t.veto_mapas or j.presencial or j.mapa_staff or j.equipa_a is null or j.equipa_b is null then return; end if;
+  if j.estado in ('a_decorrer', 'concluido') then return; end if;
+  if j.estado <> 'veto' then
+    if j.lado_escolha is not null then return; end if;
+    perform _torneio_veto_comecar(p_jogo);
+  end if;
+  loop
+    select * into j from torneio_jogos where id = p_jogo;
+    exit when j.estado <> 'veto' or k >= 30;
+    perform _torneio_veto_auto(p_jogo);
+    k := k + 1;
+  end loop;
+end $$;
+
+/** A cada minuto: os picks e bans em que a vez passou do prazo jogam ao calhas. */
+create or replace function public._torneio_veto_tick() returns int
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  v_id uuid;
+  n int := 0;
+begin
+  for v_id in select id from torneio_jogos where estado = 'veto' and veto_prazo < now() loop
+    perform _torneio_veto_auto(v_id);
+    perform _torneio_veto_bots(v_id);
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+/** Os capitães das duas equipas (ou a staff) começam os picks e bans, 30 minutos antes da hora marcada. */
+create or replace function public.torneio_veto_iniciar(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  me profiles := _eu();
+  j torneio_jogos;
+  t torneios;
+  v_staff boolean := me.role in ('owner', 'dev');
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found then raise exception 'Jogo não encontrado.'; end if;
+  select * into t from torneios where id = j.torneio_id;
+  if not _torneio_visivel(t, me) then raise exception 'Jogo não encontrado.'; end if;
+  if t.estado not in ('grupos', 'playoffs') then raise exception 'O torneio não está a decorrer.'; end if;
+  if not t.veto_mapas then raise exception 'Este torneio não tem picks e bans de mapas.'; end if;
+  if j.presencial then raise exception 'Este jogo é presencial: o mapa é a staff que o define.'; end if;
+  if j.equipa_a is null or j.equipa_b is null then raise exception 'Este jogo ainda não tem as duas equipas.'; end if;
+  if j.estado = 'veto' then raise exception 'Os picks e bans já começaram.'; end if;
+  if j.estado in ('a_decorrer', 'concluido') then raise exception 'Este jogo já começou.'; end if;
+  if j.mapa_staff then raise exception 'A staff já definiu o mapa deste jogo.'; end if;
+  if j.lado_escolha is not null then raise exception 'Os picks e bans deste jogo já acabaram.'; end if;
+  if not (v_staff or exists (select 1 from torneio_equipas e where e.id in (j.equipa_a, j.equipa_b) and e.capitao_id = me.id)) then
+    raise exception 'Só os capitães das duas equipas começam os picks e bans.';
+  end if;
+  if not (v_staff or t.teste) and (j.agendado_para is null or now() < j.agendado_para - interval '30 minutes') then
+    raise exception 'Ainda é cedo: os picks e bans abrem 30 minutos antes da hora marcada.';
+  end if;
+  perform _torneio_veto_comecar(p_jogo);
+end $$;
+
+/** O capitão da equipa da vez escolhe (mapa para banir ou escolher, ou o lado). A staff joga por qualquer uma. */
+create or replace function public.torneio_veto_agir(p_jogo uuid, p_valor text) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  me profiles := _eu();
+  j torneio_jogos;
+  t torneios;
+  v_vez jsonb;
+  v_cap uuid;
+  v_outro uuid;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found then raise exception 'Jogo não encontrado.'; end if;
+  select * into t from torneios where id = j.torneio_id;
+  if not _torneio_visivel(t, me) then raise exception 'Jogo não encontrado.'; end if;
+  if j.estado <> 'veto' then raise exception 'Os picks e bans deste jogo não estão a decorrer.'; end if;
+  v_vez := _torneio_veto_vez(j);
+  if v_vez is null then raise exception 'Os picks e bans já acabaram.'; end if;
+  select e.capitao_id into v_cap from torneio_equipas e where e.id = case when v_vez ->> 'equipa' = 'A' then j.equipa_a else j.equipa_b end;
+  select e.capitao_id into v_outro from torneio_equipas e where e.id = case when v_vez ->> 'equipa' = 'A' then j.equipa_b else j.equipa_a end;
+  if not (me.role in ('owner', 'dev') or me.id = v_cap) then
+    if me.id = v_outro then raise exception 'Não é a tua vez: espera pela outra equipa.'; end if;
+    raise exception 'Só os capitães das duas equipas escolhem os mapas.';
+  end if;
+  perform _torneio_veto_fazer(p_jogo, trim(coalesce(p_valor, '')), me.id, false);
+  perform _torneio_veto_bots(p_jogo);
+end $$;
+
+/** Passou o tempo da vez? Joga ao calhas por quem não jogou. Qualquer pessoa com a página aberta o pode pedir. */
+create or replace function public.torneio_veto_avancar(p_jogo uuid) returns boolean
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  me profiles := _eu();
+  j torneio_jogos;
+  t torneios;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found then raise exception 'Jogo não encontrado.'; end if;
+  select * into t from torneios where id = j.torneio_id;
+  if not _torneio_visivel(t, me) then raise exception 'Jogo não encontrado.'; end if;
+  if j.estado <> 'veto' or j.veto_prazo is null or j.veto_prazo > now() then return false; end if;
+  perform _torneio_veto_auto(p_jogo);
+  perform _torneio_veto_bots(p_jogo);
+  return true;
+end $$;
+
+/** Staff: joga ao calhas o que falta dos picks e bans (se ainda não tinham começado, começa-os). */
+create or replace function public.torneio_veto_concluir(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  me profiles := _exigir_owner_dev();
+  j torneio_jogos;
+  t torneios;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found then raise exception 'Jogo não encontrado.'; end if;
+  select * into t from torneios where id = j.torneio_id;
+  if not t.veto_mapas then raise exception 'Este torneio não tem picks e bans de mapas.'; end if;
+  if j.presencial then raise exception 'Este jogo é presencial: o mapa é a staff que o define.'; end if;
+  if j.equipa_a is null or j.equipa_b is null then raise exception 'Este jogo ainda não tem as duas equipas.'; end if;
+  if j.estado in ('a_decorrer', 'concluido') then raise exception 'Este jogo já começou.'; end if;
+  if j.mapa_staff then raise exception 'O mapa deste jogo foi posto pela staff.'; end if;
+  perform _torneio_veto_completar(p_jogo);
+end $$;
+
+/** Staff: apaga os picks e bans do jogo (e o mapa que saiu deles) para se fazerem de novo. */
+create or replace function public.torneio_veto_reiniciar(p_jogo uuid) returns void
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  me profiles := _exigir_owner_dev();
+  j torneio_jogos;
+begin
+  select * into j from torneio_jogos where id = p_jogo for update;
+  if not found then raise exception 'Jogo não encontrado.'; end if;
+  if j.estado in ('a_decorrer', 'concluido') then raise exception 'Este jogo já começou.'; end if;
+  delete from torneio_jogo_vetos where jogo_id = j.id;
+  update torneio_jogos set pool_mapas = null, veto_formato = null, veto_prazo = null, lado_equipa = null, lado_escolha = null,
+    mapa = case when mapa_staff then mapa else null end,
+    estado = case when equipa_a is not null and equipa_b is not null and agendado_para is not null then 'agendado' else 'pendente' end,
+    atualizado_em = now()
+  where id = j.id;
 end $$;
 
 -- ---------------------------------------------------------------- o jogo
@@ -891,6 +1266,8 @@ begin
   if not (me.role in ('owner', 'dev') or exists (
     select 1 from torneio_equipas e where e.id in (j.equipa_a, j.equipa_b) and e.capitao_id = me.id
   )) then raise exception 'Só os capitães das duas equipas abrem o jogo.'; end if;
+  if j.estado = 'veto' then raise exception 'Os picks e bans ainda não acabaram.'; end if;
+  if t.veto_mapas and j.mapa is null then raise exception 'Faltam os picks e bans de mapas: começa-os antes de abrir o jogo.'; end if;
   if not (me.role in ('owner', 'dev') or t.teste) and (j.agendado_para is null or now() < j.agendado_para - interval '30 minutes') then
     raise exception 'Ainda é cedo: o jogo abre 30 minutos antes da hora marcada.';
   end if;
@@ -1246,6 +1623,7 @@ do $$
 begin
   create extension if not exists pg_cron;
   perform cron.schedule('rangify-torneios', '* * * * *', 'select public._torneio_processar_pedir()');
+  perform cron.schedule('rangify-torneios-veto', '* * * * *', 'select public._torneio_veto_tick()');
 exception when others then
   raise notice 'pg_cron indisponível: os jogos dos torneios só são verificados quando alguém abre a página do jogo.';
 end $$;
@@ -1367,6 +1745,7 @@ declare
   v_ganha int := 13;
   v_stats jsonb;
 begin
+  perform _torneio_veto_completar(p_jogo);
   select * into j from torneio_jogos where id = p_jogo;
   if random() < 0.15 then
     v_ganha := 14 + floor(random() * 3)::int;
