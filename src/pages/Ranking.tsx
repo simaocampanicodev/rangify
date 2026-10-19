@@ -4,15 +4,18 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { EmDireto } from '@/components/AoVivo'
 import { TabelaAgentes } from '@/components/TabelaAgentes'
 import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
+import { nomeTabela } from '@/components/Fila'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
+import { useFilaVista } from '@/hooks/useFilaVista'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
-import { dados, type LinhaRanking, type Perfil } from '@/lib/dados'
+import { dados, type FilaTipo, type LinhaRanking, type Perfil } from '@/lib/dados'
 import { formatarXp } from '@/lib/experiencia'
 import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
 import { DESEMPENHO_MAX, PONTOS_BASE, RESULTADO_MAX, RESULTADO_MIN, RS_POR_PONTO, bonusDesempenho, comSinal, margemRondas } from '@/lib/pontos'
+import { TIER_MINIMO_RANKED } from '@/lib/ranks'
 import { HORAS_CACHE_RANK } from '@/lib/regras'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
@@ -167,8 +170,8 @@ function useLinhasQueCabem(marca: React.RefObject<HTMLSpanElement | null>, corpo
 }
 
 /** O painel "Classificação" igual nas três tabelas: filtro, pesquisa e a tabela. */
-function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, carregando, colunas, linhas, comPodio, vazio, rodape }: {
-  total: number; ambito: Ambito; setAmbito: (a: Ambito) => void; pesquisa: string; setPesquisa: (v: string) => void
+function PainelClassificacao({ total, etiqueta, ambito, setAmbito, pesquisa, setPesquisa, carregando, colunas, linhas, comPodio, vazio, rodape }: {
+  total: number; etiqueta?: string; ambito: Ambito; setAmbito: (a: Ambito) => void; pesquisa: string; setPesquisa: (v: string) => void
   carregando: boolean; colunas: Coluna[]; linhas: ReactNode[]; comPodio: boolean; vazio: ReactNode; rodape?: ReactNode
 }) {
   const marca = useRef<HTMLSpanElement>(null)
@@ -181,7 +184,7 @@ function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, 
     <Painel aria-labelledby="rg-tabela" className="flex min-w-0 flex-[2_1_560px] flex-col gap-3 p-[22px]" style={!aberto && altura ? { minHeight: altura } : undefined}>
       <span ref={marca} hidden />
       <TituloPainel
-        eyebrow={`${total} ${tx('JOGADORES', 'PLAYERS')}`}
+        eyebrow={`${total} ${tx('JOGADORES', 'PLAYERS')}${etiqueta ? ` · ${etiqueta}` : ''}`}
         titulo={tx('Classificação', 'Standings')}
         id="rg-tabela"
         direita={<Segmentado rotulo={tx('Filtrar tabela', 'Filter leaderboard')} valor={ambito} onChange={setAmbito} opcoes={[{ valor: 'global', texto: 'Global' }, { valor: 'amigos', texto: tx('Só amigos', 'Friends only') }]} />}
@@ -219,10 +222,12 @@ function PainelClassificacao({ total, ambito, setAmbito, pesquisa, setPesquisa, 
   )
 }
 
-/** "A tua posição", igual nas três tabelas. */
-function CartaoPosicao({ posicao, perfil, resumo }: { posicao: number | null | undefined; perfil: Perfil; resumo: string }) {
+/** "A tua posição", igual nas tabelas. `semJogos` e `bloqueada` vêm da tabela em causa (a ranked tem as suas). */
+function CartaoPosicao({ posicao, perfil, resumo, semJogos: semJogosPedido, bloqueada = false }: {
+  posicao: number | null | undefined; perfil: Perfil; resumo: string; semJogos?: boolean; bloqueada?: boolean
+}) {
   // Só entra na tabela quem já jogou uma partida: até lá não há posição.
-  const semJogos = perfil.vitorias + perfil.derrotas === 0
+  const semJogos = semJogosPedido ?? perfil.vitorias + perfil.derrotas + perfil.vitoriasRanked + perfil.derrotasRanked === 0
   return (
     <Painel aria-labelledby="rg-eu" className="flex flex-col gap-3 p-[22px]">
       <span id="rg-eu" className="eyebrow">{tx('A TUA POSIÇÃO', 'YOUR POSITION')}</span>
@@ -234,10 +239,14 @@ function CartaoPosicao({ posicao, perfil, resumo }: { posicao: number | null | u
         </span>
       </div>
       {semJogos && (
-        <>
-          <p className="m-0 text-[13px] leading-normal text-suave">{tx('Ainda não estás na tabela: entras assim que acabares a tua primeira partida.', 'You are not on the leaderboard yet: you get in as soon as you finish your first match.')}</p>
-          <Link to="/jogar" className="btn btn-primario no-underline">{tx('Ir jogar', 'Go play')}</Link>
-        </>
+        bloqueada
+          ? <p className="m-0 text-[13px] leading-normal text-suave">{tx('A Tabela Ranked abre quando chegares a Ascendente 1. Até lá, os teus pontos ficam na Tabela Aberta.', 'The Ranked leaderboard opens when you reach Ascendant 1. Until then, your points stay on the Open leaderboard.')}</p>
+          : (
+            <>
+              <p className="m-0 text-[13px] leading-normal text-suave">{tx('Ainda não estás na tabela: entras assim que acabares a tua primeira partida.', 'You are not on the leaderboard yet: you get in as soon as you finish your first match.')}</p>
+              <Link to="/jogar" className="btn btn-primario no-underline">{tx('Ir jogar', 'Go play')}</Link>
+            </>
+          )
       )}
     </Painel>
   )
@@ -417,6 +426,12 @@ export function Ranking() {
   const pedido = params.get('tipo')
   const tipo = pedido === 'nivel' || pedido === 'rs' || pedido === 'agentes' ? pedido : 'pontos'
   const mudarTipo = (t: 'pontos' | 'nivel' | 'rs' | 'agentes') => setParams(t === 'pontos' ? {} : { tipo: t }, { replace: true })
+  // A tabela de pontos de cada fila: o link (?fila=) manda; sem ele, a última que escolheste no Painel.
+  const [vistaGuardada, guardarVista] = useFilaVista()
+  const pedidaFila = params.get('fila')
+  const fila: FilaTipo = pedidaFila === 'ranked' || pedidaFila === 'aberta' ? pedidaFila : vistaGuardada
+  const mudarFila = (f: FilaTipo) => { guardarVista(f); setParams({ fila: f }, { replace: true }) }
+  const ranked = fila === 'ranked'
   const { perfil } = useSessao()
   const acao = useAcao()
   const { sincronizar, aSincronizar } = useSincronizarRank()
@@ -432,15 +447,16 @@ export function Ranking() {
     return () => window.clearTimeout(t)
   }, [pesquisa])
 
-  const pagina = useCarregar(() => dados.ranking({ soAmigos: ambito === 'amigos', pesquisa: q, limite: 50 }), [ambito, q], ['partida', 'amigos'], { minimo: 450, chave: `ranking:${ambito}:${q}` })
+  const pagina = useCarregar(() => dados.ranking({ soAmigos: ambito === 'amigos', pesquisa: q, limite: 50, fila }), [ambito, q, fila], ['partida', 'amigos'], { minimo: 450, chave: `ranking:${fila}:${ambito}:${q}` })
   useEffect(() => {
     if (pagina.valor) { setLinhas(pagina.valor.linhas); setCursor(pagina.valor.cursor) }
   }, [pagina.valor])
-  const minhaPos = useCarregar(() => dados.posicao(perfil?.id ?? ''), [perfil?.id, perfil?.pontos], [], { chave: `posicao:${perfil?.id}:${perfil?.pontos}` })
+  const pontosFila = ranked ? perfil?.pontosRanked : perfil?.pontos
+  const minhaPos = useCarregar(() => dados.posicao(perfil?.id ?? '', fila), [perfil?.id, fila, pontosFila], [], { chave: `posicao:${perfil?.id}:${fila}:${pontosFila}` })
 
   const carregarMais = async () => {
     setMais(true)
-    const r = await acao(() => dados.ranking({ cursor, soAmigos: ambito === 'amigos', pesquisa: q, limite: 50 }))
+    const r = await acao(() => dados.ranking({ cursor, soAmigos: ambito === 'amigos', pesquisa: q, limite: 50, fila }))
     if (r) { setLinhas((l) => [...l, ...r.linhas]); setCursor(r.cursor) }
     setMais(false)
   }
@@ -449,7 +465,10 @@ export function Ranking() {
   // Sem pesquisa, os três primeiros sobem para o pódio e a tabela começa no 4.º.
   const comPodio = !q && linhas.length >= 3 && !pagina.carregando
   const tabela = comPodio ? linhas.slice(3) : linhas
-  const jogos = (perfil?.vitorias ?? 0) + (perfil?.derrotas ?? 0)
+  const meus = ranked
+    ? { pontos: perfil?.pontosRanked ?? 0, vitorias: perfil?.vitoriasRanked ?? 0, derrotas: perfil?.derrotasRanked ?? 0 }
+    : { pontos: perfil?.pontos ?? 0, vitorias: perfil?.vitorias ?? 0, derrotas: perfil?.derrotas ?? 0 }
+  const jogos = meus.vitorias + meus.derrotas
 
   return (
     <>
@@ -463,14 +482,16 @@ export function Ranking() {
           ? tx('Quem joga melhor, em média, segundo o Rangify Score de cada partida.', 'Who plays best on average, by the Rangify Score of each match.')
           : tipo === 'agentes'
           ? tx('O melhor jogador de cada agente, pela média de Rangify Score com ele.', 'The best player with each agent, by average Rangify Score with it.')
-          : tx('Ordenada pelos pontos do hub. Entras na tabela quando acabas a tua primeira partida.', 'Sorted by hub points. You get on the leaderboard after finishing your first match.')}
-        acoes={
-          <>
-            <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }, { valor: 'agentes', texto: tx('Agentes', 'Agents') }]} />
-            <BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>
-          </>
-        }
+          : ranked
+          ? tx('Só quem jogou na fila ranked (Ascendente 1 ou mais). Os pontos são separados dos da fila aberta.', 'Only players who have played the ranked queue (Ascendant 1 or higher). Points are separate from the open queue.')
+          : tx('Ordenada pelos pontos da fila aberta. Entras na tabela quando acabas a tua primeira partida.', 'Sorted by open-queue points. You get on the leaderboard after finishing your first match.')}
+        acoes={<BotaoAjuda topico="ranking">{tx('Como funciona a tabela', 'How the leaderboard works')}</BotaoAjuda>}
       />
+
+      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3">
+        {tipo === 'pontos' && <Segmentado rotulo={tx('Fila', 'Queue')} valor={fila} onChange={mudarFila} opcoes={[{ valor: 'ranked', texto: 'Ranked' }, { valor: 'aberta', texto: tx('Aberta', 'Open') }]} />}
+        <Segmentado rotulo={tx('Tipo de tabela', 'Leaderboard type')} valor={tipo} onChange={mudarTipo} opcoes={[{ valor: 'pontos', texto: tx('Pontos', 'Points') }, { valor: 'nivel', texto: tx('Nível', 'Level') }, { valor: 'rs', texto: 'Rangify Score' }, { valor: 'agentes', texto: tx('Agentes', 'Agents') }]} />
+      </div>
 
       {tipo === 'agentes' ? <TabelaAgentes perfil={perfil} /> : tipo === 'rs' ? <RankingRs perfil={perfil} /> : tipo === 'nivel' ? <RankingNivel perfil={perfil} /> : <>
 
@@ -481,7 +502,7 @@ export function Ranking() {
 
       <div className="flex flex-wrap items-start gap-4">
         <PainelClassificacao
-          total={total} ambito={ambito} setAmbito={setAmbito} pesquisa={pesquisa} setPesquisa={setPesquisa}
+          total={total} etiqueta={nomeTabela(fila).toUpperCase()} ambito={ambito} setAmbito={setAmbito} pesquisa={pesquisa} setPesquisa={setPesquisa}
           carregando={pagina.carregando} comPodio={comPodio}
           colunas={[
             { texto: tx('Rank oficial', 'Official rank'), classe: 'hidden px-2 md:table-cell' },
@@ -500,7 +521,7 @@ export function Ranking() {
         />
 
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
-          {perfil && <CartaoPosicao posicao={minhaPos.valor} perfil={perfil} resumo={`${perfil.pontos} pts · ${perfil.vitorias}-${perfil.derrotas} · ${jogos ? Math.round((perfil.vitorias / jogos) * 100) : 0}%`} />}
+          {perfil && <CartaoPosicao posicao={minhaPos.valor} perfil={perfil} semJogos={jogos === 0} bloqueada={ranked && perfil.tier < TIER_MINIMO_RANKED} resumo={`${meus.pontos} pts · ${meus.vitorias}-${meus.derrotas} · ${jogos ? Math.round((meus.vitorias / jogos) * 100) : 0}%`} />}
           {perfil && <Simulador />}
           {perfil && (
             <Painel aria-labelledby="rg-oficial" className="flex flex-col gap-3 p-[22px]">

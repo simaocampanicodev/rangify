@@ -33,9 +33,13 @@ export interface Perfil {
   tier: number
   rr: number | null
   rankAtualizadoEm: string | null
+  /** Pontos, vitórias e derrotas da fila aberta (são os de sempre). Os da ranked vêm a seguir. */
   pontos: number
   vitorias: number
   derrotas: number
+  pontosRanked: number
+  vitoriasRanked: number
+  derrotasRanked: number
   funcao: Funcao
   funcaoJogo: FuncaoJogo | null
   bot: boolean
@@ -44,6 +48,9 @@ export interface Perfil {
   temPassword: boolean
   criadoEm: string
 }
+
+/** As duas filas: a aberta (qualquer rank) e a ranked (Ascendente 1 ou mais). */
+export type FilaTipo = 'aberta' | 'ranked'
 
 export interface JogadorPartida {
   perfilId: string
@@ -98,6 +105,8 @@ export interface Partida {
   codigo: string
   estado: EstadoPartida
   regiao: Regiao
+  /** A fila onde a partida nasceu: é a tabela a que os pontos vão. */
+  fila: FilaTipo
   mapa: string | null
   capitaoA: string | null
   capitaoB: string | null
@@ -135,10 +144,22 @@ export interface BanFila {
   mensagem: string | null
 }
 
+/** O que o Discord fez ao acertar o cargo Ranked: quantos o ganharam, perderam ou não estão no servidor. */
+export interface ResumoCargosRanked {
+  total: number; feitos: number; dados: number; tirados: number; foraDoServidor: number; semDiscord: number; falhas: number; incompleto: boolean
+}
+
 export interface EstadoFila {
   naFila: boolean
+  /** A fila em que estás (null se não estás em nenhuma). */
+  fila: FilaTipo | null
   desde: string | null
+  /** Quantos há na tua fila (na aberta, se não estás em nenhuma). */
   contagem: number
+  contagemAberta: number
+  contagemRanked: number
+  /** O teu rank oficial chega para a fila ranked (Ascendente 1 ou mais)? */
+  rankedPermitido: boolean
   regiao: Regiao
   cooldownAte: string | null
   /** Hora do servidor, para acertar as contagens com o relógio dele. */
@@ -183,6 +204,8 @@ export interface PaginaRanking {
 export interface ResumoPartida {
   id: string
   codigo: string
+  /** A fila em que foi jogada. */
+  fila?: FilaTipo
   mapa: string | null
   estado: EstadoPartida
   resultadoA: number | null
@@ -219,6 +242,8 @@ export interface PaginaPartidas {
 
 export interface PontoForma {
   partidaId: string
+  /** A fila em que foi jogada. */
+  fila?: FilaTipo
   data: string
   mapa: string
   adversario: string
@@ -263,8 +288,12 @@ export interface EstatisticasPerfil {
   capitao: { partidas: number; vitorias: number }
   porMapa: EstatisticasMapa[]
   porAgente: EstatisticasAgente[]
+  /** Posição e total na tabela da fila aberta. */
   posicao: number
   totalJogadores: number
+  /** O mesmo na tabela ranked (0 enquanto não jogou nela). */
+  posicaoRanked?: number
+  totalRanked?: number
 }
 
 export type TipoMissao =
@@ -452,14 +481,18 @@ export interface OverlayDados {
   avatarUrl: string | null
   tier: number
   rr: number | null
+  /** A fila de que o overlay fala: a de agora, a da última partida, ou a que o endereço fixou. */
+  filaTipo: FilaTipo
+  /** Os pontos, o registo e a posição são os da tabela dessa fila (posição 0 enquanto não jogou nela). */
   pontos: number
   vitorias: number
   derrotas: number
+  posicao: number
   hoje: { vitorias: number; derrotas: number; delta: number }
   estado: 'livre' | 'fila' | 'partida'
   fila: { contagem: number; desde: string } | null
-  partida: { estado: EstadoPartida; codigo: string; mapa: string | null; equipa: Equipa | null; comecouEm: string | null } | null
-  ultima: { codigo: string; mapa: string | null; venceu: boolean; rondasFeitas: number | null; rondasSofridas: number | null; delta: number | null; terminouEm: string | null } | null
+  partida: { estado: EstadoPartida; codigo: string; mapa: string | null; equipa: Equipa | null; comecouEm: string | null; fila?: FilaTipo } | null
+  ultima: { codigo: string; mapa: string | null; venceu: boolean; rondasFeitas: number | null; rondasSofridas: number | null; delta: number | null; terminouEm: string | null; fila?: FilaTipo } | null
   twitch: string | null
   codigoConvite: string | null
   agora: string
@@ -759,12 +792,15 @@ export interface Dados {
   forma(perfilId: string, n: number): Promise<PontoForma[]>
 
   // Ranking (paginação por cursor, 50 de cada vez)
-  ranking(opts: { cursor?: string | null; limite?: number; soAmigos?: boolean; pesquisa?: string }): Promise<PaginaRanking>
-  posicao(perfilId: string): Promise<number>
+  /** A tabela de pontos de uma fila (a aberta, se não disseres). */
+  ranking(opts: { cursor?: string | null; limite?: number; soAmigos?: boolean; pesquisa?: string; fila?: FilaTipo }): Promise<PaginaRanking>
+  /** A posição na tabela de pontos de uma fila (0 enquanto não jogou nela). */
+  posicao(perfilId: string, fila?: FilaTipo): Promise<number>
 
   // Fila e partida
   estadoFila(): Promise<EstadoFila>
-  entrarFila(): Promise<void>
+  /** Entra numa fila (a aberta, se não disseres). A ranked pede Ascendente 1 ou mais. */
+  entrarFila(fila?: FilaTipo): Promise<void>
   sairFila(): Promise<void>
   /** Sinal de vida de quem está na fila: quem passa 3 minutos sem o dar é tirado dela. */
   batimentoFila(): Promise<void>
@@ -796,7 +832,7 @@ export interface Dados {
   submeterResultado(id: string, vencedor: Equipa): Promise<void>
 
   // Ferramentas de teste (só owner e dev)
-  devEncherFila(opts: { serCapitao: boolean }): Promise<void>
+  devEncherFila(opts: { serCapitao: boolean; fila?: FilaTipo }): Promise<void>
   /** Estando na fila: junta os teus amigos que também estão na fila e completa com bots. */
   devCompletarFila(opts: { serCapitao: boolean }): Promise<void>
   devSimularPartida(): Promise<void>
@@ -860,6 +896,9 @@ export interface Dados {
   publicarPingDiscord(): Promise<{ mensagem: string; editada: boolean }>
   /** Owner e Dev: publica no canal da fila a mensagem com a contagem e os botões "Entrar na fila" e "Abrir o site" (ou atualiza a que lá está). */
   publicarFilaDiscord(): Promise<{ mensagem: string; editada: boolean }>
+  publicarFilaRankedDiscord(): Promise<{ mensagem: string; editada: boolean }>
+  /** Acerta o cargo Ranked do Discord de toda a gente pelo rank oficial (Ascendente 1 ou mais). */
+  acertarCargosRanked(): Promise<ResumoCargosRanked>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
   /** Muda-te para a call da tua equipa, se já estiveres numa call do servidor (o Discord não deixa de outra forma). */
@@ -903,7 +942,7 @@ export interface Dados {
    */
   recarregarPartida(id: string, simulada: boolean): Promise<RecargaPartida>
   /** Owner e Dev: acerta os pontos de um jogador à mão. */
-  definirPontos(perfilId: string, pontos: number): Promise<void>
+  definirPontos(perfilId: string, pontos: number, fila?: FilaTipo): Promise<void>
   denuncias(): Promise<Denuncia[]>
   tratarDenuncia(id: string, estado: 'resolvida' | 'arquivada'): Promise<void>
   pesquisarJogadores(q: string): Promise<JogadorStaff[]>
@@ -933,7 +972,7 @@ export interface Dados {
   /** Troca a chave: a ligação antiga deixa de funcionar. */
   renovarOverlay(): Promise<{ chave: string }>
   /** O que o overlay mostra. Pública: só precisa da chave. null se a chave não existir ou a área estiver fechada. */
-  overlayDados(chave: string): Promise<OverlayDados | null>
+  overlayDados(chave: string, fila?: FilaTipo): Promise<OverlayDados | null>
   minhaTwitch(): Promise<TwitchConta | null>
   /** O endereço da Twitch para onde mandar a pessoa ligar o canal (a Twitch devolve-a ao site). */
   twitchUrlLigar(): Promise<string>

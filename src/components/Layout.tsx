@@ -46,7 +46,7 @@ function FaixaFila() {
     <div role="status" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-b border-laranja/30 bg-laranja/12 px-4 py-2 text-[13.5px] font-semibold text-pessego-claro">
       <span className="flex items-center gap-2.5">
         <span className="relative size-2"><span className="ping absolute inset-0 rounded-full bg-laranja" /><span className="absolute inset-0 rounded-full bg-laranja" /></span>
-        {l('Na fila há', 'In queue for')} <TempoNaFila desde={fila.desde} />
+        {fila.fila === 'ranked' ? l('Na fila ranked há', 'In the ranked queue for') : l('Na fila aberta há', 'In the open queue for')} <TempoNaFila desde={fila.desde} />
       </span>
       <span className="flex items-center gap-2">
         <Users size={15} className="text-laranja" aria-hidden />
@@ -56,7 +56,7 @@ function FaixaFila() {
         </span>
       </span>
       <Link to="/jogar" className="inline-flex items-center gap-1 text-laranja-claro no-underline hover:text-pessego">{l('Ver fila', 'View queue')}<ArrowRight size={14} aria-hidden /></Link>
-      <button type="button" disabled={ocupado} onClick={alternar} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-laranja/30 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-pessego-claro hover:bg-laranja/15">
+      <button type="button" disabled={ocupado} onClick={() => alternar()} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-laranja/30 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-pessego-claro hover:bg-laranja/15">
         <LogOut size={13} aria-hidden />{l('Sair', 'Leave')}
       </button>
     </div>

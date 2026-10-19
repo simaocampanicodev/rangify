@@ -11,7 +11,7 @@ import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
-  Amizade, AvisoStaff, ConvitesInfo, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
 } from './tipos'
 
 /**
@@ -154,24 +154,26 @@ export const dadosSupabase: Dados = {
   estatisticas: (perfilId) => rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId }),
   forma: (perfilId, n) => rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n }),
 
-  async ranking({ cursor, limite = 50, soAmigos = false, pesquisa = '' }) {
+  async ranking({ cursor, limite = 50, soAmigos = false, pesquisa = '', fila }) {
     const inicio = cursor ? Number(cursor) : 0
-    const r = await rpc<{ linhas: PaginaLinhas; total: number }>('ranking', { p_offset: inicio, p_limite: limite, p_so_amigos: soAmigos, p_pesquisa: pesquisa })
+    const r = await rpc<{ linhas: PaginaLinhas; total: number }>('ranking', { p_offset: inicio, p_limite: limite, p_so_amigos: soAmigos, p_pesquisa: pesquisa, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) })
     return { linhas: r.linhas, total: r.total, cursor: inicio + limite < r.total ? String(inicio + limite) : null }
   },
 
-  posicao: (perfilId) => rpc<number>('posicao', { p_perfil: perfilId }),
+  posicao: (perfilId, fila) => rpc<number>('posicao', { p_perfil: perfilId, ...(fila ? { p_fila: fila } : {}) }),
 
   estadoFila: () => rpc<EstadoFila>('estado_fila'),
-  async entrarFila() {
+  async entrarFila(fila = 'aberta') {
+    // Sem o argumento, uma base de dados ainda sem a migração 0032 continua a entender o pedido.
+    const args = fila === 'aberta' ? undefined : { p_fila: fila }
     try {
-      await rpc('entrar_fila')
+      await rpc('entrar_fila', args)
     } catch (e) {
       if (!(e instanceof Error) || !e.message.includes('servidor de Discord')) throw e
       // A verificação vale 30 minutos: se expirou, pergunta outra vez ao Discord e tenta de novo.
       const d = await dadosSupabase.estadoDiscord(true)
       if (!d.membro) throw e
-      await rpc('entrar_fila')
+      await rpc('entrar_fila', args)
     }
   },
   async sairFila() { await rpc('sair_fila') },
@@ -217,7 +219,7 @@ export const dadosSupabase: Dados = {
   async definirCodigo(id, codigo) { await rpc('definir_codigo', { p_match: id, p_codigo: codigo.trim().toUpperCase() }) },
   async submeterResultado(id, vencedor) { await rpc('submeter_resultado', { p_match: id, p_vencedor: vencedor }) },
 
-  async devEncherFila({ serCapitao }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao }) },
+  async devEncherFila({ serCapitao, fila }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) }) },
   async devCompletarFila({ serCapitao }) { await rpc('dev_completar_fila', { p_ser_capitao: serCapitao }) },
   async devSimularPartida() { await rpc('dev_simular_partida') },
   async devSaltarBloqueio(id) { await rpc('dev_saltar_bloqueio', { p_match: id }) },
@@ -303,6 +305,8 @@ export const dadosSupabase: Dados = {
   definirDiscordFila: (obrigatorio, convite) => rpc<EstadoDiscord>('definir_discord_fila', { p_obrigatorio: obrigatorio, p_convite: convite }),
   publicarPingDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'ping' }),
   publicarFilaDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'fila' }),
+  publicarFilaRankedDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'fila-ranked' }),
+  acertarCargosRanked: async () => (await funcao<{ cargos: ResumoCargosRanked }>('discord-ping', { canal: 'cargos' })).cargos,
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),
 
@@ -332,7 +336,7 @@ export const dadosSupabase: Dados = {
     if (simulada) return { ...(await rpc<Omit<RecargaPartida, 'fonte'>>('recalcular_partida', { p_match: id })), fonte: 'teste' }
     return funcao<RecargaPartida>('recarregar-partida', { matchId: id })
   },
-  async definirPontos(perfilId, pontos) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos }) },
+  async definirPontos(perfilId, pontos, fila) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) }) },
   denuncias: () => rpc<Denuncia[]>('denuncias'),
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
   pesquisarJogadores: (q) => rpc<JogadorStaff[]>('pesquisar_jogadores', { p_q: q }),
@@ -350,7 +354,7 @@ export const dadosSupabase: Dados = {
   streamersVisivel: () => rpc<boolean>('streamers_visivel').then((v) => !!v).catch(() => false),
   meuOverlay: () => rpc<{ chave: string }>('meu_overlay'),
   renovarOverlay: () => rpc<{ chave: string }>('renovar_overlay'),
-  overlayDados: (chave) => rpc<OverlayDados | null>('overlay_dados', { p_chave: chave }),
+  overlayDados: (chave, fila) => rpc<OverlayDados | null>('overlay_dados', { p_chave: chave, ...(fila ? { p_fila: fila } : {}) }),
   minhaTwitch: () => rpc<TwitchConta | null>('minha_twitch').catch(() => null),
   async twitchUrlLigar() {
     const r = await funcao<{ url: string }>('twitch-ligar', { accao: 'url', retorno: window.location.origin })

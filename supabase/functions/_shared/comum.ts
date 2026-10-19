@@ -1,5 +1,5 @@
 // Peças partilhadas pelas Edge Functions do Rangify (Deno).
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2'
 
 export const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +40,15 @@ export async function utilizador(req: Request) {
   if (!token) return null
   const { data } = await admin().auth.getUser(token)
   return data.user ?? null
+}
+
+/** O ID do Discord vem do login com o Discord (identities do utilizador). */
+export function idDiscord(u: User): string | null {
+  const ident = u.identities?.find((i) => i.provider === 'discord')
+  const d = (ident?.identity_data ?? {}) as Record<string, unknown>
+  const meta = (u.user_metadata ?? {}) as Record<string, unknown>
+  const id = d.provider_id ?? d.sub ?? ident?.id ?? meta.provider_id ?? meta.sub
+  return typeof id === 'string' && /^\d{15,22}$/.test(id) ? id : null
 }
 
 // ------------------------------------------------------------ Henrik Dev API

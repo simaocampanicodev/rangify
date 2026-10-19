@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
-import { dados } from '@/lib/dados'
+import { dados, type FilaTipo } from '@/lib/dados'
 
-/** Entrar e sair da fila, partilhado pelo Dashboard e pela página Jogar. */
+/** Entrar e sair da fila, partilhado pelo Dashboard, pela página Jogar e pela faixa do topo. */
 export function useFila() {
   const { fila, atualizar } = usePartida()
   const acao = useAcao()
   const [ocupado, setOcupado] = useState(false)
 
-  const alternar = async () => {
+  /** Sem `tipo`, sai da fila onde estás. Com `tipo`, entra nessa fila (ou sai dela, se já lá estás). */
+  const alternar = async (tipo?: FilaTipo) => {
     setOcupado(true)
-    await acao(() => (fila?.naFila ? dados.sairFila() : dados.entrarFila()))
+    const sair = !!fila?.naFila && (!tipo || fila.fila === tipo)
+    await acao(() => (sair ? dados.sairFila() : dados.entrarFila(tipo ?? 'aberta')))
     await atualizar()
     setOcupado(false)
   }

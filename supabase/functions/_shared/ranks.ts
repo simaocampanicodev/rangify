@@ -4,6 +4,7 @@
 // tinha descido (por exemplo, com a reposição de um ato) nunca o fazia. Agora, cada partida que
 // a Henrik Dev API fecha refresca o rank dos dez jogadores, tenha subido ou descido.
 import { ErroHenrik, admin, partirRiotId, rankOficial } from './comum.ts'
+import { sincronizarCargoRanked } from './discord-cargo.ts'
 
 /** A chave básica da Henrik dá 30 pedidos por minuto: um a cada 2 s não a esgota nem com a consulta da partida. */
 const PAUSA_MS = 2100
@@ -54,5 +55,8 @@ export async function atualizarRanksDaPartida(db: ReturnType<typeof admin>, matc
       console.error(`rank de ${p.riot_id}:`, e instanceof Error ? e.message : e)
     }
   }
+  // Quem subiu a Ascendente 1 ganha o cargo Ranked (e vê o canal da fila ranked); quem desceu perde-o.
+  // Sem o bot configurado, ou com o Discord em baixo, isto só regista o erro.
+  try { await sincronizarCargoRanked(db, jogadores.map((j) => j.profile_id)) } catch (e) { console.error('cargo ranked:', e instanceof Error ? e.message : e) }
   return r
 }

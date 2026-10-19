@@ -1,9 +1,17 @@
 // Liga o Riot ID (corpo { riotId, regiao }) ou volta a ler o rank oficial
 // (corpo vazio). O rank só é pedido à Henrik Dev API de 6 em 6 horas.
-import { ErroHenrik, admin, cors, enc, erro, henrik, partirRiotId, rankOficial, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, enc, erro, henrik, idDiscord, partirRiotId, rankOficial, resposta, utilizador } from '../_shared/comum.ts'
+import { ajustarCargoRanked } from '../_shared/discord-cargo.ts'
 
 const HORAS_CACHE = 6
 const REGIOES = ['eu', 'na', 'ap', 'kr', 'latam', 'br']
+
+/** O rank mudou: quem chegou a Ascendente 1 recebe o cargo Ranked do Discord, quem desceu perde-o (uma falha aqui não estraga nada). */
+async function acertarCargo(u: NonNullable<Awaited<ReturnType<typeof utilizador>>>, tier: number) {
+  const id = idDiscord(u)
+  if (!id) return
+  try { await ajustarCargoRanked(id, tier) } catch (e) { console.error('cargo ranked', e instanceof Error ? e.message : e) }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -34,6 +42,7 @@ Deno.serve(async (req) => {
       await db.from('profiles').update({
         riot_id: canonico, riot_puuid: conta.puuid, region: regiao, official_tier: rank.tier, official_rr: rank.rr, rank_synced_at: new Date().toISOString(),
       }).eq('id', perfil.id)
+      await acertarCargo(u, rank.tier)
       const { data: json } = await db.rpc('_perfil_json_id', { p_id: perfil.id })
       return resposta({ perfil: json, atualizado: true, proximaEm: new Date(Date.now() + HORAS_CACHE * 3_600_000).toISOString() })
     }
@@ -47,6 +56,7 @@ Deno.serve(async (req) => {
     const { nome, tag } = partirRiotId(perfil.riot_id)
     const rank = await rankOficial(perfil.region, nome, tag)
     await db.from('profiles').update({ official_tier: rank.tier, official_rr: rank.rr, rank_synced_at: new Date().toISOString() }).eq('id', perfil.id)
+    await acertarCargo(u, rank.tier)
     const { data: json } = await db.rpc('_perfil_json_id', { p_id: perfil.id })
     return resposta({ perfil: json, atualizado: true, proximaEm: new Date(Date.now() + HORAS_CACHE * 3_600_000).toISOString() })
   } catch (e) {

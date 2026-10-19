@@ -1,18 +1,10 @@
 // Chamada pelo site quando a fila exige o servidor de Discord: pergunta ao bot se
 // quem fez o pedido é membro do servidor do Rangify e guarda a resposta no perfil
 // (profiles.discord_member e discord_checked_at), que entrar_fila confirma.
-import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
+import { admin, cors, erro, idDiscord, resposta, utilizador } from '../_shared/comum.ts'
+import { ajustarCargoRanked } from '../_shared/discord-cargo.ts'
 
 const API = 'https://discord.com/api/v10'
-
-/** O ID do Discord vem do login com o Discord (identities do utilizador). */
-function idDiscord(u: NonNullable<Awaited<ReturnType<typeof utilizador>>>): string | null {
-  const ident = u.identities?.find((i) => i.provider === 'discord')
-  const d = (ident?.identity_data ?? {}) as Record<string, unknown>
-  const meta = (u.user_metadata ?? {}) as Record<string, unknown>
-  const id = d.provider_id ?? d.sub ?? ident?.id ?? meta.provider_id ?? meta.sub
-  return typeof id === 'string' && /^\d{15,22}$/.test(id) ? id : null
-}
 
 /** 200: está no servidor. 404: não está. Outra coisa: o Discord não respondeu. */
 async function membro(guild: string, id: string, tentativa = 0): Promise<boolean> {
@@ -45,6 +37,14 @@ Deno.serve(async (req) => {
       .update({ discord_member: esta, discord_checked_at: new Date().toISOString() })
       .eq('auth_id', u.id)
     if (error) throw error
+    // Quem acabou de entrar no servidor já fica com (ou sem) o cargo Ranked, conforme o rank oficial. Uma falha aqui
+    // nunca estraga a verificação: o cargo também se acerta quando o rank muda.
+    if (esta && id) {
+      try {
+        const { data: perfil } = await db.from('profiles').select('official_tier').eq('auth_id', u.id).maybeSingle()
+        await ajustarCargoRanked(id, perfil?.official_tier ?? 0)
+      } catch (e) { console.error('cargo ranked', e instanceof Error ? e.message : e) }
+    }
     return resposta({ membro: esta, semDiscord: !id })
   } catch (e) {
     console.error(e)

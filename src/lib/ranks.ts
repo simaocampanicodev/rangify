@@ -10,6 +10,10 @@ const NOMES = ['Ferro', 'Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante', 'Ascen
 const NOMES_EN = ['Iron', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Ascendant', 'Immortal']
 const CORES = ['#9a9a9a', '#c08a5a', '#c9d2d8', '#f2c14e', '#4fc6d6', '#c58cff', '#3ed38a', '#ff4d6a']
 
+/** A fila ranked pede Ascendente 1 ou mais (currenttier 21): é o mesmo número de _tier_minimo_ranked() na base de dados. */
+export const TIER_MINIMO_RANKED = 21
+export const podeRanked = (tier: number) => tier >= TIER_MINIMO_RANKED
+
 /** Quem ainda não tem rank conta como Prata 3 nas contas do desnível. */
 export const DIVISAO_SEM_RANK = 9
 

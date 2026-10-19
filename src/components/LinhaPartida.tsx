@@ -39,6 +39,7 @@ export function LinhaPartida({ m, onClick, i }: { m: ResumoPartida; onClick?: ()
         </span>
       </span>
       <span className="flex shrink-0 flex-wrap gap-1.5">
+        {m.fila === 'ranked' && <Chip tom="laranja">RANKED</Chip>}
         {m.simulada && <Chip tom="laranja">{l('Teste', 'Test')}</Chip>}
         {minha?.mvp && <SeloMvp tamanho={26} />}
         {minha?.agente && <IconeAgente nome={minha.agente} tamanho={26} />}

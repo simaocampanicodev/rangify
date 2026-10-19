@@ -1,9 +1,11 @@
 import { Bot, FastForward, FlaskConical, LockOpen, UserPlus, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Segmentado } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
+import { useFilaVista } from '@/hooks/useFilaVista'
 import { dados } from '@/lib/dados'
 import { l } from '@/lib/idioma'
 
@@ -17,6 +19,8 @@ export function FerramentasDev() {
   const acao = useAcao()
   const navegar = useNavigate()
   const [serCapitao, setSerCapitao] = useState(true)
+  // A fila dos testes é a mesma que o Painel está a mostrar (a ranked pede que o teu rank oficial chegue a Ascendente 1).
+  const [filaTeste, escolherFila] = useFilaVista()
   const [ocupado, setOcupado] = useState(false)
   if (!podeTestar) return null
   // No Supabase só as partidas simuladas aceitam atalhos; no modo demo todas são de bots.
@@ -48,13 +52,17 @@ export function FerramentasDev() {
             <input type="checkbox" checked={serCapitao} onChange={(e) => setSerCapitao(e.target.checked)} className="size-4 accent-[#ff5b1f]" />
             {l('Ser o Capitão A (para testar o draft, os bans e o código)', 'Be Captain A (to test the draft, bans and code)')}
           </label>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[13.5px] text-suave">{l('Fila de teste', 'Test queue')}</span>
+            <Segmentado rotulo={l('Fila de teste', 'Test queue')} valor={filaTeste} onChange={escolherFila} pequeno opcoes={[{ valor: 'aberta', texto: l('Aberta', 'Open') }, { valor: 'ranked', texto: 'Ranked' }]} />
+          </div>
           <div className="flex flex-wrap gap-2">
             {fila?.naFila && (
               <button type="button" disabled={ocupado} className="btn btn-primario" onClick={() => correr(() => dados.devCompletarFila({ serCapitao }), l('Fila completa: tu, os teus amigos na fila e bots. Aceita a partida!', 'Queue full: you, your friends in the queue and bots. Accept the match!'), true)}>
                 <UserPlus size={16} aria-hidden />{l('Completar fila com bots', 'Fill queue with bots')}
               </button>
             )}
-            <button type="button" disabled={ocupado} className="btn btn-suave" onClick={() => correr(() => dados.devEncherFila({ serCapitao }), l('Fila cheia com bots. Aceita a partida!', 'Queue filled with bots. Accept the match!'), true)}>
+            <button type="button" disabled={ocupado} className="btn btn-suave" onClick={() => correr(() => dados.devEncherFila({ serCapitao, fila: filaTeste }), l('Fila cheia com bots. Aceita a partida!', 'Queue filled with bots. Accept the match!'), true)}>
               <Users size={16} aria-hidden />{l('Simular fila cheia', 'Simulate full queue')}
             </button>
             <button type="button" disabled={ocupado} className="btn btn-fantasma" onClick={() => correr(() => dados.devSimularPartida(), l('A simular uma partida completa.', 'Simulating a full match.'), true)}>

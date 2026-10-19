@@ -179,11 +179,18 @@ export function aplicarResultado(p: PartidaGuardada, perfis: Record<string, Perf
     j.deltaPontos = r.total + perf
     const perfil = perfis[j.perfilId]
     if (!perfil) continue
-    // Todas as partidas contam, também as de teste: remover a partida devolve tudo.
-    perfil.pontos += j.deltaPontos
-    if (venceu) perfil.vitorias++
-    else perfil.derrotas++
-    j.pontosDepois = perfil.pontos
+    // Todas as partidas contam, também as de teste: remover a partida devolve tudo. Vão para a tabela da fila onde se jogou.
+    if (p.fila === 'ranked') {
+      perfil.pontosRanked += j.deltaPontos
+      if (venceu) perfil.vitoriasRanked++
+      else perfil.derrotasRanked++
+      j.pontosDepois = perfil.pontosRanked
+    } else {
+      perfil.pontos += j.deltaPontos
+      if (venceu) perfil.vitorias++
+      else perfil.derrotas++
+      j.pontosDepois = perfil.pontos
+    }
   }
   p.pontosAplicados = true
   p.estado = 'COMPLETED'

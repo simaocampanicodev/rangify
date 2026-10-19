@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, Bell, Check, CircleCheck, Clock, Globe, MessageCircle, RefreshCw, Shield, Swords, Target, Trophy, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
+import { AnelFila, CartaoFila, SeletorFila, nomeTabela } from '@/components/Fila'
 import { SeletorIdioma } from '@/components/Idioma'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { NomeRangify } from '@/components/Marca'
@@ -9,15 +9,15 @@ import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, LinhasEs
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type Missao } from '@/lib/dados'
+import { useFilaVista } from '@/hooks/useFilaVista'
+import { dados, type Missao, type Partida } from '@/lib/dados'
 import { formatarXp } from '@/lib/experiencia'
 import { traduzirMissao } from '@/lib/missoes'
 import { nomeJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
-import { ROTACAO_PADRAO } from '@/lib/mapas'
-import { NOMES_ESTADO, SEGUNDOS_CONFIRMAR } from '@/lib/regras'
-import { diaCurto, duracaoAte, fimDaSemana, fimDoDia, haQuanto, relogio } from '@/lib/tempo'
+import { NOMES_ESTADO } from '@/lib/regras'
+import { diaCurto, duracaoAte, fimDaSemana, fimDoDia, haQuanto } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
 
 function BarrasPontos({ deltas }: { deltas: number[] }) {
@@ -75,22 +75,47 @@ function GrupoMissoes({ titulo, renova, lista }: { titulo: string; renova: strin
   )
 }
 
+/** Com uma partida a decorrer, o cartão da fila dá lugar a este: o anel cheio e o caminho de volta. */
+function PartidaAtiva({ partida }: { partida: Partida }) {
+  return (
+    <Painel aria-labelledby="rg-proxima" className="flex min-w-0 flex-[2_1_540px] flex-wrap items-center gap-x-9 gap-y-6 p-7">
+      <AnelFila contagem={10} naFila={false} legenda={l('AO VIVO', 'LIVE')} />
+      <div className="flex min-w-[260px] flex-1 flex-col gap-3.5">
+        <p className="m-0 max-w-[470px] text-[14.5px] leading-[1.55] text-suave">
+          {l('Tens uma partida a decorrer. Volta à página Jogar para a fase em que está.', 'You have a match in progress. Go back to the Play page for its current phase.')}
+        </p>
+        <div className="flex flex-wrap items-center gap-2.5 pt-1">
+          <Link to="/jogar" className="btn btn-primario">{l('Voltar à partida', 'Back to match')}<ArrowRight size={16} aria-hidden /></Link>
+          <BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda>
+          {partida.fila === 'ranked' && <span className="font-mono text-[11px] font-semibold tracking-[0.1em] text-pessego">RANKED</span>}
+        </div>
+      </div>
+    </Painel>
+  )
+}
+
 export function Dashboard() {
   const { perfil } = useSessao()
-  const { partida, ativa } = usePartida()
-  const fila = useVistaFila()
+  const { partida, ativa, fila } = usePartida()
+  const [vista, escolher] = useFilaVista()
   const [minhas, setMinhas] = useState<'minhas' | 'todas'>('minhas')
   const id = perfil?.id ?? ''
-  const posicao = useCarregar(() => dados.posicao(id), [id, perfil?.pontos], ['partida'], { chave: `posicao:${id}:${perfil?.pontos}` })
-  const forma = useCarregar(() => dados.forma(id, 10), [id], ['partida'], { chave: `forma:${id}:10` })
+  const ranked = vista === 'ranked'
+  const pontosVista = ranked ? perfil?.pontosRanked : perfil?.pontos
+  const posicao = useCarregar(() => dados.posicao(id, vista), [id, vista, pontosVista], ['partida'], { chave: `posicao:${id}:${vista}:${pontosVista}` })
+  const forma = useCarregar(() => dados.forma(id, 50), [id], ['partida'], { chave: `forma:${id}:50` })
   const historico = useCarregar(() => dados.partidas({ minhas: minhas === 'minhas' }), [minhas], ['partida'], { minimo: 350, chave: `partidas:${minhas}` })
   const missoes = useCarregar(() => dados.missoes(), [], ['partida'], { chave: 'missoes' })
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
   const novidades = useCarregar(() => dados.novidades(1), [], ['staff'], { chave: 'novidades:1', fresco: 300_000 })
   if (!perfil) return <Carregando />
 
   const nome = nomeJogador(perfil)
-  const ganho = perfil.pontos - PONTOS_INICIAIS
+  const numeros = ranked
+    ? { pontos: perfil.pontosRanked, vitorias: perfil.vitoriasRanked, derrotas: perfil.derrotasRanked }
+    : { pontos: perfil.pontos, vitorias: perfil.vitorias, derrotas: perfil.derrotas }
+  const ganho = numeros.pontos - PONTOS_INICIAIS
+  // As últimas 10 partidas da fila que estás a ver (a lista traz as duas, da mais antiga para a mais recente).
+  const formaFila = (forma.valor ?? []).filter((f) => (f.fila ?? 'aberta') === vista).slice(-10)
   const lista = (missoes.valor ?? []).map(traduzirMissao)
   const diarias = maisPerto(lista.filter((m) => m.ambito === 'diaria')).slice(0, 3)
   const semanais = maisPerto(lista.filter((m) => m.ambito === 'semanal')).slice(0, 3)
@@ -106,7 +131,7 @@ export function Dashboard() {
     <>
       <Cabecalho
         migalhas={['Hub', l('Painel', 'Dashboard')]}
-        titulo={perfil.vitorias + perfil.derrotas ? l(`Bem-vindo de volta, ${nome}.`, `Welcome back, ${nome}.`) : l(`Bem-vindo, ${nome}.`, `Welcome, ${nome}.`)}
+        titulo={perfil.vitorias + perfil.derrotas + perfil.vitoriasRanked + perfil.derrotasRanked ? l(`Bem-vindo de volta, ${nome}.`, `Welcome back, ${nome}.`) : l(`Bem-vindo, ${nome}.`, `Welcome, ${nome}.`)}
         descricao={l('A próxima partida está a uma fila de distância. Aqui vês os teus pontos, as missões ativas e como correram os últimos jogos.', 'Your next match is one queue away. Here you see your points, active missions and how your last games went.')}
         acoes={
           <>
@@ -131,67 +156,64 @@ export function Dashboard() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-stretch gap-4">
-        <Painel aria-labelledby="rg-proxima" className="flex min-w-0 flex-[2_1_540px] flex-wrap items-center gap-x-9 gap-y-6 p-7">
-          <AnelFila
-            contagem={ativa ? 10 : fila.contagem}
-            naFila={fila.naFila}
-            legenda={ativa ? l('AO VIVO', 'LIVE') : fila.naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(fila.espera)}` : fila.ban ? l('BANIDO', 'BANNED') : fila.castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(fila.castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
-          />
-          <div className="flex min-w-[260px] flex-1 flex-col gap-3.5">
+      <section aria-labelledby="rg-proxima" className="flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-end justify-between gap-3.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <span className="eyebrow">{ativa ? l('PARTIDA A DECORRER', 'MATCH IN PROGRESS') : l('A TUA PRÓXIMA PARTIDA', 'YOUR NEXT MATCH')}</span>
-            <h2 id="rg-proxima" className="m-0 max-w-[460px] text-[31px] leading-[1.08] font-extrabold tracking-[-0.035em]">
-              {ativa && partida ? `${partida.codigo}: ${NOMES_ESTADO[partida.estado]}` : <>{l('Entra na fila para jogar no', 'Join the queue to play on')} <NomeRangify className="text-laranja" />.</>}
+            <h2 id="rg-proxima" className="m-0 text-[28px] leading-[1.05] font-extrabold tracking-[-0.035em]">
+              {ativa && partida ? `${partida.codigo}: ${NOMES_ESTADO[partida.estado]}` : l('Pronto para a próxima?', 'Ready for the next one?')}
             </h2>
-            <p className="m-0 max-w-[470px] text-[14.5px] leading-[1.55] text-suave">
-              {ativa
-                ? l('Tens uma partida a decorrer. Volta à página Jogar para a fase em que está.', 'You have a match in progress. Go back to the Play page for its current phase.')
-                : fila.naFila
-                  ? l(`Faltam ${10 - fila.contagem} ${10 - fila.contagem === 1 ? 'jogador' : 'jogadores'}. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`, `${10 - fila.contagem} ${10 - fila.contagem === 1 ? 'player' : 'players'} to go. You can browse the site: when the lobby fills, you hear a sound and the accept alert shows up.`)
-                  : l('Dez jogadores da mesma região, dois capitães, draft à vez e ban de mapas até sobrar um.', 'Ten players from the same region, two captains, alternating draft and map bans until one is left.')}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <EtiquetaHub regiao={fila.regiao} />
-              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">{SEGUNDOS_CONFIRMAR} s {l('para aceitar', 'to accept')}</span>
-              <span className="inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]">{l('2 capitães', '2 captains')} · {(rotacao.valor ?? ROTACAO_PADRAO).length} {l('mapas', 'maps')}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
-              {ativa
-                ? <Link to="/jogar" className="btn btn-primario">{l('Voltar à partida', 'Back to match')}<ArrowRight size={16} aria-hidden /></Link>
-                : <BotaoFila />}
-              <BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda>
-            </div>
           </div>
-        </Painel>
+          {!ativa && (
+            <SeletorFila
+              valor={vista}
+              onChange={escolher}
+              contagemAberta={fila?.contagemAberta ?? fila?.contagem ?? 0}
+              contagemRanked={fila?.contagemRanked ?? 0}
+              rankedBloqueada={fila?.rankedPermitido === false}
+            />
+          )}
+        </div>
 
-        <Painel aria-labelledby="rg-pts" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
-          <div className="flex items-center justify-between gap-2.5">
-            <h2 id="rg-pts" className="eyebrow m-0">{l('OS TEUS PONTOS', 'YOUR POINTS')}</h2>
-            <span className="font-mono text-[10.5px] text-mudo">{l('TEMPORADA 1', 'SEASON 1')}</span>
+        <div className="flex flex-wrap items-stretch gap-4">
+          <div className="flex min-w-0 flex-[2_1_540px] flex-col">
+            {ativa && partida ? <PartidaAtiva partida={partida} /> : <CartaoFila tipo={vista} id={`rg-fila-${vista}`} rodape={<span className="flex"><BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda></span>} />}
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-[54px] leading-none font-semibold tracking-[-0.05em]">{perfil.pontos}</span>
-            <span className="text-[14px] text-mudo">pts</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-[13px] text-suave">
-            <span className={`inline-flex h-6 items-center gap-1 rounded-[7px] border px-2 font-mono text-[12px] font-semibold ${ganho >= 0 ? 'border-vitoria/30 bg-vitoria/10 text-[#7ff0e4]' : 'border-derrota/30 bg-derrota/10 text-[#ffb3bf]'}`}>
-              <ArrowUpRight size={13} className={ganho < 0 ? 'rotate-90' : ''} aria-hidden />{comSinal(ganho)}
-            </span>
-            {l(`desde os ${PONTOS_INICIAIS} iniciais`, `since the starting ${PONTOS_INICIAIS}`)}
-          </div>
-          {forma.valor && forma.valor.length > 0
-            ? <BarrasPontos deltas={forma.valor.map((f) => f.delta)} />
-            : <p className="m-0 text-[13px] text-mudo">{l('Ainda sem partidas. A primeira vitória vale entre +12 e +30.', 'No matches yet. Your first win is worth between +12 and +30.')}</p>}
-          <div className="flex flex-col gap-[11px] border-t border-white/7 pt-3.5">
-            <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Posição na tabela', 'Leaderboard position')}</span><span className="font-mono font-semibold">#{posicao.valor ?? '-'}</span></div>
-            <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Rank oficial', 'Official rank')}</span><RankBadge tier={perfil.tier} /></div>
-            <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Registo', 'Record')}</span><span className="font-mono font-semibold">{perfil.vitorias}{l('V', 'W')} · {perfil.derrotas}{l('D', 'L')}</span></div>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <LinkSeta to="/ranking">{l('Ver tabela completa', 'View full leaderboard')}</LinkSeta>
-          </div>
-        </Painel>
-      </div>
+
+          <Painel aria-labelledby="rg-pts" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
+            <div className="flex items-center justify-between gap-2.5">
+              <h2 id="rg-pts" className="eyebrow m-0">{l('OS TEUS PONTOS', 'YOUR POINTS')} · {nomeTabela(vista).toUpperCase()}</h2>
+              <span className="font-mono text-[10.5px] text-mudo">{l('TEMPORADA 1', 'SEASON 1')}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-[54px] leading-none font-semibold tracking-[-0.05em]">{numeros.pontos}</span>
+              <span className="text-[14px] text-mudo">pts</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[13px] text-suave">
+              <span className={`inline-flex h-6 items-center gap-1 rounded-[7px] border px-2 font-mono text-[12px] font-semibold ${ganho >= 0 ? 'border-vitoria/30 bg-vitoria/10 text-[#7ff0e4]' : 'border-derrota/30 bg-derrota/10 text-[#ffb3bf]'}`}>
+                <ArrowUpRight size={13} className={ganho < 0 ? 'rotate-90' : ''} aria-hidden />{comSinal(ganho)}
+              </span>
+              {l(`desde os ${PONTOS_INICIAIS} iniciais`, `since the starting ${PONTOS_INICIAIS}`)}
+            </div>
+            {formaFila.length > 0
+              ? <BarrasPontos deltas={formaFila.map((f) => f.delta)} />
+              : <p className="m-0 text-[13px] text-mudo">
+                {ranked && fila?.rankedPermitido === false
+                  ? l('A Tabela Ranked abre quando chegares a Ascendente 1.', 'The Ranked leaderboard opens when you reach Ascendant 1.')
+                  : forma.carregando && !forma.valor ? l('A carregar…', 'Loading…')
+                  : l('Ainda sem partidas nesta fila. A primeira vitória vale entre +12 e +30.', 'No matches in this queue yet. Your first win is worth between +12 and +30.')}
+              </p>}
+            <div className="flex flex-col gap-[11px] border-t border-white/7 pt-3.5">
+              <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Posição na tabela', 'Leaderboard position')}</span><span className="font-mono font-semibold">{posicao.valor ? `#${posicao.valor}` : '-'}</span></div>
+              <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Rank oficial', 'Official rank')}</span><RankBadge tier={perfil.tier} /></div>
+              <div className="flex items-center justify-between gap-2.5 text-[13.5px]"><span className="text-suave">{l('Registo', 'Record')}</span><span className="font-mono font-semibold">{numeros.vitorias}{l('V', 'W')} · {numeros.derrotas}{l('D', 'L')}</span></div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <LinkSeta to={`/ranking?fila=${vista}`}>{l('Ver tabela completa', 'View full leaderboard')}</LinkSeta>
+            </div>
+          </Painel>
+        </div>
+      </section>
 
       <section aria-labelledby="rg-atalhos" className="flex flex-col gap-3.5">
         <h2 id="rg-atalhos" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Atalhos', 'Shortcuts')}</h2>

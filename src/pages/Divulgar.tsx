@@ -28,8 +28,8 @@ const CAMPOS: { id: string; nome: [string, string] }[] = [
   { id: 'fim', nome: ['Aviso de fim de partida', 'Match-end banner'] },
 ]
 
-interface Preferencias { estilo: 'cartao' | 'barra'; cor: string; campos: string[]; escala: number }
-const PADRAO: Preferencias = { estilo: 'cartao', cor: 'laranja', campos: CAMPOS.map((c) => c.id), escala: 100 }
+interface Preferencias { estilo: 'cartao' | 'barra'; cor: string; campos: string[]; escala: number; fila: 'auto' | 'aberta' | 'ranked' }
+const PADRAO: Preferencias = { estilo: 'cartao', cor: 'laranja', campos: CAMPOS.map((c) => c.id), escala: 100, fila: 'auto' }
 const CHAVE_PREFS = 'rangify:overlay-opcoes'
 
 function lerPreferencias(): Preferencias {
@@ -100,6 +100,7 @@ function PainelOverlay() {
   if (prefs.cor !== 'laranja') q.set('cor', prefs.cor)
   if (prefs.campos.length !== CAMPOS.length) q.set('mostrar', prefs.campos.join(','))
   if (prefs.escala !== 100) q.set('escala', String(prefs.escala))
+  if (prefs.fila !== 'auto') q.set('fila', prefs.fila)
   const resto = q.toString() ? `?${q}` : ''
   const url = `${window.location.origin}/overlay/${k}${resto}`
   // Com o aviso de fim de partida ligado, o overlay reserva uns 66 px por cima para ele aparecer.
@@ -124,6 +125,11 @@ function PainelOverlay() {
           {l('Tamanho', 'Size')}: {prefs.escala}%
           <input type="range" min={50} max={200} step={10} value={prefs.escala} onChange={(e) => setPrefs((p) => ({ ...p, escala: Number(e.target.value) }))} className="accent-[#ff5b1f]" />
         </label>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-semibold text-[#d0cbc4]">{l('Fila', 'Queue')}</span>
+        <Segmentado rotulo={l('Fila do overlay', 'Overlay queue')} valor={prefs.fila} onChange={(fila) => setPrefs((p) => ({ ...p, fila }))} pequeno opcoes={[{ valor: 'auto', texto: l('Automática', 'Automatic') }, { valor: 'aberta', texto: l('Só aberta', 'Open only') }, { valor: 'ranked', texto: l('Só ranked', 'Ranked only') }]} />
+        <span className="text-[12px] text-mudo">{l('Automática mostra os pontos da fila em que estás a jogar. Fixar uma serve para teres um overlay por fila.', 'Automatic shows the points of the queue you are playing in. Pinning one is for having an overlay per queue.')}</span>
       </div>
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-1.5 text-[13px] font-semibold text-[#d0cbc4]">{l('Cor de destaque', 'Accent colour')}</legend>

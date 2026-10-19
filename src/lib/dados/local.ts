@@ -10,7 +10,7 @@
 import { NOMES_MAPAS, ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
 import { PONTOS_INICIAIS, bonusDesempenho, calcularPontos } from '../pontos'
 import { AGENTES_SIMULADOS } from '../agentes'
-import { divisao, mediaDivisoes } from '../ranks'
+import { divisao, mediaDivisoes, podeRanked } from '../ranks'
 import {
   ESTADOS_ATIVOS, HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, PADRAO_CODIGO, PADRAO_RIOT_ID,
   SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA, SEGUNDOS_LADO, equipaDaEscolha, validarResultado,
@@ -34,12 +34,12 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type {
-  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
-// v6: novidades publicadas pela staff; os dados de exemplo voltam a ser gerados.
-const CHAVE = 'rangify:demo:v8'
+// v9: duas filas (aberta e ranked), com pontos separados; os dados de exemplo voltam a ser gerados.
+const CHAVE = 'rangify:demo:v9'
 
 /** O que o motor precisa de lembrar sobre uma partida a decorrer. */
 interface Motor {
@@ -53,7 +53,7 @@ interface Estado {
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
-  fila: { perfilId: string; desde: string }[]
+  fila: { perfilId: string; desde: string; fila: FilaTipo }[]
   proximoBotEm: number | null
   proximaSimulada: boolean
   motores: Record<string, Motor>
@@ -326,11 +326,11 @@ function nomeCurto(p: Perfil | undefined) {
   return p?.riotId?.split('#')[0] ?? p?.utilizador ?? '?'
 }
 
-function jogadorPublico(e: Estado, j: JogadorGuardado): JogadorPartida {
+function jogadorPublico(e: Estado, j: JogadorGuardado, fila: FilaTipo = 'aberta'): JogadorPartida {
   const p = e.perfis[j.perfilId]
   return {
     perfilId: j.perfilId, utilizador: p?.utilizador ?? '?', riotId: p?.riotId ?? null, avatarUrl: p?.avatarUrl ?? null,
-    tier: j.tier, pontos: p?.pontos ?? PONTOS_INICIAIS, funcaoJogo: p?.funcaoJogo ?? null, bot: p?.bot ?? false,
+    tier: j.tier, pontos: p ? numerosDa(p, fila).pontos : PONTOS_INICIAIS, funcaoJogo: p?.funcaoJogo ?? null, bot: p?.bot ?? false,
     equipa: j.equipa, capitao: j.capitao, aceitou: j.aceitou, ordemEscolha: j.ordemEscolha,
     kills: j.kills, deaths: j.deaths, assists: j.assists, acs: j.acs, firstBloods: j.firstBloods, mvp: j.mvp, deltaPontos: j.deltaPontos,
     trades: j.trades ?? null, hsPct: j.hsPct ?? null, kastPct: j.kastPct ?? null,
@@ -345,7 +345,7 @@ function publica(e: Estado, p: PartidaGuardada): Partida {
   return {
     ...p, bans: [...p.bans], submissoes: [...p.submissoes], lado: p.lado ? { ...p.lado } : null, sugestoes,
     cancelamento: estadoCancelamento(e, p),
-    jogadores: p.jogadores.map((j) => jogadorPublico(e, j)),
+    jogadores: p.jogadores.map((j) => jogadorPublico(e, j, p.fila)),
   }
 }
 
@@ -412,7 +412,7 @@ function resumo(e: Estado, p: PartidaGuardada, ref: string | null): ResumoPartid
   const outra = meu?.equipa === 'A' ? 'B' : 'A'
   const media = (eq: Equipa) => Math.max(3, Math.min(27, Math.round(mediaDivisoes(tiersDe(p, eq))) + 2))
   return {
-    id: p.id, codigo: p.codigo, mapa: p.mapa, estado: p.estado, resultadoA: p.resultadoA, resultadoB: p.resultadoB,
+    id: p.id, codigo: p.codigo, fila: p.fila, mapa: p.mapa, estado: p.estado, resultadoA: p.resultadoA, resultadoB: p.resultadoB,
     vencedor: p.vencedor, terminouEm: p.terminouEm, simulada: p.simulada,
     capitaoA: nomeCurto(e.perfis[p.capitaoA ?? '']), capitaoB: nomeCurto(e.perfis[p.capitaoB ?? '']),
     tierMedioA: media('A'), tierMedioB: media('B'),
@@ -427,12 +427,23 @@ function resumo(e: Estado, p: PartidaGuardada, ref: string | null): ResumoPartid
 }
 
 /** Só quem já jogou pelo menos uma partida aparece nas tabelas (como em _na_tabela, na base de dados). */
-const jaJogou = (p: Perfil) => !!p.riotId && !p.bot && p.vitorias + p.derrotas > 0
+const jaJogou = (p: Perfil, fila: FilaTipo = 'aberta') =>
+  !!p.riotId && !p.bot && (fila === 'ranked' ? p.vitoriasRanked + p.derrotasRanked : p.vitorias + p.derrotas) > 0
 
-function classificados(e: Estado): Perfil[] {
+/** Jogou numa das duas filas: é o que põe alguém nas tabelas de nível, Rangify Score e agentes (como _na_tabela, na base de dados). */
+const jogouAlgumaFila = (p: Perfil) => jaJogou(p, 'aberta') || jaJogou(p, 'ranked')
+
+/** Os números de um jogador numa das duas tabelas (a aberta são os de sempre). */
+const numerosDa = (p: Perfil, fila: FilaTipo) =>
+  fila === 'ranked' ? { pontos: p.pontosRanked, vitorias: p.vitoriasRanked, derrotas: p.derrotasRanked } : { pontos: p.pontos, vitorias: p.vitorias, derrotas: p.derrotas }
+
+function classificados(e: Estado, fila: FilaTipo = 'aberta'): Perfil[] {
   return Object.values(e.perfis)
-    .filter(jaJogou)
-    .sort((x, y) => y.pontos - x.pontos || y.vitorias - x.vitorias || x.utilizador.localeCompare(y.utilizador))
+    .filter((p) => jaJogou(p, fila))
+    .sort((x, y) => {
+      const a = numerosDa(x, fila), b = numerosDa(y, fila)
+      return b.pontos - a.pontos || b.vitorias - a.vitorias || x.utilizador.localeCompare(y.utilizador)
+    })
 }
 
 function amigosDe(e: Estado, id: string): string[] {
@@ -445,21 +456,22 @@ function toque(p: PartidaGuardada, agora: number) {
 
 // ---------------------------------------------------------------- o motor
 
-function botLivre(e: Estado, excluir: string[] = []): string | null {
+function botLivre(e: Estado, excluir: string[] = [], fila: FilaTipo = 'aberta'): string | null {
   const agora = Date.now()
   const ocupados = new Set<string>([...excluir, ...e.fila.map((f) => f.perfilId)])
   for (const p of e.partidas) if (ativa(p.estado)) p.jogadores.forEach((j) => ocupados.add(j.perfilId))
   const livres = Object.values(e.perfis).filter((p) =>
-    p.id !== e.sessao?.perfilId && p.riotId && !ocupados.has(p.id) && (p.cooldownAte == null || ms(p.cooldownAte) < agora),
+    p.id !== e.sessao?.perfilId && p.riotId && !ocupados.has(p.id) && (p.cooldownAte == null || ms(p.cooldownAte) < agora)
+    && (fila !== 'ranked' || podeRanked(p.tier)),
   )
   if (!livres.length) return null
   return livres[Math.floor(Math.random() * livres.length)].id
 }
 
-function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; automatica: boolean }) {
+function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; automatica: boolean; fila?: FilaTipo }) {
   const agora = Date.now()
   const p: PartidaGuardada = {
-    id: novoId(), codigo: codigoPartida(Math.random), estado: 'READY_CHECK', regiao: e.perfis[ids[0]]?.regiao ?? 'eu',
+    id: novoId(), codigo: codigoPartida(Math.random), estado: 'READY_CHECK', regiao: e.perfis[ids[0]]?.regiao ?? 'eu', fila: opts.fila ?? 'aberta',
     mapa: null, capitaoA: null, capitaoB: null, codigoGrupo: null, resultadoA: null, resultadoB: null, vencedor: null,
     simulada: opts.simulada, automatica: opts.automatica, pool: [...e.poolMapas],
     prazoConfirmacao: iso(agora + SEGUNDOS_CONFIRMAR * 1000), inicioFase: iso(agora), prazoFase: iso(agora + SEGUNDOS_CONFIRMAR * 1000),
@@ -473,21 +485,26 @@ function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; autom
   return p
 }
 
+/** Quantos há numa fila (cada fila junta os seus dez). */
+const contarFila = (e: Estado, fila: FilaTipo) => e.fila.filter((f) => f.fila === fila).length
+
 function passoFila(e: Estado, agora: number): boolean {
   const humano = e.sessao?.perfilId
-  const naFila = !!humano && e.fila.some((f) => f.perfilId === humano)
+  const minha = humano ? e.fila.find((f) => f.perfilId === humano) : undefined
+  const naFila = !!minha
+  const fila = minha?.fila ?? 'aberta'
   let mudou = false
-  if (naFila && e.fila.length < 10 && e.proximoBotEm != null && agora >= e.proximoBotEm) {
-    const bot = botLivre(e)
-    if (bot) e.fila.push({ perfilId: bot, desde: iso(agora) })
+  if (naFila && contarFila(e, fila) < 10 && e.proximoBotEm != null && agora >= e.proximoBotEm) {
+    const bot = botLivre(e, [], fila)
+    if (bot) e.fila.push({ perfilId: bot, desde: iso(agora), fila })
     e.proximoBotEm = agora + aleatorio(2500, 4500)
     mudou = true
   }
-  if (naFila && e.fila.length >= 10) {
-    const outros = e.fila.filter((f) => f.perfilId !== humano).slice(0, 9).map((f) => f.perfilId)
+  if (naFila && contarFila(e, fila) >= 10) {
+    const outros = e.fila.filter((f) => f.perfilId !== humano && f.fila === fila).slice(0, 9).map((f) => f.perfilId)
     const ids = [humano!, ...outros]
     e.fila = e.fila.filter((f) => !ids.includes(f.perfilId))
-    criarPartida(e, ids, { simulada: e.proximaSimulada, automatica: false })
+    criarPartida(e, ids, { simulada: e.proximaSimulada, automatica: false, fila })
     e.proximaSimulada = false
     e.proximoBotEm = null
     mudou = true
@@ -495,8 +512,8 @@ function passoFila(e: Estado, agora: number): boolean {
   return mudou
 }
 
-function voltarAFila(e: Estado, ids: string[], desde: string) {
-  for (const id of ids) if (!e.fila.some((f) => f.perfilId === id)) e.fila.unshift({ perfilId: id, desde })
+function voltarAFila(e: Estado, ids: string[], desde: string, fila: FilaTipo) {
+  for (const id of ids) if (!e.fila.some((f) => f.perfilId === id)) e.fila.unshift({ perfilId: id, desde, fila })
   if (e.sessao && ids.includes(e.sessao.perfilId)) e.proximoBotEm = Date.now() + 1500
 }
 
@@ -515,7 +532,7 @@ function falhouConfirmacao(e: Estado, p: PartidaGuardada, agora: number) {
     if (!j.aceitou && e.perfis[j.perfilId]) e.perfis[j.perfilId].cooldownAte = iso(agora + MINUTOS_COOLDOWN * 60_000)
   }
   cancelar(e, p, agora)
-  if (!p.simulada) voltarAFila(e, aceitaram, p.criadaEm)
+  if (!p.simulada) voltarAFila(e, aceitaram, p.criadaEm, p.fila)
 }
 
 function atraso(p: PartidaGuardada) {
@@ -838,7 +855,7 @@ const xpDe = (e: Estado, perfilId: string) => e.conclusoes.reduce((t, c) => t + 
 
 function noRankingDeNivel(e: Estado) {
   return Object.values(e.perfis)
-    .filter(jaJogou)
+    .filter(jogouAlgumaFila)
     .map((p) => ({ perfil: p, xp: xpDe(e, p.id) }))
     .sort((x, y) => y.xp - x.xp || y.perfil.pontos - x.perfil.pontos || x.perfil.utilizador.localeCompare(y.perfil.utilizador))
 }
@@ -1002,7 +1019,7 @@ const contextoTorneios: ContextoTorneios = {
     const id = novoId()
     const bot: Perfil = {
       id, utilizador: `bot_${id.slice(0, 8)}`, avatarUrl: null, riotId: `Bot${sufixo()}#BOT`, regiao: 'eu', tier: 6 + Math.floor(Math.random() * 18), rr: null,
-      rankAtualizadoEm: null, pontos: 1000, vitorias: 0, derrotas: 0, funcao: 'user',
+      rankAtualizadoEm: null, pontos: 1000, vitorias: 0, derrotas: 0, pontosRanked: 1000, vitoriasRanked: 0, derrotasRanked: 0, funcao: 'user',
       funcaoJogo: (['Duelista', 'Controlador', 'Iniciador', 'Sentinela'] as const)[Math.floor(Math.random() * 4)],
       bot: true, cooldownAte: null, tourVistoEm: iso(Date.now()), temPassword: false, criadoEm: iso(Date.now()),
     }
@@ -1038,7 +1055,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const agora = iso(Date.now())
     e.perfis[id] = {
       id, utilizador: nome, avatarUrl: null, riotId: null, regiao: 'eu', tier: 0, rr: null, rankAtualizadoEm: null,
-      pontos: PONTOS_INICIAIS, vitorias: 0, derrotas: 0, funcao: 'user', funcaoJogo: null, bot: false,
+      pontos: PONTOS_INICIAIS, vitorias: 0, derrotas: 0, pontosRanked: PONTOS_INICIAIS, vitoriasRanked: 0, derrotasRanked: 0, funcao: 'user', funcaoJogo: null, bot: false,
       cooldownAte: null, tourVistoEm: null, temPassword: false, criadoEm: agora,
     }
     e.contas[nome] = { perfilId: id, hash: '' }
@@ -1199,6 +1216,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
     const comStats = js.filter((j) => j.acs != null)
     const ordem = classificados(e)
+    const ordemRanked = classificados(e, 'ranked')
     return {
       partidas: lista.length, vitorias: vit,
       kda: comAcs ? (k + a) / Math.max(1, d) : null, kd: comAcs ? k / Math.max(1, d) : null,
@@ -1220,6 +1238,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
         .map(([agente, m]) => ({ agente, partidas: m.partidas, vitorias: m.vitorias, acs: media(m.acs), rs: media(m.rs) }))
         .sort((x, y) => y.partidas - x.partidas || x.agente.localeCompare(y.agente)),
       posicao: ordem.findIndex((p) => p.id === perfilId) + 1, totalJogadores: ordem.length,
+      posicaoRanked: ordemRanked.findIndex((p) => p.id === perfilId) + 1, totalRanked: ordemRanked.length,
     }
   },
 
@@ -1236,16 +1255,16 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       const meus = minhaA ? p.resultadoA : p.resultadoB
       const deles = minhaA ? p.resultadoB : p.resultadoA
       return {
-        partidaId: p.id, data: p.terminouEm!, mapa: p.mapa ?? '?', adversario: `Equipa ${nomeCurto(e.perfis[adv ?? ''])}`,
+        partidaId: p.id, fila: p.fila, data: p.terminouEm!, mapa: p.mapa ?? '?', adversario: `Equipa ${nomeCurto(e.perfis[adv ?? ''])}`,
         venceu: p.vencedor === j.equipa, resultado: `${meus}-${deles}`, pontos: j.pontosDepois ?? 0, delta: j.deltaPontos ?? 0,
         kda: j.kills != null ? ((j.kills ?? 0) + (j.assists ?? 0)) / Math.max(1, j.deaths ?? 1) : null, acs: j.acs, rs: j.rangifyScore ?? null, mvp: j.mvp,
       }
     })
   },
 
-  async ranking({ cursor, limite = 50, soAmigos, pesquisa }) {
+  async ranking({ cursor, limite = 50, soAmigos, pesquisa, fila = 'aberta' }) {
     const e = await pronto()
-    const ordem = classificados(e)
+    const ordem = classificados(e, fila)
     const posicoes = new Map(ordem.map((p, i) => [p.id, i + 1]))
     let lista = ordem
     if (soAmigos && e.sessao) {
@@ -1259,7 +1278,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     // Os últimos cinco resultados de cada um, do mais antigo para o mais recente.
     const forma = new Map<string, ('V' | 'D')[]>()
     const ids = new Set(pagina.map((p) => p.id))
-    for (const p of terminadas(e).sort((x, y) => ms(x.terminouEm) - ms(y.terminouEm))) {
+    for (const p of terminadas(e).filter((x) => x.fila === fila).sort((x, y) => ms(x.terminouEm) - ms(y.terminouEm))) {
       for (const j of p.jogadores) {
         if (!ids.has(j.perfilId) || !j.equipa) continue
         const f = forma.get(j.perfilId) ?? []
@@ -1268,13 +1287,15 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
         forma.set(j.perfilId, f)
       }
     }
-    const linhas: LinhaRanking[] = pagina.map((p) => ({ posicao: posicoes.get(p.id)!, perfil: { ...p }, forma: forma.get(p.id) ?? [] }))
+    // Na tabela ranked, "pontos", "vitórias" e "derrotas" do perfil são os da ranked (como faz a base de dados).
+    const daFila = (p: Perfil): Perfil => (fila === 'ranked' ? { ...p, ...numerosDa(p, 'ranked') } : { ...p })
+    const linhas: LinhaRanking[] = pagina.map((p) => ({ posicao: posicoes.get(p.id)!, perfil: daFila(p), forma: forma.get(p.id) ?? [] }))
     return { linhas, cursor: inicio + limite < lista.length ? String(inicio + limite) : null, total: lista.length }
   },
 
-  async posicao(perfilId) {
+  async posicao(perfilId, fila = 'aberta') {
     const e = await carregar()
-    return classificados(e).findIndex((p) => p.id === perfilId) + 1
+    return classificados(e, fila).findIndex((p) => p.id === perfilId) + 1
   },
 
   async estadoFila() {
@@ -1283,15 +1304,18 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const minha = id ? e.fila.find((f) => f.perfilId === id) : undefined
     const p = id ? e.perfis[id] : null
     return {
-      naFila: !!minha, desde: minha?.desde ?? null, contagem: e.fila.length, regiao: p?.regiao ?? 'eu',
+      naFila: !!minha, fila: minha?.fila ?? null, desde: minha?.desde ?? null,
+      contagem: contarFila(e, minha?.fila ?? 'aberta'), contagemAberta: contarFila(e, 'aberta'), contagemRanked: contarFila(e, 'ranked'),
+      rankedPermitido: p ? podeRanked(p.tier) : false, regiao: p?.regiao ?? 'eu',
       cooldownAte: p?.cooldownAte && ms(p.cooldownAte) > Date.now() ? p.cooldownAte : null,
       ban: id ? banPublico(banAtivo(e, id)) : null,
     }
   },
 
-  async entrarFila() {
+  async entrarFila(fila = 'aberta') {
     const e = await pronto()
     const p = eu(e)
+    if (fila !== 'aberta' && fila !== 'ranked') throw new Error('Escolhe a fila aberta ou a ranked.')
     const ban = banAtivo(e, p.id)
     if (ban) {
       throw new Error(`Estás banido da fila ${ban.permanente ? 'para sempre' : 'até ' + new Date(ban.ate!).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Motivo: ${ban.mensagem}`)
@@ -1300,13 +1324,18 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (p.cooldownAte && ms(p.cooldownAte) > Date.now()) throw new Error('Ainda estás de castigo por não aceitares uma partida.')
     if (noJogo(e, p.id)) throw new Error('Já tens uma partida a decorrer.')
     if (e.discord?.obrigatorio && !e.discord.membro) throw new Error('Entra no servidor de Discord do Rangify para poderes entrar na fila.')
-    if (e.fila.some((f) => f.perfilId === p.id)) return
-    e.fila.push({ perfilId: p.id, desde: iso(Date.now()) })
+    if (fila === 'ranked' && !podeRanked(p.tier)) throw new Error('A fila ranked é só para Ascendente 1 ou mais.')
+    const jaEsta = e.fila.find((f) => f.perfilId === p.id)
+    if (jaEsta) {
+      if (jaEsta.fila === fila) return
+      throw new Error(`Já estás na fila ${jaEsta.fila === 'ranked' ? 'ranked' : 'aberta'}. Sai dela para entrares na outra.`)
+    }
+    e.fila.push({ perfilId: p.id, desde: iso(Date.now()), fila })
     // Há sempre alguém à espera, como num hub com gente.
     const extra = Math.floor(aleatorio(1, 4))
-    for (let i = 0; i < extra && e.fila.length < 9; i++) {
-      const b = botLivre(e)
-      if (b) e.fila.push({ perfilId: b, desde: iso(Date.now() - aleatorio(20_000, 160_000)) })
+    for (let i = 0; i < extra && contarFila(e, fila) < 9; i++) {
+      const b = botLivre(e, [], fila)
+      if (b) e.fila.push({ perfilId: b, desde: iso(Date.now() - aleatorio(20_000, 160_000)), fila })
     }
     e.proximoBotEm = Date.now() + aleatorio(2000, 3500)
     guardar()
@@ -1482,17 +1511,19 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     return dadosLocais.devEncherFila(opts)
   },
 
-  async devEncherFila({ serCapitao }) {
+  async devEncherFila({ serCapitao, fila = 'aberta' }) {
     const e = await pronto()
     const p = exigirDev(e)
     if (noJogo(e, p.id)) throw new Error('Já tens uma partida a decorrer.')
     if (!p.riotId) throw new Error('Liga o teu Riot ID antes de entrar na fila.')
     e.serCapitao = serCapitao
-    if (!e.fila.some((f) => f.perfilId === p.id)) e.fila.push({ perfilId: p.id, desde: iso(Date.now()) })
-    while (e.fila.length < 10) {
-      const b = botLivre(e)
+    // A staff testa a fila que escolher, mesmo sem o rank (como na base de dados): sai da outra, se estava nela.
+    e.fila = e.fila.filter((f) => f.perfilId !== p.id || f.fila === fila)
+    if (!e.fila.some((f) => f.perfilId === p.id)) e.fila.push({ perfilId: p.id, desde: iso(Date.now()), fila })
+    while (contarFila(e, fila) < 10) {
+      const b = botLivre(e, [], fila)
       if (!b) break
-      e.fila.push({ perfilId: b, desde: iso(Date.now() - aleatorio(5_000, 90_000)) })
+      e.fila.push({ perfilId: b, desde: iso(Date.now() - aleatorio(5_000, 90_000)), fila })
     }
     e.proximaSimulada = true
     e.proximoBotEm = Date.now()
@@ -1575,7 +1606,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
   async jogadoresDaPartida(id) {
     const e = await carregar()
     const p = obterPartida(e, id)
-    return p.jogadores.map((j) => jogadorPublico(e, j))
+    return p.jogadores.map((j) => jogadorPublico(e, j, p.fila))
   },
 
   async missoes() {
@@ -1636,7 +1667,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     for (const p of terminadas(e)) for (const j of p.jogadores) {
       if (!j.equipa || !j.agente || j.rangifyScore == null) continue
       const perfil = e.perfis[j.perfilId]
-      if (!perfil || !jaJogou(perfil)) continue
+      if (!perfil || !jogouAlgumaFila(perfil)) continue
       const doAgente = por.get(j.agente) ?? new Map()
       const x = doAgente.get(j.perfilId) ?? { rs: [], vitorias: 0, acs: [], kills: 0, assists: 0, mortes: 0 }
       x.rs.push(j.rangifyScore)
@@ -1993,7 +2024,15 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
   },
 
   async publicarFilaDiscord() {
-    throw new Error('A mensagem da fila só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
+    throw new Error('A mensagem da fila aberta só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
+  async publicarFilaRankedDiscord() {
+    throw new Error('A mensagem da fila ranked só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
+  async acertarCargosRanked() {
+    throw new Error('Os cargos do Discord só se acertam com o Supabase ligado: no modo demo não há bot do Discord.')
   },
 
   async definirDiscordFila(obrigatorio, convite) {
@@ -2106,9 +2145,15 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       for (const j of p.jogadores) {
         const perfil = e.perfis[j.perfilId]
         if (!perfil || !j.equipa || j.deltaPontos == null) continue
-        perfil.pontos -= j.deltaPontos
-        if (j.equipa === p.vencedor) perfil.vitorias = Math.max(0, perfil.vitorias - 1)
-        else perfil.derrotas = Math.max(0, perfil.derrotas - 1)
+        if (p.fila === 'ranked') {
+          perfil.pontosRanked -= j.deltaPontos
+          if (j.equipa === p.vencedor) perfil.vitoriasRanked = Math.max(0, perfil.vitoriasRanked - 1)
+          else perfil.derrotasRanked = Math.max(0, perfil.derrotasRanked - 1)
+        } else {
+          perfil.pontos -= j.deltaPontos
+          if (j.equipa === p.vencedor) perfil.vitorias = Math.max(0, perfil.vitorias - 1)
+          else perfil.derrotas = Math.max(0, perfil.derrotas - 1)
+        }
       }
     }
     e.partidas = e.partidas.filter((x) => x.id !== id)
@@ -2144,7 +2189,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       const novo = calcularPontos(j.equipa === p.vencedor, p.resultadoA ?? 0, p.resultadoB ?? 0).total + perf
       const dif = novo - (j.deltaPontos ?? 0)
       const perfil = e.perfis[j.perfilId]
-      if (perfil && (p.pontosAplicados ?? !p.simulada)) perfil.pontos += dif
+      if (perfil && (p.pontosAplicados ?? !p.simulada)) { if (p.fila === 'ranked') perfil.pontosRanked += dif; else perfil.pontos += dif }
       if (j.pontosDepois != null) j.pontosDepois += dif
       j.deltaPontos = novo
       j.deltaDesempenho = j.rangifyScore != null ? perf : null
@@ -2162,14 +2207,15 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
   },
 
-  async definirPontos(perfilId, pontos) {
+  async definirPontos(perfilId, pontos, fila = 'aberta') {
     const e = await carregar()
     const me = eu(e)
     if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
     if (!Number.isInteger(pontos) || pontos < 0 || pontos > 10000) throw new Error('Os pontos têm de estar entre 0 e 10000.')
     const alvo = e.perfis[perfilId]
     if (!alvo) throw new Error('Jogador não encontrado.')
-    alvo.pontos = pontos
+    if (fila === 'ranked') alvo.pontosRanked = pontos
+    else alvo.pontos = pontos
     guardar()
     avisarMudanca('staff')
     avisarMudanca('perfil')
@@ -2334,7 +2380,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     return { chave: streamersDemo(e).chaves[me.id] }
   },
 
-  async overlayDados(chave): Promise<OverlayDados | null> {
+  async overlayDados(chave, filaPedida): Promise<OverlayDados | null> {
     const e = await pronto()
     const s = streamersDemo(e)
     const perfilId = Object.keys(s.chaves).find((id) => s.chaves[id] === chave)
@@ -2342,27 +2388,33 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!p || !streamersVisivel(e, p)) return null
     const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0)
     const dele = (m: PartidaGuardada) => m.jogadores.find((j) => j.perfilId === p.id && j.equipa)
-    const feitas = e.partidas.filter((m) => m.estado === 'COMPLETED' && !m.automatica && dele(m))
+    const feitasTodas = e.partidas.filter((m) => m.estado === 'COMPLETED' && !m.automatica && dele(m))
+    const viva = e.partidas.find((m) => !m.automatica && ativa(m.estado) && m.jogadores.some((j) => j.perfilId === p.id))
+    const naFila = e.fila.find((f) => f.perfilId === p.id)
+    // Em partida ou na fila: a fila de agora. Senão, a da última partida (ou a aberta). O endereço pode fixar uma.
+    const ultimaDeTodas = [...feitasTodas].sort((a, b) => (ms(b.terminouEm) || 0) - (ms(a.terminouEm) || 0))[0]
+    let tipo: FilaTipo = viva?.fila ?? naFila?.fila ?? ultimaDeTodas?.fila ?? 'aberta'
+    if (filaPedida === 'aberta' || filaPedida === 'ranked') tipo = filaPedida
+    const feitas = feitasTodas.filter((m) => m.fila === tipo)
     let vitorias = 0, derrotas = 0, delta = 0
     for (const m of feitas.filter((x) => (ms(x.terminouEm) || 0) >= inicioDia.getTime())) {
       const j = dele(m)!
       if (j.equipa === m.vencedor) vitorias++; else derrotas++
       delta += j.deltaPontos ?? 0
     }
-    const viva = e.partidas.find((m) => !m.automatica && ativa(m.estado) && m.jogadores.some((j) => j.perfilId === p.id))
-    const naFila = e.fila.find((f) => f.perfilId === p.id)
     const ult = [...feitas].sort((a, b) => (ms(b.terminouEm) || 0) - (ms(a.terminouEm) || 0))[0]
     const jUlt = ult ? dele(ult) : null
     return {
-      nome: nomeCurto(p), riotId: p.riotId, avatarUrl: p.avatarUrl, tier: p.tier, rr: p.rr, pontos: p.pontos, vitorias: p.vitorias, derrotas: p.derrotas,
+      nome: nomeCurto(p), riotId: p.riotId, avatarUrl: p.avatarUrl, tier: p.tier, rr: p.rr,
+      filaTipo: tipo, ...numerosDa(p, tipo), posicao: classificados(e, tipo).findIndex((x) => x.id === p.id) + 1,
       hoje: { vitorias, derrotas, delta },
       estado: viva ? 'partida' : naFila ? 'fila' : 'livre',
-      fila: !viva && naFila ? { contagem: e.fila.length, desde: naFila.desde } : null,
-      partida: viva ? { estado: viva.estado, codigo: viva.codigo, mapa: viva.mapa, equipa: viva.jogadores.find((j) => j.perfilId === p.id)?.equipa ?? null, comecouEm: viva.comecouEm } : null,
+      fila: !viva && naFila ? { contagem: contarFila(e, naFila.fila), desde: naFila.desde } : null,
+      partida: viva ? { estado: viva.estado, codigo: viva.codigo, mapa: viva.mapa, equipa: viva.jogadores.find((j) => j.perfilId === p.id)?.equipa ?? null, comecouEm: viva.comecouEm, fila: viva.fila } : null,
       ultima: ult && jUlt ? {
         codigo: ult.codigo, mapa: ult.mapa, venceu: jUlt.equipa === ult.vencedor,
         rondasFeitas: jUlt.equipa === 'A' ? ult.resultadoA : ult.resultadoB, rondasSofridas: jUlt.equipa === 'A' ? ult.resultadoB : ult.resultadoA,
-        delta: jUlt.deltaPontos ?? null, terminouEm: ult.terminouEm,
+        delta: jUlt.deltaPontos ?? null, terminouEm: ult.terminouEm, fila: ult.fila,
       } : null,
       twitch: s.twitch[p.id]?.login ?? null,
       codigoConvite: s.codigos[p.id] ?? null,
