@@ -2032,6 +2032,14 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     throw new Error('A mensagem da fila ranked só se publica com o Supabase ligado: no modo demo não há bot do Discord.')
   },
 
+  async publicarAnuncioDiscord() {
+    throw new Error('Os avisos só se publicam com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
+  async criarCanalAnunciosDiscord() {
+    throw new Error('O canal de avisos só se cria com o Supabase ligado: no modo demo não há bot do Discord.')
+  },
+
   async acertarCargosRanked() {
     throw new Error('Os cargos do Discord só se acertam com o Supabase ligado: no modo demo não há bot do Discord.')
   },

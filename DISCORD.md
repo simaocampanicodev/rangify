@@ -207,6 +207,26 @@ Quem não tem o cargo não vê o canal: é para quem chega a Ascendente 1 aparec
 
 Quando a staff avisa ou bane um jogador (**Staff › Jogadores › Moderar**), o bot manda-lhe uma **mensagem privada** com o texto da staff (e, num ban, a duração). Usa a função `discord-partida` (tipo `aviso`), por isso não precisa de mais nada além das funções publicadas e de `discord_config` (passos 6 e 7 de cima) e da migração `0026`. Se o jogador tiver as mensagens privadas do servidor fechadas, ou não tiver a conta de Discord ligada, o aviso continua a valer no site (popup que tem de confirmar) e o cartão do jogador na Staff mostra "DM falhou" ou "Sem Discord ligado".
 
+## Avisos (canal de avisos)
+
+Em **Staff › Discord › Avisos** (só Owner e Dev) escreves uma mensagem e o bot publica-a no canal `📢╺╸avisos`. O canal é **criado pelo bot** na primeira vez (ou em **Criar o canal agora**): fica visível para o cargo **Member** e só de leitura (só o bot escreve). Se não houver um cargo com o nome "Member" (ou "Membro"), o canal fica visível para todos.
+
+Todos os avisos têm o mesmo padrão: a barra laranja à esquerda, "Rangify Hub" com o ícone no topo e, no fim, a nota de que o hub não é afiliado, desenvolvido nem apoiado pela Riot Games (com a hora). O título (opcional), o texto e a imagem (opcional, um link https) são teus. O texto aceita a formatação do Discord: `**negrito**`, `*itálico*`, `__sublinhado__`, `~~riscado~~`, `||spoiler||`, `> citação`, listas com `-`, `# títulos`, `-# texto pequeno`, `código` entre crases e `[links](https://...)`. A página tem botões para isto, um guia com exemplos e uma pré-visualização do aviso.
+
+Por omissão a mensagem **não notifica ninguém**. Em **Avisar alguém** escolhes @here (quem está online) ou @everyone; pede confirmação antes de enviar.
+
+1. Corre `supabase/migrations/0034_discord_anuncios.sql` no **SQL Editor** (guarda o ID do canal).
+2. Publica a função (usa os mesmos segredos `DISCORD_BOT_TOKEN` e `DISCORD_GUILD_ID`):
+
+   ```bash
+   npx supabase functions deploy discord-anuncio
+   ```
+
+3. O bot precisa de **Gerir canais** (já tem, se o convidaste com o link deste guia) para criar o canal e de **Enviar mensagens** e **Incorporar links**. Para o "Avisar alguém" também precisa de **Mencionar @everyone, @here e todos os cargos**.
+4. Opcionais, nos secrets: `DISCORD_CARGO_MEMBER` (o ID do cargo Member, se o nome for outro) e `DISCORD_ANUNCIOS_CANAL` (o ID de um canal que já tenhas, em vez de o bot criar um).
+
+Se apagares o canal no Discord, o site cria outro sozinho no aviso seguinte.
+
 ## Se não aparecer nada
 
 - **Logs da função**: Supabase › **Edge Functions › discord-partida › Logs**. Os erros do Discord aparecem lá com o código (por exemplo `403 Missing Permissions`).

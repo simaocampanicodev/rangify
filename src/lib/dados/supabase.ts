@@ -11,7 +11,7 @@ import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
-  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, Sugestao,
 } from './tipos'
 
 /**
@@ -307,6 +307,8 @@ export const dadosSupabase: Dados = {
   publicarPingDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'ping' }),
   publicarFilaDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'fila' }),
   publicarFilaRankedDiscord: () => funcao<{ mensagem: string; editada: boolean }>('discord-ping', { canal: 'fila-ranked' }),
+  publicarAnuncioDiscord: (a) => funcao<ResultadoAnuncio>('discord-anuncio', { ...a }),
+  criarCanalAnunciosDiscord: () => funcao<ResultadoAnuncio>('discord-anuncio', { acao: 'canal' }),
   acertarCargosRanked: async () => (await funcao<{ cargos: ResumoCargosRanked }>('discord-ping', { canal: 'cargos' })).cargos,
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),

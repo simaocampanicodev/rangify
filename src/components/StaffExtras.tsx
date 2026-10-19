@@ -7,6 +7,7 @@ import { dados, type EstadoSugestao, type PaginaPartidas, type RecargaPartida, t
 import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
 import { comSinal, rangifyScores } from '@/lib/pontos'
+import { AnunciosDiscord } from './AnunciosDiscord'
 import { BotaoSegurar, Carregando, Chip, IconeAgente, Segmentado, Vazio } from './ui'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -366,6 +367,7 @@ function MensagensDiscord() {
         feito={l('Mensagem da fila ranked publicada no Discord.', 'Ranked queue message posted on Discord.')}
       />
       <CargosRanked />
+      <AnunciosDiscord />
     </>
   )
 }

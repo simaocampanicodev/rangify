@@ -49,6 +49,10 @@ export interface Perfil {
   criadoEm: string
 }
 
+/** Um aviso para o canal de avisos do Discord. O texto aceita a formatação do Discord (negrito, itálico, listas...). */
+export interface AnuncioDiscord { titulo: string; mensagem: string; imagem: string; avisar: 'nao' | 'everyone' | 'here' }
+export interface ResultadoAnuncio { canal: string; canalCriado: boolean; semMember: boolean; link: string; mensagem?: string }
+
 /** As duas filas: a aberta (qualquer rank) e a ranked (Ascendente 1 ou mais). */
 export type FilaTipo = 'aberta' | 'ranked'
 
@@ -897,6 +901,13 @@ export interface Dados {
   /** Owner e Dev: publica no canal da fila a mensagem com a contagem e os botões "Entrar na fila" e "Abrir o site" (ou atualiza a que lá está). */
   publicarFilaDiscord(): Promise<{ mensagem: string; editada: boolean }>
   publicarFilaRankedDiscord(): Promise<{ mensagem: string; editada: boolean }>
+  /**
+   * Owner e Dev: publica um aviso no canal de avisos do Discord (o bot cria o canal na primeira vez). O embed leva sempre a
+   * barra laranja, "Rangify Hub" no topo e o aviso de que o hub não é afiliado com a Riot; o resto é o que se escreve.
+   */
+  publicarAnuncioDiscord(a: AnuncioDiscord): Promise<ResultadoAnuncio>
+  /** Owner e Dev: cria o canal de avisos no Discord (ou diz qual é, se já existe). */
+  criarCanalAnunciosDiscord(): Promise<ResultadoAnuncio>
   /** Acerta o cargo Ranked do Discord de toda a gente pelo rank oficial (Ascendente 1 ou mais). */
   acertarCargosRanked(): Promise<ResumoCargosRanked>
   /** Os canais de Discord da partida, para quem a joga (null se ainda não existem). */
