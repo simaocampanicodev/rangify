@@ -74,7 +74,7 @@ Quando um jogo está a decorrer, o hub procura na API da Riot uma partida que se
 
 ## Pôr no ar (uma vez)
 
-1. **Base de dados.** No SQL Editor, corre `supabase/migrations/0031_torneios.sql` (pode correr outra vez sem estragar nada). Cria as tabelas, as funções e dois jobs de `pg_cron`: `rangify-torneios` (pede à Edge Function que veja os jogos a decorrer) e `rangify-torneios-veto` (joga ao calhas as vezes dos picks e bans que passaram do prazo).
+1. **Base de dados.** No SQL Editor, corre `supabase/migrations/0031_torneios.sql`. Pode correr outra vez sem estragar nada, e também por cima da versão anterior dos torneios (a dos picks e bans sem séries): acrescenta as colunas que faltam e mantém os dados. Cria as tabelas, as funções e dois jobs de `pg_cron`: `rangify-torneios` (pede à Edge Function que veja os jogos a decorrer) e `rangify-torneios-veto` (joga ao calhas as vezes dos picks e bans que passaram do prazo).
 2. **Edge Function.**
    ```
    npx supabase functions deploy processar-torneio --no-verify-jwt
@@ -89,4 +89,4 @@ Quando um jogo está a decorrer, o hub procura na API da Riot uma partida que se
 - `supabase/functions/processar-torneio` + `_shared/henrik-partida.ts`: deteção do resultado.
 - `src/lib/dados/local-torneios.ts`: o mesmo motor para o modo demo, com as mesmas regras e mensagens.
 - `src/pages/Torneios.tsx`, `src/pages/Torneio.tsx`, `src/components/torneios/*`: o hub; `StaffTorneios.tsx`: a Staff.
-- Testes (`npm run testar-sql`): `scripts/testar-torneios.mjs` (SQL num Postgres local), `scripts/testar-deteccao.mjs` (deteção na API) e `scripts/testar-torneios-demo.mjs` (motor do demo).
+- Testes (`npm run testar-sql`): `scripts/testar-torneios.mjs` (SQL num Postgres local), `scripts/testar-migracao-torneios.mjs` (a 0031 por cima da versão anterior, com `scripts/fixtures/torneios-0031-anterior.sql`), `scripts/testar-deteccao.mjs` (deteção na API) e `scripts/testar-torneios-demo.mjs` (motor do demo).
