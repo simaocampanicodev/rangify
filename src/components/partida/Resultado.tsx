@@ -260,12 +260,12 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
       <div className="flex flex-col gap-[18px]">
         <Cabeca
           p={p}
-          eyebrow={`${l('TERMINADA', 'FINISHED')} · ${p.mapa?.toUpperCase()}${min ? ` · ${min} MIN` : ''}${p.simulada ? ` · ${l('SIMULAÇÃO', 'SIMULATION')}` : ''}`}
+          eyebrow={`${l('TERMINADA', 'FINISHED')} · ${p.mapa?.toUpperCase()}${min ? ` · ${min} MIN` : ''}${p.fila === 'ranked' ? ' · RANKED' : ''}${p.simulada ? ` · ${l('SIMULAÇÃO', 'SIMULATION')}` : ''}`}
           titulo={venci ? `${l('Vitória', 'Win')}, ${placar}` : `${l('Derrota', 'Loss')}, ${placar}`}
-          texto={p.simulada ? l('Partida de teste: os pontos e as estatísticas contam. Remove-a para voltar tudo atrás.', 'Test match: points and stats count. Remove it to undo everything.') : l('Resultado confirmado. Os pontos já estão na tabela.', 'Result confirmed. The points are already on the leaderboard.')}
+          texto={p.simulada ? l('Partida de teste: os pontos e as estatísticas contam. Remove-a para voltar tudo atrás.', 'Test match: points and stats count. Remove it to undo everything.') : p.fila === 'ranked' ? l('Resultado confirmado. Os pontos já estão na Tabela Ranked.', 'Result confirmed. The points are already on the Ranked leaderboard.') : l('Resultado confirmado. Os pontos já estão na tabela.', 'Result confirmed. The points are already on the leaderboard.')}
           direita={minha?.deltaPontos != null && (
             <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-5 py-3">
-              <span className="rotulo">{l('Os teus pontos', 'Your points')}</span>
+              <span className="rotulo">{l('Os teus pontos', 'Your points')}{p.fila === 'ranked' ? ' · RANKED' : ''}</span>
               <span className={`font-mono text-[34px] leading-none font-semibold ${minha.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(minha.deltaPontos)}</span>
               {minha.deltaDesempenho != null && (
                 <span className="font-mono text-[11.5px] text-mudo">

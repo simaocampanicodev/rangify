@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type Partida } from '@/lib/dados'
+import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type FilaTipo, type Partida } from '@/lib/dados'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
 import { consultarExtensao, extensaoAvisarFila, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
 import { acertarRelogio } from '@/lib/tempo'
@@ -18,7 +18,7 @@ interface ValorPartida {
 }
 
 const Contexto = createContext<ValorPartida | null>(null)
-/** Marca no separador que a fila foi deixada ao descarregar a página: um recarregar volta a pô-la. */
+/** Marca no separador que a fila foi deixada ao descarregar a página ("hora|fila"): um recarregar volta a pô-la, na mesma fila. */
 const CHAVE_RECARGA = 'rangify:fila-ao-fechar'
 const JANELA_RECARGA = 30_000
 const BATIMENTO = 30_000
@@ -114,17 +114,18 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   // Fechar o separador ou o browser tira-te da fila. Recarregar a página também a deixa, mas
   // ao abrir de novo voltas a entrar (é o mesmo separador), por isso quase não se nota.
   const meuId = sessao && !sessao.incompleta ? sessao.perfilId : null
+  const tipoNaFila: FilaTipo = fila?.fila === 'ranked' ? 'ranked' : 'aberta'
   useEffect(() => {
     if (!naFila) return
     const sair = () => {
       // Com a extensão do browser viva nesta conta, fechar o site não tira ninguém da fila: é ela que dá o sinal de vida.
       if (meuId && extensaoMantemAFila(meuId)) return
-      try { sessionStorage.setItem(CHAVE_RECARGA, String(Date.now())) } catch { /* sem sessionStorage */ }
+      try { sessionStorage.setItem(CHAVE_RECARGA, `${Date.now()}|${tipoNaFila}`) } catch { /* sem sessionStorage */ }
       dados.sairFilaAoFechar()
     }
     window.addEventListener('pagehide', sair)
     return () => window.removeEventListener('pagehide', sair)
-  }, [naFila, meuId])
+  }, [naFila, meuId, tipoNaFila])
 
   // Entrar ou sair da fila (por qualquer caminho) avisa a extensão, que passa a acompanhá-la por Realtime.
   const jaViu = useRef<boolean | null>(null)
@@ -155,13 +156,16 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!perfilDaFila) return
     let antes = 0
+    let tipo: FilaTipo = 'aberta'
     try {
-      antes = Number(sessionStorage.getItem(CHAVE_RECARGA))
+      const [quando, qual] = (sessionStorage.getItem(CHAVE_RECARGA) ?? '').split('|')
+      antes = Number(quando)
+      if (qual === 'ranked') tipo = 'ranked'
       sessionStorage.removeItem(CHAVE_RECARGA)
     } catch { /* sem sessionStorage */ }
     if (!antes || Date.now() - antes > JANELA_RECARGA) return
     // Um instante para o pedido de saída da página anterior chegar primeiro.
-    const t = window.setTimeout(() => { dados.entrarFila().then(() => avisarMudanca('fila')).catch(() => {}) }, 1500)
+    const t = window.setTimeout(() => { dados.entrarFila(tipo).then(() => avisarMudanca('fila')).catch(() => {}) }, 1500)
     return () => window.clearTimeout(t)
   }, [perfilDaFila])
 

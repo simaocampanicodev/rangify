@@ -136,6 +136,7 @@ export function Sidebar() {
         },
         { para: '/ranking', texto: l('Tabela', 'Leaderboard'), icone: <Trophy size={18} />, tour: 'ranking' },
         { para: '/partidas', texto: l('Partidas', 'Matches'), icone: <Clock size={18} />, tour: 'partidas' },
+        ...(torneios.valor ? [{ para: '/torneios', texto: l('Torneios', 'Tournaments'), icone: <Medal size={18} />, tour: 'torneios', extra: convitesTorneio.valor?.length ? <Contador>{convitesTorneio.valor.length}</Contador> : null }] : []),
       ],
     },
     {
@@ -144,7 +145,6 @@ export function Sidebar() {
         { para: '/amigos', texto: l('Amigos', 'Friends'), icone: <Users size={18} />, tour: 'amigos', extra: pedidos ? <Contador>{pedidos}</Contador> : null },
         { para: '/sugestoes', texto: l('Sugestões', 'Suggestions'), icone: <Lightbulb size={18} />, tour: 'sugestoes' },
         ...(loja.valor ? [{ para: '/loja', texto: l('Loja', 'Shop'), icone: <ShoppingBag size={18} />, tour: 'loja' }] : []),
-        ...(torneios.valor ? [{ para: '/torneios', texto: l('Torneios', 'Tournaments'), icone: <Medal size={18} />, tour: 'torneios', extra: convitesTorneio.valor?.length ? <Contador>{convitesTorneio.valor.length}</Contador> : null }] : []),
         ...(divulgar.valor ? [{ para: '/divulgar', texto: l('Divulgar', 'Share'), icone: <Megaphone size={18} />, tour: 'divulgar' }] : []),
       ],
     },

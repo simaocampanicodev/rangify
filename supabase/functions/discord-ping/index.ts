@@ -1,10 +1,13 @@
 // Chamada pela Staff (Owner e Dev) no site: publica a mensagem do bot num dos canais, ou atualiza a
 // que já lá está (o id fica em config). O corpo diz qual:
 //   { canal: 'ping' } (ou vazio): canal de ping, com o botão "Chamar para a fila";
-//   { canal: 'fila' }            : canal da fila, com a contagem e os botões "Entrar na fila" e "Abrir o site".
+//   { canal: 'fila' }            : canal da fila aberta, com a contagem e os botões "Entrar na fila aberta" e "Abrir o site";
+//   { canal: 'fila-ranked' }     : canal da fila ranked (só quem tem o cargo Ranked o vê), com o mesmo;
+//   { canal: 'cargos' }          : acerta o cargo Ranked de toda a gente pelo rank oficial (Ascendente 1 ou mais).
 // O token do bot fica nos secrets do Supabase; nunca passa pelo site.
 import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
-import { CANAL_FILA, CANAL_PING, filaAtual, mensagemFila, mensagemPing } from '../_shared/discord-ping.ts'
+import { sincronizarCargoRanked } from '../_shared/discord-cargo.ts'
+import { CANAL_FILA, CANAL_FILA_RANKED, CANAL_PING, filaAtual, mensagemFila, mensagemPing } from '../_shared/discord-ping.ts'
 
 const API = 'https://discord.com/api/v10'
 
@@ -31,13 +34,23 @@ Deno.serve(async (req) => {
     if (!Deno.env.get('DISCORD_BOT_TOKEN')) return erro('O bot do Discord ainda não está configurado (falta o DISCORD_BOT_TOKEN).', 503)
 
     const { canal } = await req.json().catch(() => ({})) as { canal?: string }
-    const daFila = canal === 'fila'
-    const canalId = daFila ? CANAL_FILA : CANAL_PING
-    const coluna = daFila ? 'discord_fila_message' : 'discord_ping_message'
-    const nome = daFila ? 'da fila' : 'de ping'
+    if (canal === 'cargos') {
+      try {
+        return resposta({ cargos: await sincronizarCargoRanked(db) })
+      } catch (e) {
+        console.error(e)
+        return erro(e instanceof Error ? e.message : 'Não foi possível acertar os cargos.', 502)
+      }
+    }
+    const aberta = canal === 'fila'
+    const ranked = canal === 'fila-ranked'
+    const canalId = ranked ? CANAL_FILA_RANKED : aberta ? CANAL_FILA : CANAL_PING
+    const coluna = ranked ? 'discord_fila_ranked_message' : aberta ? 'discord_fila_message' : 'discord_ping_message'
+    const nome = ranked ? 'da fila ranked' : aberta ? 'da fila aberta' : 'de ping'
 
     const { data: config } = await db.from('config').select(coluna).eq('id', true).maybeSingle()
-    const mensagem = daFila ? mensagemFila(await filaAtual(db)) : mensagemPing()
+    const mensagem = ranked ? mensagemFila(await filaAtual(db, 'ranked'), 'ranked')
+      : aberta ? mensagemFila(await filaAtual(db, 'aberta'), 'aberta') : mensagemPing()
     const antiga: string | null = (config as Record<string, string | null> | null)?.[coluna] ?? null
 
     // Se a mensagem já existe, só a atualiza (os botões continuam os mesmos).

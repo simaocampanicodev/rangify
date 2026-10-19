@@ -6,13 +6,16 @@
  * Não pedem login: a chave secreta na ligação diz de quem são os dados (ver overlay_dados na base de dados).
  * O fundo é transparente. Aceitam, no endereço: estilo=cartao|barra, cor=laranja|azul|verde|rosa|roxo|ouro|branco ou
  * um hex de 6 dígitos, mostrar=rank,hoje,estado,ultima,fim, escala=50..200 (e, na marca, host=endereco).
+ * O cartão mostra os pontos da fila em que a pessoa está a jogar (ou da última em que jogou); `fila=aberta|ranked`
+ * prende-o a uma só, para quem quer um overlay por fila.
  */
+import { ChevronsUp, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { NomeRangify, Simbolo } from '@/components/Marca'
 import { useAgora } from '@/hooks/useAgora'
 import { VALORES_CONVITE } from '@/lib/convites'
-import { aoMudarDados, dados, type EstadoPartida, type OverlayDados } from '@/lib/dados'
+import { aoMudarDados, dados, type EstadoPartida, type FilaTipo, type OverlayDados } from '@/lib/dados'
 import { l } from '@/lib/idioma'
 import { imagemMapa } from '@/lib/mapas'
 import { corRank, nomeRank } from '@/lib/ranks'
@@ -23,7 +26,7 @@ const VITORIA = '#5fe3d6'
 const DERROTA = '#ff7d8f'
 const MUDO = '#8a857e'
 
-export interface OpcoesOverlay { estilo: 'cartao' | 'barra'; cor: string; mostrar: Set<string>; escala: number }
+export interface OpcoesOverlay { estilo: 'cartao' | 'barra'; cor: string; mostrar: Set<string>; escala: number; fila: FilaTipo | null }
 
 /** As opções vêm do endereço; o que não se percebe fica no padrão. */
 export function lerOpcoes(q: URLSearchParams): OpcoesOverlay {
@@ -32,7 +35,8 @@ export function lerOpcoes(q: URLSearchParams): OpcoesOverlay {
   const todos = ['rank', 'hoje', 'estado', 'ultima', 'fim']
   const pedidos = (q.get('mostrar') ?? '').split(',').map((x) => x.trim()).filter((x) => todos.includes(x))
   const escala = Math.min(200, Math.max(50, Number(q.get('escala')) || 100))
-  return { estilo: q.get('estilo') === 'barra' ? 'barra' : 'cartao', cor, mostrar: new Set(pedidos.length ? pedidos : todos), escala }
+  const fila = q.get('fila') === 'ranked' ? 'ranked' : q.get('fila') === 'aberta' ? 'aberta' : null
+  return { estilo: q.get('estilo') === 'barra' ? 'barra' : 'cartao', cor, mostrar: new Set(pedidos.length ? pedidos : todos), escala, fila }
 }
 
 /** O fundo do OBS transparente enquanto uma destas páginas está aberta. */
@@ -49,20 +53,20 @@ function useFundoTransparente(ativo = true) {
  * Cada resposta traz a hora do servidor: o overlay acerta o relógio por ela, senão com o relógio do computador uns
  * segundos atrasado os tempos da fila e da partida ficavam em 00:00 até ele "apanhar" o servidor.
  */
-function useOverlayDados(chave: string | undefined) {
+function useOverlayDados(chave: string | undefined, fila: FilaTipo | null = null) {
   const [valor, setValor] = useState<OverlayDados | null>(null)
   const [pronto, setPronto] = useState(false)
   useEffect(() => {
     if (!chave) { setPronto(true); return }
     let vivo = true
-    const carregar = () => dados.overlayDados(chave)
+    const carregar = () => dados.overlayDados(chave, fila ?? undefined)
       .then((r) => { if (vivo) { if (r) acertarRelogio(r.agora); setValor(r); setPronto(true) } })
       .catch(() => { if (vivo) setPronto(true) })
     carregar()
     const t = window.setInterval(carregar, 3000)
     const parar = aoMudarDados(() => carregar())
     return () => { vivo = false; window.clearInterval(t); parar() }
-  }, [chave])
+  }, [chave, fila])
   return { valor, pronto }
 }
 
@@ -102,6 +106,8 @@ const FASES: Record<string, [string, string]> = {
   PROCESSING_API: ['A CONFIRMAR', 'CONFIRMING'],
   DISPUTE: ['RESULTADO', 'RESULT'],
 }
+/** O nome da fila nos rótulos do overlay. */
+const nomeFilaOv = (f: FilaTipo | undefined) => (f === 'ranked' ? 'RANKED' : l('ABERTA', 'OPEN'))
 const nomeFase = (e: EstadoPartida) => { const f = FASES[e] ?? ['EM PARTIDA', 'IN MATCH']; return l(f[0], f[1]) }
 
 /** O que o estado do jogador diz, já com os tempos a contar. */
@@ -111,10 +117,10 @@ function useEstado(d: OverlayDados) {
   const desde = (iso: string | null | undefined) => (iso ? Math.max(0, (agora - Date.parse(iso)) / 1000) : 0)
   if (d.estado === 'partida' && d.partida) {
     const emJogo = d.partida.estado === 'IN_PROGRESS' && !!d.partida.comecouEm
-    return { tipo: 'partida' as const, rotulo: nomeFase(d.partida.estado), mapa: d.partida.mapa, tempo: emJogo ? relogio(desde(d.partida.comecouEm)) : null, contagem: 0 }
+    return { tipo: 'partida' as const, rotulo: `${nomeFase(d.partida.estado)} · ${nomeFilaOv(d.partida.fila ?? d.filaTipo)}`, mapa: d.partida.mapa, tempo: emJogo ? relogio(desde(d.partida.comecouEm)) : null, contagem: 0 }
   }
   if (d.estado === 'fila' && d.fila) {
-    return { tipo: 'fila' as const, rotulo: l('NA FILA', 'IN QUEUE'), mapa: null, tempo: relogio(desde(d.fila.desde)), contagem: Math.min(10, d.fila.contagem) }
+    return { tipo: 'fila' as const, rotulo: `${l('NA FILA', 'IN QUEUE')} · ${nomeFilaOv(d.filaTipo)}`, mapa: null, tempo: relogio(desde(d.fila.desde)), contagem: Math.min(10, d.fila.contagem) }
   }
   return { tipo: 'livre' as const, rotulo: l('LIVRE', 'IDLE'), mapa: null, tempo: null, contagem: 0 }
 }
@@ -165,6 +171,21 @@ function Pips({ v, d }: { v: number; d: number }) {
   return (
     <span className="flex items-center gap-1" aria-hidden>
       {lista.map((c, i) => <span key={i} className="size-[11px] rounded-[3px]" style={{ background: c || 'rgba(255,255,255,0.1)', boxShadow: c ? `0 0 8px ${c}8c` : undefined }} />)}
+    </span>
+  )
+}
+
+/** Em que fila contam os pontos e em que lugar da tabela dela estás: cheia na ranked, só o contorno na aberta. */
+function PilulaFila({ d }: { d: OverlayDados }) {
+  const ranked = d.filaTipo === 'ranked'
+  const lugar = d.posicao ? ` · #${d.posicao}` : ''
+  return (
+    <span
+      className="inline-flex h-5 items-center gap-[5px] rounded-md px-2 font-mono text-[10px] font-bold tracking-[0.1em] whitespace-nowrap"
+      style={ranked ? { background: 'var(--ov)', color: '#170802' } : { border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#d0cbc4' }}
+    >
+      {ranked ? <ChevronsUp size={11} strokeWidth={3} aria-hidden /> : <Users size={11} strokeWidth={2.6} aria-hidden />}
+      {nomeFilaOv(d.filaTipo)}{lugar}
     </span>
   )
 }
@@ -289,7 +310,7 @@ function AvisoFim({ u }: { u: Ultima }) {
       <span aria-hidden className="absolute top-0 bottom-0 w-[70px]" style={{ background: 'linear-gradient(100deg, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0))', animation: 'rg-ov-varre 2.2s ease-in-out infinite' }} />
       <span className="relative flex flex-col gap-px">
         <span className="text-[25px] leading-none font-extrabold tracking-[0.08em]">{u.venceu ? l('VITÓRIA', 'VICTORY') : l('DERROTA', 'DEFEAT')}</span>
-        <span className="font-mono text-[11px] font-bold tracking-[0.1em]">{u.rondasFeitas != null && u.rondasSofridas != null ? `${u.rondasFeitas}–${u.rondasSofridas}` : ''}{u.mapa ? ` · ${u.mapa.toUpperCase()}` : ''}</span>
+        <span className="font-mono text-[11px] font-bold tracking-[0.1em]">{u.rondasFeitas != null && u.rondasSofridas != null ? `${u.rondasFeitas}–${u.rondasSofridas}` : ''}{u.mapa ? ` · ${u.mapa.toUpperCase()}` : ''} · {nomeFilaOv(u.fila)}</span>
       </span>
       {u.delta != null && <span className="relative font-mono text-[24px] font-bold tracking-[-0.03em]">{u.delta > 0 ? '+' : ''}{u.delta}<span className="ml-1 text-[11px]">PTS</span></span>}
     </span>
@@ -315,7 +336,7 @@ export function Overlay() {
   const { chave } = useParams()
   const [q] = useSearchParams()
   const o = lerOpcoes(q)
-  const { valor: d, pronto } = useOverlayDados(chave)
+  const { valor: d, pronto } = useOverlayDados(chave, o.fila)
   const aviso = useFimDePartida(d, o.mostrar.has('fim'))
   useFundoTransparente()
   if (!d) {
@@ -324,7 +345,12 @@ export function Overlay() {
   }
   const reserva = o.mostrar.has('fim') ? ESPACO_AVISO : 0
   const estilo = { '--ov': o.cor, transform: `scale(${o.escala / 100})`, transformOrigin: 'top left', paddingTop: 8 + reserva } as CSSProperties
-  const pontos = <span className="flex items-baseline gap-[5px] font-mono"><span className="text-[25px] leading-none font-bold tracking-[-0.05em]">{d.pontos}</span><span className="text-[10px] tracking-[0.1em]" style={{ color: MUDO }}>PTS</span></span>
+  const pontos = (
+    <span className="flex flex-col items-end gap-[7px]">
+      <span className="flex items-baseline gap-[5px] font-mono"><span className="text-[25px] leading-none font-bold tracking-[-0.05em]">{d.pontos}</span><span className="text-[10px] tracking-[0.1em]" style={{ color: MUDO }}>PTS</span></span>
+      <PilulaFila d={d} />
+    </span>
+  )
   const nomeRankTexto = (
     <span className="font-mono text-[14px] font-bold tracking-[0.12em] whitespace-nowrap" style={{ color: `color-mix(in srgb, ${corRank(d.tier)} 55%, white)` }}>{nomeRank(d.tier).toUpperCase()}</span>
   )
@@ -362,8 +388,8 @@ export function Overlay() {
         <Cantos />
         <span className="relative flex w-[340px] flex-col gap-[15px] overflow-hidden rounded-[18px] border px-[18px] pt-[18px] pb-4" style={{ ...VIDRO, borderColor: 'color-mix(in srgb, var(--ov) 35%, transparent)', animation: 'rg-ov-entra .4s ease both' }}>
           <span aria-hidden className="absolute top-0 right-0 left-0 h-0.5" style={{ background: 'linear-gradient(90deg, var(--ov), rgba(255,255,255,0) 68%)' }} />
-          <span className="flex items-center justify-between gap-3">
-            <span className="flex min-w-0 items-center gap-2.5"><span style={{ color: 'var(--ov)' }} className="inline-flex shrink-0"><Simbolo tamanho={31} /></span><span className="truncate text-[21px] leading-none font-extrabold tracking-[-0.03em]">{d.nome}</span></span>
+          <span className="flex items-start justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2.5 self-center"><span style={{ color: 'var(--ov)' }} className="inline-flex shrink-0"><Simbolo tamanho={31} /></span><span className="truncate text-[21px] leading-none font-extrabold tracking-[-0.03em]">{d.nome}</span></span>
             {o.mostrar.has('rank') && pontos}
           </span>
           {o.mostrar.has('rank') && (

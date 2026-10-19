@@ -81,6 +81,11 @@ export function Perfil() {
   const amizade = amigos.valor?.find((a) => a.perfil.id === p.id)
   const s = stats.valor
   const ganho = p.pontos - PONTOS_INICIAIS
+  // A ranked só aparece no perfil de quem já jogou nela; o registo junta as duas filas.
+  const comRanked = p.vitoriasRanked + p.derrotasRanked > 0
+  const ganhoRanked = p.pontosRanked - PONTOS_INICIAIS
+  const vitoriasTodas = p.vitorias + p.vitoriasRanked
+  const derrotasTodas = p.derrotas + p.derrotasRanked
 
   return (
     <>
@@ -113,9 +118,13 @@ export function Perfil() {
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
         {[
-          [l('Pontos', 'Points'), String(p.pontos), comSinal(ganho) + l(' desde 1000', ' since 1000'), ganho >= 0 ? 'text-vitoria' : 'text-derrota'],
-          [l('Posição', 'Position'), s ? `#${s.posicao}` : '-', s ? l(`de ${s.totalJogadores} jogadores`, `of ${s.totalJogadores} players`) : '', 'text-mudo'],
-          [l('Registo', 'Record'), `${p.vitorias}${l('V', 'W')} · ${p.derrotas}${l('D', 'L')}`, s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : l('sem partidas', 'no matches'), 'text-mudo'],
+          [comRanked ? l('Pontos · aberta', 'Points · open') : l('Pontos', 'Points'), String(p.pontos), comSinal(ganho) + l(' desde 1000', ' since 1000'), ganho >= 0 ? 'text-vitoria' : 'text-derrota'],
+          [comRanked ? l('Posição · aberta', 'Position · open') : l('Posição', 'Position'), s && p.vitorias + p.derrotas > 0 ? `#${s.posicao}` : '-', s ? l(`de ${s.totalJogadores} jogadores`, `of ${s.totalJogadores} players`) : '', 'text-mudo'],
+          ...(comRanked ? [
+            [l('Pontos · ranked', 'Points · ranked'), String(p.pontosRanked), comSinal(ganhoRanked) + l(' desde 1000', ' since 1000'), ganhoRanked >= 0 ? 'text-vitoria' : 'text-derrota'],
+            [l('Posição · ranked', 'Position · ranked'), s?.posicaoRanked ? `#${s.posicaoRanked}` : '-', s?.totalRanked ? l(`de ${s.totalRanked} jogadores`, `of ${s.totalRanked} players`) : '', 'text-mudo'],
+          ] : []),
+          [l('Registo', 'Record'), `${vitoriasTodas}${l('V', 'W')} · ${derrotasTodas}${l('D', 'L')}`, comRanked ? l(`${p.vitoriasRanked}V-${p.derrotasRanked}D na ranked`, `${p.vitoriasRanked}W-${p.derrotasRanked}L in ranked`) : s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : l('sem partidas', 'no matches'), 'text-mudo'],
           ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-', s?.acs != null ? l(`${Math.round(s.acs)} ACS de média`, `${Math.round(s.acs)} average ACS`) : '', 'text-mudo'],
           ['Rangify Score', s?.rangifyScore != null ? String(Math.round(s.rangifyScore)) : '-', s?.melhorRs != null ? l(`melhor: ${s.melhorRs}`, `best: ${s.melhorRs}`) : l('100 é a média', '100 is average'), 'text-mudo'],
           ['MVP', s ? String(s.mvps) : '-', s ? `${s.firstBloods} first bloods` : '', 'text-mudo'],

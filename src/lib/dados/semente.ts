@@ -5,12 +5,13 @@
  */
 import { ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
 import { PONTOS_INICIAIS } from '../pontos'
+import { podeRanked } from '../ranks'
 import { equipaDaEscolha } from '../regras'
 import {
   aplicarResultado, baralhar, codigoGrupo, codigoPartida, definirCapitaes, entre, escolherUm, gerarEstatisticas,
   gerarResultado, inteiro, melhorDisponivel, mulberry32, novoJogador, type PartidaGuardada, type Rng,
 } from './motor'
-import type { EstadoSugestao, Funcao, FuncaoJogo, Missao, Perfil } from './tipos'
+import type { EstadoSugestao, FilaTipo, Funcao, FuncaoJogo, Missao, Perfil } from './tipos'
 
 export const ID_DEMO = 'j-nyx'
 export const PASSWORD_DEMO = 'nyx4521'
@@ -83,19 +84,20 @@ function semAcentos(s: string) {
 function novoPerfil(id: string, nome: string, tag: string, tier: number, funcao: Funcao, funcaoJogo: FuncaoJogo, criadoEm: string): Perfil {
   return {
     id, utilizador: semAcentos(nome), avatarUrl: null, riotId: `${nome}#${tag}`, regiao: 'eu', tier,
-    rr: null, rankAtualizadoEm: null, pontos: PONTOS_INICIAIS, vitorias: 0, derrotas: 0, funcao, funcaoJogo,
+    rr: null, rankAtualizadoEm: null, pontos: PONTOS_INICIAIS, vitorias: 0, derrotas: 0,
+    pontosRanked: PONTOS_INICIAIS, vitoriasRanked: 0, derrotasRanked: 0, funcao, funcaoJogo,
     bot: false, cooldownAte: null, tourVistoEm: criadoEm, temPassword: true, criadoEm,
   }
 }
 
 /** Monta uma partida completa de histórico: draft, bans, resultado e estatísticas. */
-function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], quando: number, favorecer?: string): PartidaGuardada {
+function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], quando: number, favorecer?: string, fila: FilaTipo = 'aberta'): PartidaGuardada {
   const inicio = new Date(quando).toISOString()
   const duracao = inteiro(rng, 28, 46) * 60_000
   const fim = new Date(quando + 6 * 60_000 + duracao).toISOString()
   const p: PartidaGuardada = {
     id: `h-${Math.floor(rng() * 1e9).toString(36)}-${ids.length}`,
-    codigo: codigoPartida(rng), estado: 'IN_PROGRESS', regiao: 'eu', mapa: null, capitaoA: null, capitaoB: null,
+    codigo: codigoPartida(rng), estado: 'IN_PROGRESS', regiao: 'eu', fila, mapa: null, capitaoA: null, capitaoB: null,
     codigoGrupo: codigoGrupo(rng), resultadoA: null, resultadoB: null, vencedor: null, simulada: false, pool: [...ROTACAO_PADRAO], automatica: false,
     prazoConfirmacao: null, inicioFase: null, prazoFase: null, comecouEm: new Date(quando + 6 * 60_000).toISOString(), terminouEm: null,
     estatisticas: false, criadaEm: inicio, atualizadaEm: fim, jogadores: ids.map((id) => ({ ...novoJogador(perfis[id]), aceitou: true })), bans: [], submissoes: [], lado: null, sugestoes: [],
@@ -118,10 +120,12 @@ function jogarPartida(rng: Rng, perfis: Record<string, Perfil>, ids: string[], q
   // para ficar a meio da tabela com um histórico variado, seja qual for a sorte.
   if (favorecer) {
     const eu = perfis[favorecer]
-    const alvo = PONTOS_INICIAIS + 4 * (eu.vitorias + eu.derrotas)
+    const jogos = fila === 'ranked' ? eu.vitoriasRanked + eu.derrotasRanked : eu.vitorias + eu.derrotas
+    const pontos = fila === 'ranked' ? eu.pontosRanked : eu.pontos
+    const alvo = PONTOS_INICIAIS + 4 * jogos
     const eq = p.jogadores.find((j) => j.perfilId === favorecer)!.equipa
     const ganhou = (eq === 'A' && r.a > r.b) || (eq === 'B' && r.b > r.a)
-    if ((!ganhou && eu.pontos < alvo - 15 && rng() < 0.65) || (ganhou && eu.pontos > alvo + 25 && rng() < 0.55)) r = { a: r.b, b: r.a }
+    if ((!ganhou && pontos < alvo - 15 && rng() < 0.65) || (ganhou && pontos > alvo + 25 && rng() < 0.55)) r = { a: r.b, b: r.a }
   }
   p.submissoes = [
     { capitaoId: p.capitaoA!, vencedor: r.a > r.b ? 'A' : 'B', em: fim },
@@ -147,6 +151,8 @@ export function gerarSemente(agora = Date.now()) {
     let tier = Math.round(16 + (rng() + rng() + rng() - 1.5) * 8)
     if (i === 6) tier = 27
     if (i === 0 || i === 12 || i === 33) tier = inteiro(rng, 24, 26)
+    // Um terço da comunidade já joga no topo: chega para a fila ranked ter partidas e tabela.
+    if (i % 3 === 1) tier = Math.max(tier, 21 + (i % 6))
     tier = Math.max(4, Math.min(27, tier))
     const funcao: Funcao = i === 0 || i === 13 ? 'mod' : i % 9 === 4 ? 'verified' : 'user'
     const criado = new Date(agora - inteiro(rng, 34, 60) * dia).toISOString()
@@ -156,7 +162,8 @@ export function gerarSemente(agora = Date.now()) {
     ids.push(id)
   })
 
-  const nyx = novoPerfil(ID_DEMO, 'Nyx', '4521', 19, 'owner', 'Controlador', new Date(agora - 41 * dia).toISOString())
+  // A conta de exemplo é Ascendente 2: pode jogar nas duas filas.
+  const nyx = novoPerfil(ID_DEMO, 'Nyx', '4521', 22, 'owner', 'Controlador', new Date(agora - 41 * dia).toISOString())
   nyx.utilizador = 'nyx'
   nyx.rr = 64
   nyx.rankAtualizadoEm = new Date(agora - 7 * 3_600_000).toISOString()
@@ -164,23 +171,26 @@ export function gerarSemente(agora = Date.now()) {
 
   // Partidas do último mês por ordem cronológica, para os pontos baterem certo.
   const partidas: PartidaGuardada[] = []
-  const momentos: { t: number; nyx: boolean }[] = []
-  for (let k = 0; k < 120; k++) momentos.push({ t: agora - entre(rng, 0.4, 30) * dia, nyx: rng() < 0.2 })
+  const momentos: { t: number; nyx: boolean; ranked: boolean }[] = []
+  for (let k = 0; k < 120; k++) momentos.push({ t: agora - entre(rng, 0.4, 30) * dia, nyx: rng() < 0.2, ranked: rng() < 0.3 })
   // As últimas da conta de exemplo caem nas últimas horas, para as missões semanais terem progresso.
-  for (let k = 0; k < 4; k++) momentos.push({ t: agora - (k * 62 + 70) * 60_000, nyx: true })
+  for (let k = 0; k < 4; k++) momentos.push({ t: agora - (k * 62 + 70) * 60_000, nyx: true, ranked: k === 1 })
   momentos.sort((x, y) => x.t - y.t)
 
-  // Cada sala junta ranks parecidos, como a fila de uma região a sério.
+  // Cada sala junta ranks parecidos, como a fila de uma região a sério. A fila ranked só junta quem tem Ascendente 1 ou mais.
+  const noTopo = ids.filter((id) => podeRanked(perfis[id].tier))
   for (const m of momentos) {
-    const ancora = m.nyx ? ID_DEMO : escolherUm(rng, ids)
+    const fila: FilaTipo = m.ranked ? 'ranked' : 'aberta'
+    const quem = fila === 'ranked' ? noTopo : ids
+    const ancora = m.nyx ? ID_DEMO : escolherUm(rng, quem)
     const t = perfis[ancora].tier
-    const perto = ids
+    const perto = quem
       .filter((id) => id !== ancora)
       .map((id) => ({ id, d: Math.abs(perfis[id].tier - t) + rng() * 4 }))
       .sort((x, y) => x.d - y.d)
       .slice(0, 9)
       .map((x) => x.id)
-    partidas.push(jogarPartida(rng, perfis, [ancora, ...perto], m.t, m.nyx ? ID_DEMO : undefined))
+    partidas.push(jogarPartida(rng, perfis, [ancora, ...perto], m.t, m.nyx ? ID_DEMO : undefined, fila))
   }
 
   // Uma disputa por resolver e uma partida encravada, para a área de staff ter trabalho.
@@ -246,9 +256,15 @@ function desfazer(p: PartidaGuardada, perfis: Record<string, Perfil>) {
   for (const j of p.jogadores) {
     const perfil = perfis[j.perfilId]
     if (!perfil || j.deltaPontos == null) continue
-    perfil.pontos -= j.deltaPontos
-    if (j.equipa === p.vencedor) perfil.vitorias--
-    else perfil.derrotas--
+    if (p.fila === 'ranked') {
+      perfil.pontosRanked -= j.deltaPontos
+      if (j.equipa === p.vencedor) perfil.vitoriasRanked--
+      else perfil.derrotasRanked--
+    } else {
+      perfil.pontos -= j.deltaPontos
+      if (j.equipa === p.vencedor) perfil.vitorias--
+      else perfil.derrotas--
+    }
     Object.assign(j, { kills: null, deaths: null, assists: null, acs: null, firstBloods: null, mvp: false, deltaPontos: null, pontosDepois: null, trades: null, hsPct: null, kastPct: null, rangifyScore: null, deltaDesempenho: null, agente: null })
   }
   p.resultadoA = null

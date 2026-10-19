@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAvisos } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import { avisarMudanca, dados } from '@/lib/dados'
+import { avisarMudanca, dados, type FilaTipo } from '@/lib/dados'
 import { l } from '@/lib/idioma'
 import { somBloqueado, somLigado } from '@/lib/som'
 
@@ -13,9 +13,10 @@ const CHAVE = 'rangify:fila-por-link'
 const VALIDADE = 15 * 60_000
 
 /**
- * O botão "Entrar na fila" do Discord abre o site em `/jogar?fila=1`. O Discord não corre código num
- * botão de link, por isso é aqui que a pessoa entra na fila, sem carregar no botão do site:
- *  1. o pedido é guardado e o `?fila=1` sai do endereço (um recarregar não volta a entrar);
+ * Os botões "Entrar na fila" do Discord abrem o site em `/jogar?fila=aberta` ou `/jogar?fila=ranked` (o `?fila=1`
+ * dos botões antigos conta como a aberta). O Discord não corre código num botão de link, por isso é aqui que a
+ * pessoa entra na fila, sem carregar no botão do site:
+ *  1. o pedido é guardado e o `?fila=` sai do endereço (um recarregar não volta a entrar);
  *  2. com sessão (logo, ou depois de entrar e ligar o Riot ID), entra na fila uma só vez e vai para /jogar.
  * Se a pessoa já está na fila, não acontece nada de novo; se está banida, de castigo ou sem Discord,
  * vê o mesmo erro do botão do site.
@@ -29,9 +30,12 @@ export function FilaPorLink() {
   const aCorrer = useRef(false)
 
   useEffect(() => {
+    // Só a página Jogar tem este pedido: a Tabela também usa ?fila=, mas para escolher que tabela ver.
+    if (local.pathname !== '/jogar') return
     const q = new URLSearchParams(local.search)
-    if (q.get('fila') !== '1') return
-    try { localStorage.setItem(CHAVE, String(Date.now())) } catch { /* sem localStorage: só funciona com a sessão já aberta */ }
+    const pedida = q.get('fila')
+    if (pedida !== '1' && pedida !== 'aberta' && pedida !== 'ranked') return
+    try { localStorage.setItem(CHAVE, `${Date.now()}|${pedida === 'ranked' ? 'ranked' : 'aberta'}`) } catch { /* sem localStorage: só funciona com a sessão já aberta */ }
     q.delete('fila')
     const resto = q.toString()
     navegar({ pathname: local.pathname, search: resto ? `?${resto}` : '' }, { replace: true })
@@ -40,20 +44,25 @@ export function FilaPorLink() {
   useEffect(() => {
     if (carregando || !sessao || sessao.incompleta || aCorrer.current) return
     let quando = 0
-    try { quando = Number(localStorage.getItem(CHAVE)) } catch { /* ignora */ }
+    let tipo: FilaTipo = 'aberta'
+    try {
+      const [hora, qual] = (localStorage.getItem(CHAVE) ?? '').split('|')
+      quando = Number(hora)
+      if (qual === 'ranked') tipo = 'ranked'
+    } catch { /* ignora */ }
     if (!quando) return
     try { localStorage.removeItem(CHAVE) } catch { /* ignora */ }
     if (Date.now() - quando > VALIDADE) return
     aCorrer.current = true
     navegar('/jogar', { replace: true })
-    dados.entrarFila()
+    dados.entrarFila(tipo)
       .then(async () => {
         avisarMudanca('fila')
         await atualizar()
         // Chegou por um link, sem tocar no site: o browser ainda não deixa tocar o som da partida encontrada.
         avisar(somLigado() && somBloqueado()
           ? l('Estás na fila. Toca em qualquer sítio da página para o som de partida encontrada funcionar.', 'You are in the queue. Tap anywhere on the page so the match found sound can play.')
-          : l('Estás na fila.', 'You are in the queue.'))
+          : tipo === 'ranked' ? l('Estás na fila ranked.', 'You are in the ranked queue.') : l('Estás na fila aberta.', 'You are in the open queue.'))
       })
       .catch((e) => avisar(e instanceof Error ? e.message : l('Não foi possível entrar na fila.', 'Could not join the queue.'), 'erro'))
       .finally(() => { aCorrer.current = false })

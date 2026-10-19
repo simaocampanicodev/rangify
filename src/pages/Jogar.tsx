@@ -1,9 +1,9 @@
-import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Swords, Users, Volume2 } from 'lucide-react'
+import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Radio, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { FaixaAoVivo } from '@/components/AoVivo'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { ConviteExtensao } from '@/components/ConviteExtensao'
-import { AnelFila, BotaoFila, EtiquetaHub, useVistaFila } from '@/components/Fila'
+import { CartaoFila } from '@/components/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
@@ -13,7 +13,6 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
 import { useAvisos } from '@/contexts/Avisos'
-import { relogio, textoDuracaoBan } from '@/lib/tempo'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
 import { l } from '@/lib/idioma'
 
@@ -109,6 +108,7 @@ function Progresso({ p }: { p: Partida }) {
       <span className="flex items-center gap-2 font-mono text-[12px] font-semibold text-pessego">
         <span className="ao-vivo size-2 rounded-full bg-laranja" />{p.codigo}
       </span>
+      {p.fila === 'ranked' && <Chip tom="laranja">RANKED</Chip>}
       {p.simulada && <Chip tom="laranja">{p.automatica ? l('Simulação automática', 'Automatic simulation') : l('Simulada', 'Simulated')}</Chip>}
       {/* No telemóvel as fases ficam numa linha que se arrasta (a atual centrada), em vez de uma coluna de seis linhas. */}
       <ol ref={lista} className="relative m-0 flex basis-full list-none flex-nowrap items-center gap-1.5 overflow-x-auto p-0 [scrollbar-width:none] sm:flex-1 sm:basis-auto sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
@@ -165,46 +165,30 @@ function ComoFunciona() {
   )
 }
 
-/** O mesmo anel, chips e botão do cartão do Dashboard, para as duas páginas falarem a mesma língua. */
-function PainelFila() {
-  const { naFila, contagem, regiao, espera, castigo, ban } = useVistaFila()
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
-  const faltam = 10 - contagem
-  const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
+/** Uma fila de cada vez, pontos separados por fila, e o overlay a dizer em qual estás. */
+function DuasFilas() {
+  const itens = [
+    { icone: <Users size={18} />, titulo: l('Uma fila de cada vez', 'One queue at a time'), texto: l('Entras numa só. Para mudar, sais da atual e entras na outra.', 'You join one only. To switch, leave the current one and join the other.') },
+    { icone: <Trophy size={18} />, titulo: l('Pontos separados', 'Separate points'), texto: l('Cada fila tem a sua Tabela. Os pontos da ranked não se misturam com os da aberta.', 'Each queue has its own leaderboard. Ranked points never mix with open ones.') },
+    { icone: <Radio size={18} />, titulo: l('Aparece no overlay', 'Shows on the overlay'), texto: l('O overlay do OBS diz em que fila estás a jogar e mostra os pontos dessa tabela.', 'The OBS overlay says which queue you are playing in and shows that leaderboard\'s points.') },
+  ]
   return (
-    <Painel aria-labelledby="rg-fila" className="flex min-w-0 flex-wrap items-center gap-x-10 gap-y-6 px-5 py-6 sm:px-[34px] sm:py-[30px]">
-      <AnelFila
-        tamanho={196}
-        contagem={contagem}
-        naFila={naFila}
-        legenda={naFila ? `${l('NA FILA', 'IN QUEUE')} ${relogio(espera)}` : ban ? l('BANIDO', 'BANNED') : castigo > 0 ? `${l('CASTIGO', 'COOLDOWN')} ${relogio(castigo)}` : l('À ESPERA DE TI', 'WAITING FOR YOU')}
-      />
-      <div className="flex min-w-[min(280px,100%)] flex-1 flex-col gap-3.5">
-        <span className="eyebrow">RANGIFY HUB · {regiao.toUpperCase()}</span>
-        <h2 id="rg-fila" className="m-0 text-[34px] leading-[1.05] font-extrabold tracking-[-0.035em]">{naFila ? l('À procura de jogadores…', 'Looking for players…') : l('Pronto para a próxima?', 'Ready for the next one?')}</h2>
-        <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.55] text-suave">
-          {ban
-            ? l(`Estás banido da fila ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Motivo: ${ban.mensagem}` : ''}`, `You are banned from the queue ${textoDuracaoBan(ban)}.${ban.mensagem ? ` Reason: ${ban.mensagem}` : ''}`)
-            : castigo > 0
-            ? l(`Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(castigo)}.`, `You did not accept the last match. You can queue again in ${relogio(castigo)}.`)
-            : naFila
-              ? l(`Faltam ${faltam} ${faltam === 1 ? 'jogador' : 'jogadores'} da tua região. Podes andar pelo site: quando a sala encher, ouves um som e aparece o alerta para aceitar.`, `${faltam} ${faltam === 1 ? 'player' : 'players'} from your region to go. You can browse the site: when the lobby fills, you hear a sound and the accept alert shows up.`)
-              : l('Entra na fila da tua região. Com 10 jogadores, aceitas a partida e segues para o draft dos capitães, os bans e o código do grupo.', 'Join your region\'s queue. With 10 players, you accept the match and go on to the captains\' draft, the bans and the party code.')}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <EtiquetaHub regiao={regiao} />
-          <span className={chip}>{SEGUNDOS_CONFIRMAR} s {l('para aceitar', 'to accept')}</span>
-          <span className={chip}>{l('2 capitães', '2 captains')} · {(rotacao.valor ?? ROTACAO_PADRAO).length} {l('mapas', 'maps')}</span>
-          <span className={chip}>{l('5 fases até aos pontos', '5 phases to the points')}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <BotaoFila grande />
-          <span className="text-[13px] text-mudo">
-            {naFila ? l(`Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.`, `You have ${SEGUNDOS_CONFIRMAR} seconds to accept when the lobby fills.`) : l(`${contagem} ${contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`, `${contagem} ${contagem === 1 ? 'player is' : 'players are'} waiting.`)}
-          </span>
-        </div>
-        <ConviteExtensao className="mt-1 max-w-[560px]" />
+    <Painel aria-labelledby="rg-duas-filas" className="flex flex-col gap-4 p-[22px]">
+      <div className="flex flex-col gap-[5px]">
+        <span className="eyebrow">{l('COMO FUNCIONAM AS FILAS', 'HOW THE QUEUES WORK')}</span>
+        <h2 id="rg-duas-filas" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Duas filas, duas tabelas', 'Two queues, two leaderboards')}</h2>
       </div>
+      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5 p-0">
+        {itens.map((s) => (
+          <li key={s.titulo} className="flex gap-3 rounded-[14px] border border-white/7 bg-white/[0.03] p-3.5">
+            <BlocoIcone tamanho={36}>{s.icone}</BlocoIcone>
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="text-[14px] font-bold">{s.titulo}</span>
+              <span className="text-[12.5px] leading-normal text-mudo">{s.texto}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </Painel>
   )
 }
@@ -241,9 +225,14 @@ export function Jogar() {
       <Cabecalho
         migalhas={['Hub', l('Jogar', 'Play')]}
         titulo={l('Jogar', 'Play')}
-        descricao={l('Entra na fila da tua região. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Join your region\'s queue. When there are 10 players, you get the accept alert and go on to the draft.')}
+        descricao={l('Escolhe a fila. A aberta é para toda a gente; a ranked é só para Ascendente 1 ou mais. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Pick a queue. Open is for everyone; ranked is for Ascendant 1 or higher only. When there are 10 players, you get the accept alert and go on to the draft.')}
       />
-      <PainelFila />
+      <div className="flex flex-wrap items-stretch gap-x-6 gap-y-7">
+        <div className="flex min-w-[min(100%,440px)] flex-[1_1_440px] flex-col"><CartaoFila tipo="aberta" id="rg-fila-aberta" /></div>
+        <div className="flex min-w-[min(100%,440px)] flex-[1_1_440px] flex-col"><CartaoFila tipo="ranked" id="rg-fila-ranked" /></div>
+      </div>
+      <ConviteExtensao className="max-w-[560px]" />
+      <DuasFilas />
       <FaixaAoVivo />
       <FerramentasDev />
       <ComoFunciona />

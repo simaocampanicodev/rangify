@@ -9,7 +9,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { aoMudarDados, dados, type Denuncia, type Funcao, type JogadorStaff, type Partida, type Perfil } from '@/lib/dados'
+import { aoMudarDados, dados, type Denuncia, type FilaTipo, type Funcao, type JogadorStaff, type Partida, type Perfil } from '@/lib/dados'
 import { MAPAS, ROTACAO_PADRAO } from '@/lib/mapas'
 import { caminhoPerfil, capitao, equipa, nomeJogador, tagJogador } from '@/lib/partida'
 import { NOMES_ESTADO, validarResultado } from '@/lib/regras'
@@ -174,22 +174,24 @@ function ResultadoPendente({ p }: { p: Partida }) {
   )
 }
 
-/** Pontos de um jogador, editáveis por Owner e Dev. */
-function CampoPontos({ p, onGuardado }: { p: Perfil; onGuardado: () => void }) {
+/** Pontos de um jogador numa das duas tabelas, editáveis por Owner e Dev. */
+function CampoPontos({ p, fila, onGuardado }: { p: Perfil; fila: FilaTipo; onGuardado: () => void }) {
   const acao = useAcao()
-  const [valor, setValor] = useState(String(p.pontos))
-  useEffect(() => { setValor(String(p.pontos)) }, [p.pontos])
+  const atuais = fila === 'ranked' ? p.pontosRanked : p.pontos
+  const [valor, setValor] = useState(String(atuais))
+  useEffect(() => { setValor(String(atuais)) }, [atuais])
   const n = Number(valor)
-  const mudou = valor !== String(p.pontos) && Number.isInteger(n) && n >= 0 && n <= 10000
+  const mudou = valor !== String(atuais) && Number.isInteger(n) && n >= 0 && n <= 10000
+  const nome = fila === 'ranked' ? 'ranked' : tx('aberta', 'open')
   const guardar = async () => {
-    const ok = await acao(async () => { await dados.definirPontos(p.id, n); return true }, tx(`Pontos de ${p.riotId ?? p.utilizador} acertados para ${n}.`, `${p.riotId ?? p.utilizador}'s points set to ${n}.`))
+    const ok = await acao(async () => { await dados.definirPontos(p.id, n, fila); return true }, tx(`Pontos ${nome} de ${p.riotId ?? p.utilizador} acertados para ${n}.`, `${p.riotId ?? p.utilizador}'s ${nome} points set to ${n}.`))
     if (ok) onGuardado()
   }
   return (
     <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (mudou) guardar() }}>
-      <label className="so-leitores" htmlFor={`pts-${p.id}`}>{tx('Pontos de', 'Points of')} {p.utilizador}</label>
-      <input id={`pts-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, '').slice(0, 5))} />
-      <span className="text-[12px] text-mudo">pts</span>
+      <label className="so-leitores" htmlFor={`pts-${fila}-${p.id}`}>{tx('Pontos', 'Points')} {nome} {tx('de', 'of')} {p.utilizador}</label>
+      <input id={`pts-${fila}-${p.id}`} className="campo !h-9 !w-[84px] text-right font-mono !text-[13px]" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value.replace(/\D/g, '').slice(0, 5))} />
+      <span className="text-[12px] text-mudo">pts {nome}</span>
       {mudou && <button type="submit" className="btn btn-suave !min-h-9 !px-3 !text-[12.5px]">{tx('Guardar', 'Save')}</button>}
     </form>
   )
@@ -283,8 +285,8 @@ function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; a
       <RankBadge tier={p.tier} pequeno />
       <div className="flex flex-wrap items-center gap-2.5">
         {podeAcertar
-          ? <CampoPontos p={p} onGuardado={aMudou} />
-          : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts</span>}
+          ? <span className="flex flex-wrap items-center gap-x-4 gap-y-2"><CampoPontos p={p} fila="aberta" onGuardado={aMudou} /><CampoPontos p={p} fila="ranked" onGuardado={aMudou} /></span>
+          : <span className="font-mono text-[12.5px] text-suave">{p.pontos} pts · {p.pontosRanked} ranked</span>}
         <select
           aria-label={`${tx('Função de', 'Role of')} ${p.utilizador}`}
           className="campo !h-9 !w-auto !text-[13px]"

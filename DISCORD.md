@@ -119,7 +119,7 @@ O link `discord://` abre a versão do Discord que o Windows tem associada (a úl
 
 ## Botão "Chamar para a fila" (canal de ping)
 
-No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor). A mensagem da chamada leva um botão **Entrar na fila**, que abre o site e **entra na fila sozinho** (ver a secção seguinte).
+No canal `🔔╺╸ping` fica uma mensagem do bot com um embed (texto e banner) e o botão **Chamar para a fila**. Quem carrega pinga o cargo de ping (quem aceitou receber estes avisos ao entrar no servidor). A mensagem da chamada leva um botão **Entrar na fila aberta**, que abre o site e **entra na fila aberta sozinho** (ver a secção seguinte).
 
 - Só pode haver **uma chamada de 5 em 5 minutos para o servidor todo**. Quem carrega antes disso vê, só para si, quem chamou e quando fica livre outra vez.
 - O bot publica a chamada e **apaga a anterior**, por isso no canal fica sempre só a mensagem do botão e a última chamada. Apagar mensagens do próprio bot não precisa de permissões a mais.
@@ -145,17 +145,17 @@ Uma mensagem de webhook (como as regras, feitas no Discohook) não pode ter bot�
 
 4. Ainda em **General Information**, em **Interactions Endpoint URL**, põe `https://ftswhbbazdzvwedpqqam.supabase.co/functions/v1/discord-interacoes` e carrega em **Save Changes**. O Discord testa o endereço nessa hora: se der erro, confirma o passo 2 e o 3.
 5. Permissões do bot no canal de ping (botão direito no canal › **Editar canal** › **Permissões** › cargo do bot): **Ver canal**, **Enviar mensagens** e **Inserir links**. Para o ping chegar a toda a gente, o bot também precisa de **Mencionar @everyone, @here e todos os cargos**, ou então o cargo de ping tem de estar marcado como **Permitir que qualquer pessoa @mencione este cargo**.
-6. O `SITE_URL` (secret) pode ter ou não a barra no fim: as funções tiram-na, e os links dos botões ficam sempre `https://o-teu-site/jogar` (ou `/jogar?fila=1`, o que entra na fila).
+6. O `SITE_URL` (secret) pode ter ou não a barra no fim: as funções tiram-na, e os links dos botões ficam sempre `https://o-teu-site/jogar` (ou `/jogar?fila=aberta` e `/jogar?fila=ranked`, que entram na fila).
 7. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar o ping**. Se mudares o texto em `_shared/discord-ping.ts`, publica outra vez as funções e carrega no mesmo botão: a mensagem é atualizada no sítio, não aparece outra. **Se já tinhas a mensagem do ping publicada, carrega neste botão uma vez** para ela deixar de mostrar a contagem da fila.
 
 Convém que só o bot possa escrever no canal (tira **Enviar mensagens** a @everyone), para a mensagem com o botão ficar sempre visível.
 
-## O canal da fila (contagem e "Entrar na fila")
+## O canal da fila aberta (contagem e "Entrar na fila aberta")
 
-Um canal só para ver quantas pessoas estão na fila (ID `1561038822274367599`, em `_shared/discord-ping.ts`; o secret `DISCORD_FILA_CANAL` troca-o sem mexer no código). A mensagem do bot tem:
+Um canal só para ver quantas pessoas estão na **fila aberta** (ID `1561038822274367599`, em `_shared/discord-ping.ts`; o secret `DISCORD_FILA_CANAL` troca-o sem mexer no código). A mensagem do bot tem:
 
-- **n/10 na fila**, com os dez lugares desenhados e a região. Atualiza-se sozinha quando alguém entra ou sai da fila (com uns segundos de espera, para várias entradas seguidas darem uma só edição);
-- **Entrar na fila**: um botão de link para `https://o-teu-site/jogar?fila=1`. O Discord não corre código num botão, por isso é o **site** que, ao abrir com `?fila=1`, entra na fila uma só vez e tira o `?fila=1` do endereço. Sem sessão, a pessoa entra com o Discord e a entrada na fila acontece logo a seguir (o pedido fica guardado 15 minutos). Quem está banido, de castigo, sem Riot ID ou fora do servidor vê o mesmo erro do botão do site. Como a pessoa chegou por um link e ainda não tocou na página, o site avisa-a para tocar em qualquer sítio para o som de partida encontrada funcionar (com a extensão instalada isto não é preciso);
+- **Fila aberta · n/10**, com os dez lugares desenhados e a região. Atualiza-se sozinha quando alguém entra ou sai da fila aberta (com uns segundos de espera, para várias entradas seguidas darem uma só edição);
+- **Entrar na fila aberta**: um botão de link para `https://o-teu-site/jogar?fila=aberta`. O Discord não corre código num botão, por isso é o **site** que, ao abrir `/jogar` com `?fila=aberta`, entra na fila uma só vez e tira o `?fila=` do endereço (o `?fila=1` dos botões antigos conta como a aberta). Sem sessão, a pessoa entra com o Discord e a entrada na fila acontece logo a seguir (o pedido fica guardado 15 minutos). Quem está banido, de castigo, sem Riot ID ou fora do servidor vê o mesmo erro do botão do site. Como a pessoa chegou por um link e ainda não tocou na página, o site avisa-a para tocar em qualquer sítio para o som de partida encontrada funcionar (com a extensão instalada isto não é preciso);
 - **Abrir o site**: só abre o site em `/jogar`, sem entrar na fila.
 
 1. Corre `supabase/migrations/0027_discord_canal_fila.sql` no **SQL Editor**.
@@ -167,7 +167,41 @@ Um canal só para ver quantas pessoas estão na fila (ID `1561038822274367599`, 
    ```
 
 3. Permissões do bot nesse canal: **Ver canal**, **Enviar mensagens**, **Inserir links** e **Incorporar links**. Convém tirar **Enviar mensagens** a @everyone.
-4. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a fila**. Enquanto não a publicares, entrar e sair da fila não toca no Discord.
+4. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a fila aberta**. Enquanto não a publicares, entrar e sair da fila não toca no Discord. **Se já tinhas a mensagem publicada, carrega neste botão uma vez** para ela passar a dizer que é a fila aberta.
+
+## A fila ranked: canal, cargo Ranked e pontos separados
+
+A fila ranked é só para **Ascendente 1 ou mais** (o rank oficial da Riot) e tem as suas próprias partidas e a sua própria Tabela. No Discord tem um canal que só vê quem tiver o cargo **Ranked**:
+
+| | ID | Onde se troca sem mexer no código |
+|---|---|---|
+| Canal da fila ranked | `1561799500660740246` | secret `DISCORD_FILA_RANKED_CANAL` |
+| Cargo Ranked | `1561799128508276906` | secret `DISCORD_CARGO_RANKED` |
+
+A mensagem do canal é igual à da aberta, mas laranja: **Fila ranked · n/10**, os dez lugares, quantos faltam, **Entrar na fila ranked** (link para `/jogar?fila=ranked`) e **Abrir o site**. Atualiza-se sozinha quando alguém entra ou sai da fila ranked. As duas filas são independentes: uma partida só se forma com 10 pessoas da **mesma fila**.
+
+**O cargo Ranked** é dado e retirado pelo bot (`PUT` e `DELETE /guilds/{servidor}/members/{id}/roles/{cargo}`, com o Discord ID da conta com que a pessoa entrou no site):
+
+- quem tem rank oficial Ascendente 1 ou mais (currenttier 21) ganha o cargo; quem desce abaixo dele perde-o (mantém os pontos da ranked, mas não volta a entrar na fila até subir);
+- acerta-se ao verificar o Discord (`verificar-discord`), ao sincronizar o rank (`sincronizar-rank`) e no fim de cada partida, com o rank que acaba de ser atualizado (`processar-partida`);
+- em **Staff › Discord › Cargo Ranked**, o botão **Acertar o cargo Ranked de toda a gente** percorre todas as contas com Discord e acerta o cargo de cada uma (para a primeira vez e para qualquer falha pelo caminho). Diz quantos cargos deu, tirou ou já estavam certos.
+
+Publicar:
+
+1. Corre `supabase/migrations/0032_filas_ranked.sql` no **SQL Editor** (depois da 0031).
+2. Publica as funções que mudaram:
+
+   ```bash
+   npx supabase functions deploy discord-partida discord-interacoes --no-verify-jwt
+   npx supabase functions deploy discord-ping verificar-discord sincronizar-rank processar-partida
+   ```
+
+3. No portal do Discord / servidor:
+   - o bot precisa da permissão **Gerir cargos**, e o cargo do bot tem de estar **acima** do cargo Ranked na lista de cargos do servidor (senão o Discord recusa dar o cargo);
+   - no canal da fila ranked: tira **Ver canal** a @everyone e dá **Ver canal** e **Ler o histórico de mensagens** ao cargo Ranked. O bot precisa de **Ver canal**, **Enviar mensagens**, **Inserir links** e **Incorporar links** (e convém que só ele escreva).
+4. No site, em **Staff › Discord**, carrega em **Publicar ou atualizar a fila ranked** e depois em **Acertar o cargo Ranked de toda a gente**.
+
+Quem não tem o cargo não vê o canal: é para quem chega a Ascendente 1 aparecer lá sozinho.
 
 ## Avisos e bans: mensagem privada
 

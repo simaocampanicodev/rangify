@@ -72,8 +72,8 @@ async function chamar(quem: string) {
     content: `<@&${CARGO_PING}> <@${quem}> está a chamar para a fila! Entra no hub e bora jogar.`,
     // Só o cargo é pingado; quem chamou aparece, mas não recebe notificação.
     allowed_mentions: { roles: [CARGO_PING] },
-    // O botão abre o site e entra na fila sozinho (o site trata do ?fila=1).
-    components: LINK_ENTRAR_NA_FILA ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila', emoji: { name: '⚡' }, url: LINK_ENTRAR_NA_FILA }] }] : [],
+    // O botão abre o site e entra na fila aberta sozinho (o site trata do ?fila=aberta).
+    components: LINK_ENTRAR_NA_FILA ? [{ type: 1, components: [{ type: 2, style: 5, label: 'Entrar na fila aberta', emoji: { name: '⚡' }, url: LINK_ENTRAR_NA_FILA }] }] : [],
   })
   if (!publicada.ok) {
     console.error('Discord', publicada.status, await publicada.text())

@@ -197,10 +197,16 @@ const EN: Record<string, string> = {
   'Reinicia primeiro os picks e bans deste jogo para mudares o formato.': 'Restart this match\'s picks and bans first to change the format.',
   'Têm de passar menos equipas do que as que há num grupo.': 'Fewer teams must advance than there are in a group.',
   'A seed tem de estar entre -1 e 1.': 'The seed must be between -1 and 1.',
+  'A fila ranked é só para Ascendente 1 ou mais.': 'The ranked queue is for Ascendant 1 or higher only.',
+  'Escolhe a fila aberta ou a ranked.': 'Pick the open or the ranked queue.',
+  'A mensagem da fila aberta só se publica com o Supabase ligado: no modo demo não há bot do Discord.': 'The open-queue message can only be published with Supabase connected: there is no Discord bot in demo mode.',
+  'A mensagem da fila ranked só se publica com o Supabase ligado: no modo demo não há bot do Discord.': 'The ranked-queue message can only be published with Supabase connected: there is no Discord bot in demo mode.',
+  'Os cargos do Discord só se acertam com o Supabase ligado: no modo demo não há bot do Discord.': 'Discord roles can only be synced with Supabase connected: there is no Discord bot in demo mode.',
 }
 
 /** Mensagens com partes variáveis (datas, motivos): o início é fixo e traduz-se por padrão. */
 const PADROES_EN: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^Já estás na fila (aberta|ranked)\. Sai dela para entrares na outra\.$/, (m) => `You are already in the ${m[1] === 'ranked' ? 'ranked' : 'open'} queue. Leave it to join the other one.`],
   [/^Estás banido da fila para sempre\. Motivo: ([\s\S]*)$/, (m) => `You are permanently banned from the queue. Reason: ${m[1]}`],
   [/^Para jogar à melhor de (\d+) são precisos pelo menos (\d+) mapas em jogo \(há (\d+)\)\.$/, (m) => `To play best of ${m[1]} you need at least ${m[2]} maps in play (there are ${m[3]}).`],
   [/^Este jogo é à melhor de (\d+) e só há (\d+) mapas em jogo: junta mais mapas ao torneio\.$/, (m) => `This match is best of ${m[1]} and there are only ${m[2]} maps in play: add more maps to the tournament.`],
