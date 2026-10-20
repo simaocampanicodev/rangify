@@ -1,4 +1,4 @@
-import type { FuncaoJogo } from './dados/tipos'
+import type { FuncaoJogo } from './data/tipos'
 
 /** Os agentes do Valorant, com a função e o ícone oficial (valorant-api.com). */
 export interface Agente { nome: string; funcao: FuncaoJogo; uuid: string }

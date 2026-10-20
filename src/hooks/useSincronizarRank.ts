@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
-import { dados } from '@/lib/dados'
+import { dados } from '@/lib/data'
 import { duracaoAte } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
 

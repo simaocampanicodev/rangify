@@ -1,7 +1,7 @@
 import { Bold, Code, ExternalLink, Italic, Link2, List, Megaphone, Quote, Strikethrough, Underline } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useAcao } from '@/contexts/Avisos'
-import { dados, type AnuncioDiscord } from '@/lib/dados'
+import { dados, type AnuncioDiscord } from '@/lib/data'
 import { TextoDiscord } from '@/lib/discordMarkdown'
 import { l } from '@/lib/idioma'
 import { Segmentado } from './ui'
@@ -165,7 +165,7 @@ export function AnunciosDiscord() {
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="btn btn-primario" disabled={!pronto || aEnviar} onClick={enviar}><Megaphone size={15} aria-hidden />{aEnviar ? l('A enviar…', 'Sending…') : l('Enviar para o Discord', 'Send to Discord')}</button>
             <button type="button" className="btn btn-fantasma" onClick={criarCanal}>{l('Criar o canal agora', 'Create the channel now')}</button>
-            <span className="text-[12.5px] text-mudo">{l('Precisa da função discord-anuncio e da migração 0034 (ver DISCORD.md).', 'Needs the discord-anuncio function and migration 0034 (see DISCORD.md).')}</span>
+            <span className="text-[12.5px] text-mudo">{l('Precisa da função discord-anuncio e da migração 0034 (ver docs/discord.md).', 'Needs the discord-anuncio function and migration 0034 (see docs/discord.md).')}</span>
           </div>
           {ultimo && (
             <div className="flex flex-col gap-1 rounded-xl border border-laranja/30 bg-laranja/10 px-3.5 py-3 text-[13px]" role="status">

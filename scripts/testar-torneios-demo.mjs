@@ -1,5 +1,5 @@
 /**
- * Testa o motor dos torneios do modo demo (src/lib/dados/local-torneios.ts) com os mesmos cenários que a SQL:
+ * Testa o motor dos torneios do modo demo (src/lib/data/local-torneios.ts) com os mesmos cenários que a SQL:
  * permissões, equipas e convites, sorteio, grupos, desempates, playoffs com folgas, resultados e ferramentas de teste.
  *
  *   node scripts/testar-torneios-demo.mjs      (corre também com npm run testar-sql)
@@ -22,7 +22,7 @@ globalThis.window = { dispatchEvent() {}, addEventListener() {}, localStorage: g
 globalThis.CustomEvent = class { constructor(t, o) { this.type = t; this.detail = o?.detail } }
 
 const r = await build({
-  entryPoints: [fileURLToPath(new URL('../src/lib/dados/local-torneios.ts', import.meta.url))], bundle: true, format: 'esm', platform: 'node', write: false,
+  entryPoints: [fileURLToPath(new URL('../src/lib/data/local-torneios.ts', import.meta.url))], bundle: true, format: 'esm', platform: 'node', write: false,
   alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) }, logLevel: 'error', external: ['react'],
 })
 // O módulo compilado vai para dentro de node_modules, para o "react" (que o idioma usa) se resolver a partir do projeto.

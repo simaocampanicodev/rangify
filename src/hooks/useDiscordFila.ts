@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { aoMudarDados, dados, type EstadoDiscord } from '@/lib/dados'
+import { aoMudarDados, dados, type EstadoDiscord } from '@/lib/data'
 
 /** Uma verificação recente chega: o Discord só é perguntado outra vez depois disto. */
 const VALIDADE_MS = 10 * 60_000

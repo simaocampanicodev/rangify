@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePartida } from '@/contexts/Partida'
-import type { FilaTipo } from '@/lib/dados'
+import type { FilaTipo } from '@/lib/data'
 
 const CHAVE = 'rangify:fila-vista'
 

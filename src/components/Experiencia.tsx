@@ -1,7 +1,7 @@
 import { Check, Lock, Star, Trophy, Zap } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import type { Experiencia } from '@/lib/dados'
+import type { Experiencia } from '@/lib/data'
 import { custoNivel, eMarco, formatarXp } from '@/lib/experiencia'
 import { NomeRangify } from './Marca'
 import { l } from '@/lib/idioma'

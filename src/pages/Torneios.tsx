@@ -1,14 +1,14 @@
 import { Crown, Medal, Settings2, Users } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ChipEstado, Contagem, dataLimite, formatoTexto } from '@/components/torneios/comum'
+import { ChipEstado, Contagem, dataLimite, formatoTexto } from '@/components/tournaments/comum'
 import { Cabecalho, Carregando, Chip, Esqueleto, Painel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { dados, type ConviteTorneio, type TorneioResumo } from '@/lib/dados'
+import { dados, type ConviteTorneio, type TorneioResumo } from '@/lib/data'
 import { l } from '@/lib/idioma'
-import { nomeFuncao } from '@/components/torneios/comum'
+import { nomeFuncao } from '@/components/tournaments/comum'
 
 function Convite({ c }: { c: ConviteTorneio }) {
   const acao = useAcao()

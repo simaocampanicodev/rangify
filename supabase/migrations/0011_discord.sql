@@ -9,7 +9,7 @@
 -- canais e cargos (apagar um cargo tira-o a toda a gente).
 --
 -- As partidas simuladas automáticas ("Simular partida completa") não criam nada.
--- Sem a linha em discord_config (ver DISCORD.md), nada é chamado e o jogo segue igual.
+-- Sem a linha em discord_config (ver docs/discord.md), nada é chamado e o jogo segue igual.
 --
 -- Corre depois de 0001 a 0010. Pode correr outra vez sem estragar nada.
 

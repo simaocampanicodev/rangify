@@ -1,5 +1,5 @@
 /**
- * Testa as duas filas no modo demo (src/lib/dados/local.ts), com os mesmos cenários que a SQL (testar-filas.mjs):
+ * Testa as duas filas no modo demo (src/lib/data/local.ts), com os mesmos cenários que a SQL (testar-filas.mjs):
  * quem pode entrar na ranked, uma fila de cada vez, partidas e tabelas separadas, o overlay e as ferramentas de teste.
  *
  *   node scripts/testar-filas-demo.mjs      (corre também com npm run testar-sql)
@@ -22,7 +22,7 @@ globalThis.window = { dispatchEvent() {}, addEventListener() {}, setInterval: ()
 globalThis.CustomEvent = class { constructor(t, o) { this.type = t; this.detail = o?.detail } }
 
 const r = await build({
-  entryPoints: [fileURLToPath(new URL('../src/lib/dados/local.ts', import.meta.url))], bundle: true, format: 'esm', platform: 'node', write: false,
+  entryPoints: [fileURLToPath(new URL('../src/lib/data/local.ts', import.meta.url))], bundle: true, format: 'esm', platform: 'node', write: false,
   alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) }, logLevel: 'error', external: ['react'],
 })
 const pasta = new URL('../node_modules/.cache/rangify/', import.meta.url)

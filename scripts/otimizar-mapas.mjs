@@ -1,7 +1,7 @@
 /**
- * Converte a arte dos mapas (public/mapas/*.jpg) em WebP, em dois tamanhos:
- *   public/mapas/<mapa>.webp       960x540, para os ecrãs grandes (bans, código, resultado)
- *   public/mapas/mini/<mapa>.webp   192x108, para as miniaturas (histórico, perfil)
+ * Converte a arte dos mapas (assets/maps-source/*.jpg, as originais) em WebP, em dois tamanhos:
+ *   public/maps/<mapa>.webp       960x540, para os ecrãs grandes (bans, código, resultado)
+ *   public/maps/mini/<mapa>.webp   192x108, para as miniaturas (histórico, perfil)
  *
  * Usa o Brave, o Chrome ou o Edge sem janela (o canvas do browser faz a conversão),
  * por isso não precisa de mais nenhuma ferramenta.
@@ -15,7 +15,8 @@ import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 
 const RAIZ = resolve(import.meta.dirname, '..')
-const PASTA = join(RAIZ, 'public', 'mapas')
+const ORIGEM = join(RAIZ, 'assets', 'maps-source')
+const PASTA = join(RAIZ, 'public', 'maps')
 const PORTA = 5179
 const PORTA_CDP = 9334
 const TAMANHOS = [{ largura: 960, pasta: PASTA, qualidade: 0.74 }, { largura: 192, pasta: join(PASTA, 'mini'), qualidade: 0.78 }]
@@ -28,7 +29,7 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const servidor = createServer((req, res) => {
   const nome = basename(decodeURIComponent(new URL(req.url, 'http://x').pathname))
-  const f = join(PASTA, nome)
+  const f = join(ORIGEM, nome)
   if (!/^[a-z]+\.jpg$/.test(nome) || !existsSync(f)) { res.writeHead(404); return res.end() }
   res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Access-Control-Allow-Origin': '*' })
   res.end(readFileSync(f))
@@ -82,8 +83,8 @@ servidor.listen(PORTA, '127.0.0.1', async () => {
     if (!alvo) throw new Error('O browser não arrancou.')
     c = await ligar(alvo.webSocketDebuggerUrl)
     let antes = 0, depois = 0
-    for (const f of readdirSync(PASTA).filter((x) => x.endsWith('.jpg'))) {
-      antes += statSync(join(PASTA, f)).size
+    for (const f of readdirSync(ORIGEM).filter((x) => x.endsWith('.jpg'))) {
+      antes += statSync(join(ORIGEM, f)).size
       const linha = [f.padEnd(14)]
       for (const t of TAMANHOS) {
         const b64 = await c.avaliar(converter(`http://127.0.0.1:${PORTA}/${f}`, t.largura, t.qualidade))

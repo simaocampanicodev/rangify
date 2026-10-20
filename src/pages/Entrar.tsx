@@ -7,7 +7,7 @@ import { Marca, NomeRangify } from '@/components/Marca'
 import { Carregando } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
-import { dados } from '@/lib/dados'
+import { dados } from '@/lib/data'
 import { l } from '@/lib/idioma'
 
 export function IconeDiscord({ tamanho = 20 }: { tamanho?: number }) {

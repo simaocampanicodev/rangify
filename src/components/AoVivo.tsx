@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSessao } from '@/contexts/Sessao'
-import { aoMudarDados, dados, type StreamerAoVivo } from '@/lib/dados'
+import { aoMudarDados, dados, type StreamerAoVivo } from '@/lib/data'
 import { l } from '@/lib/idioma'
 
 /** O símbolo da Twitch (o lucide já não traz logótipos de marcas). */

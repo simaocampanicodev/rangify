@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { definirDonoCache } from '@/hooks/useCarregar'
-import { aoMudarDados, dados, type Perfil, type Sessao } from '@/lib/dados'
+import { aoMudarDados, dados, type Perfil, type Sessao } from '@/lib/data'
 
 interface ValorSessao {
   carregando: boolean

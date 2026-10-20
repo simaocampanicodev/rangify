@@ -1,5 +1,5 @@
 /** As regras dos convites. Os mesmos números estão em _convite_valores() (supabase/migrations/0029_streamers_convites.sql). */
-import type { ConviteValores } from './dados'
+import type { ConviteValores } from './data'
 
 export const VALORES_CONVITE: ConviteValores = {
   convidador: 150,

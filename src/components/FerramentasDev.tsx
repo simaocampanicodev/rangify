@@ -6,7 +6,7 @@ import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { useFilaVista } from '@/hooks/useFilaVista'
-import { dados } from '@/lib/dados'
+import { dados } from '@/lib/data'
 import { l } from '@/lib/idioma'
 
 /**

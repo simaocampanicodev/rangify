@@ -6,7 +6,7 @@ import { BotaoSegurar, Cabecalho, Carregando, Chip, Painel, Segmentado, TituloPa
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type ConvidadoLinha } from '@/lib/dados'
+import { dados, type ConvidadoLinha } from '@/lib/data'
 import { linkConvite } from '@/lib/convites'
 import { l } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'

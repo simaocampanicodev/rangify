@@ -7,7 +7,7 @@ import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Pa
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type Missao, type TipoMissao } from '@/lib/dados'
+import { dados, type Missao, type TipoMissao } from '@/lib/data'
 import { formatarXp } from '@/lib/experiencia'
 import { traduzirMissao } from '@/lib/missoes'
 import { duracaoAte, fimDaSemana, fimDoDia } from '@/lib/tempo'

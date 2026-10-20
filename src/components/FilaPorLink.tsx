@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAvisos } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import { avisarMudanca, dados, type FilaTipo } from '@/lib/dados'
+import { avisarMudanca, dados, type FilaTipo } from '@/lib/data'
 import { l } from '@/lib/idioma'
 import { somBloqueado, somLigado } from '@/lib/som'
 

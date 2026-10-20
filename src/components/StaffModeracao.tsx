@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Chip, Segmentado } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type AvisoStaff, type Funcao, type JogadorStaff, type Perfil } from '@/lib/dados'
+import { dados, type AvisoStaff, type Funcao, type JogadorStaff, type Perfil } from '@/lib/data'
 import { l as tx } from '@/lib/idioma'
 import { dataHora, haQuanto, textoDuracaoBan } from '@/lib/tempo'
 

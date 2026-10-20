@@ -151,7 +151,7 @@
   }
 }
 
-/* Mapas: arte oficial em /public/mapas. A imagem fica dentro da borda, para o véu escuro por cima tapar tudo. */
+/* Mapas: arte oficial em /public/maps. A imagem fica dentro da borda, para o véu escuro por cima tapar tudo. */
 .mapa { background-size: cover; background-position: center; background-color: #141417; background-clip: padding-box; }
 
 /* Fundo: três fios de luz nas bordas, como no Valofy, que ondulam devagar. */

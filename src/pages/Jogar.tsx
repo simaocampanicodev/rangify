@@ -7,7 +7,7 @@ import { CartaoFila } from '@/components/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import { dados, type EstadoPartida, type Partida } from '@/lib/dados'
+import { dados, type EstadoPartida, type Partida } from '@/lib/data'
 import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
@@ -17,10 +17,10 @@ import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } 
 import { l } from '@/lib/idioma'
 
 // Os ecrãs da partida só descarregam quando há fila ou partida (ver preCarregarPartida).
-const carregarCodigo = () => import('@/components/partida/Codigo')
-const carregarDraft = () => import('@/components/partida/Draft')
-const carregarMapas = () => import('@/components/partida/Mapas')
-const carregarResultado = () => import('@/components/partida/Resultado')
+const carregarCodigo = () => import('@/components/match/Codigo')
+const carregarDraft = () => import('@/components/match/Draft')
+const carregarMapas = () => import('@/components/match/Mapas')
+const carregarResultado = () => import('@/components/match/Resultado')
 const Codigo = lazy(() => carregarCodigo().then((m) => ({ default: m.Codigo })))
 const Draft = lazy(() => carregarDraft().then((m) => ({ default: m.Draft })))
 const Mapas = lazy(() => carregarMapas().then((m) => ({ default: m.Mapas })))

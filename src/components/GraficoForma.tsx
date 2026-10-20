@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PontoForma } from '@/lib/dados'
+import type { PontoForma } from '@/lib/data'
 import { comSinal } from '@/lib/pontos'
 import { dataCurta } from '@/lib/tempo'
 import { Segmentado, SeloMvp } from './ui'

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react'
-import { aoMudarDados, type Mudanca } from '@/lib/dados'
+import { aoMudarDados, type Mudanca } from '@/lib/data'
 import { traduzirErro } from '@/lib/erros'
 
 const espera = (ms: number) => new Promise((r) => window.setTimeout(r, ms))

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAvisos } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { convitePendente, guardarConvitePendente, limparConvitePendente } from '@/lib/convites'
-import { dados } from '@/lib/dados'
+import { dados } from '@/lib/data'
 import { l } from '@/lib/idioma'
 
 /**

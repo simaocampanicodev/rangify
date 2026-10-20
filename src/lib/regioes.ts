@@ -1,4 +1,4 @@
-import type { Regiao } from './dados'
+import type { Regiao } from './data'
 import { l } from './idioma'
 
 const regiao = (valor: Regiao, pt: string, en: string) => ({ valor, get nome() { return l(pt, en) } })

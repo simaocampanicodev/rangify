@@ -7,7 +7,7 @@ import { Cabecalho, Carregando, Painel, RankBadge, Segmentado, TituloPainel } fr
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
-import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/dados'
+import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/data'
 import { definirPreferenciaFundo, preferenciaFundo, type PreferenciaFundo } from '@/lib/fundo'
 import { REGIOES } from '@/lib/regioes'
 import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/som'

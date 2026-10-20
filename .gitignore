@@ -2,13 +2,14 @@
 node_modules
 dist
 
-# Segredos: nunca vão para o GitHub (o .env.example, sem valores, vai)
+# Segredos e configuração local: nunca vão para o GitHub
 .env
 .env.*
-.env.example
-!.env.example
 *.pem
 *.key
+
+# Pastas das ferramentas de trabalho (editor, assistente de IA): não fazem parte do projeto
+.claude/
 
 # Supabase CLI (estado local)
 supabase/.temp
@@ -21,4 +22,8 @@ supabase/.env
 Thumbs.db
 
 # Extensão do browser: o .zip para as lojas e a pasta gerada
-extensao/*.zip
+extension/*.zip
+extension/dist
+
+# Imagens temporárias das capturas de ecrã
+assets/screenshots/.tmp

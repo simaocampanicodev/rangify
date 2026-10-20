@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type FilaTipo, type Partida } from '@/lib/dados'
+import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type FilaTipo, type Partida } from '@/lib/data'
 import { ESTADOS_ATIVOS } from '@/lib/regras'
 import { consultarExtensao, extensaoAvisarFila, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
 import { acertarRelogio } from '@/lib/tempo'

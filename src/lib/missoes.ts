@@ -2,7 +2,7 @@
  * O título e a descrição de cada missão vêm da base de dados em português.
  * Em inglês, usa-se este catálogo pelo id (o mesmo da migração 0007).
  */
-import type { Missao } from './dados'
+import type { Missao } from './data'
 import { emIngles } from './idioma'
 
 const EN: Record<string, [string, string]> = {

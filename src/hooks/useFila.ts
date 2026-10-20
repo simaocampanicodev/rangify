@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
-import { dados, type FilaTipo } from '@/lib/dados'
+import { dados, type FilaTipo } from '@/lib/data'
 
 /** Entrar e sair da fila, partilhado pelo Dashboard, pela página Jogar e pela faixa do topo. */
 export function useFila() {

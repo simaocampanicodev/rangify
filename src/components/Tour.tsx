@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSessao } from '@/contexts/Sessao'
-import { dados } from '@/lib/dados'
+import { dados } from '@/lib/data'
 import { NomeRangify } from './Marca'
 import { l } from '@/lib/idioma'
 

@@ -1,16 +1,16 @@
 /**
- * Prepara a extensão do browser (pasta extensao/) para o Chrome, Edge ou Brave.
- * Gera extensao/dist com a ligação ao teu Rangify:
+ * Prepara a extensão do browser (pasta extension/) para o Chrome, Edge ou Brave.
+ * Gera extension/dist com a ligação ao teu Rangify:
  *   - o URL do Supabase e a chave pública, lidos do .env (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY);
  *   - o endereço do site, para a extensão abrir o Rangify e o site saber que ela está instalada;
  *   - as permissões do manifesto só para esses endereços;
  *   - o supabase-js empacotado no service worker (o Realtime que avisa quando a fila muda).
  *
- *   npm run extensao -- https://o-teu-site.onrender.com
- *   npm run extensao -- --dev                              (o site em http://localhost:5175)
- *   npm run extensao -- https://o-teu-site.onrender.com --zip   (também o .zip para as lojas, ver extensao/PUBLICAR.md)
+ *   npm run extension -- https://o-teu-site.onrender.com
+ *   npm run extension -- --dev                              (o site em http://localhost:5175)
+ *   npm run extension -- https://o-teu-site.onrender.com --zip   (também o .zip para as lojas, ver docs/extension-publishing.md)
  *
- * Para uso teu: carrega extensao/dist no browser. Para toda a gente: publica o .zip na Chrome Web Store e no
+ * Para uso teu: carrega extension/dist no browser. Para toda a gente: publica o .zip na Chrome Web Store e no
  * Edge Add-ons, uma vez; ninguém mais corre comandos.
  */
 import { createHash } from 'node:crypto'
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { deflateRawSync } from 'node:zlib'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
-const origem = `${raiz}extensao`
+const origem = `${raiz}extension`
 const destino = `${origem}/dist`
 
 /** Lê um .env simples (CHAVE=valor), sem dependências. */
@@ -47,7 +47,7 @@ function parar(mensagem) {
   process.exit(1)
 }
 
-if (!siteArg) parar('Diz-me onde está o site: npm run extensao -- https://o-teu-site.onrender.com (ou --dev para o localhost:5175).')
+if (!siteArg) parar('Diz-me onde está o site: npm run extension -- https://o-teu-site.onrender.com (ou --dev para o localhost:5175).')
 if (!supabaseUrl || !supabaseKey) parar('Faltam VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env: a extensão só funciona com o Supabase ligado (o modo demo vive no browser do site).')
 
 /**
@@ -75,9 +75,12 @@ const origens = [siteOrigem, ...(dev && siteOrigem !== 'http://localhost:5175' ?
 
 rmSync(destino, { recursive: true, force: true })
 mkdirSync(destino, { recursive: true })
-for (const item of ['service-worker.js', 'estilo.css', 'LEIA-ME.md', 'lib', 'popup', 'alerta', 'offscreen', 'content', 'icones']) {
+for (const item of ['service-worker.js', 'estilo.css', 'lib', 'popup', 'alert', 'offscreen', 'content', 'icons']) {
   cpSync(`${origem}/${item}`, `${destino}/${item}`, { recursive: true })
 }
+
+// O guia da extensão vai dentro da pasta, para quem a carrega à mão.
+cpSync(`${raiz}docs/extension.md`, `${destino}/README.md`)
 
 writeFileSync(`${destino}/config.js`, `// Gerado por scripts/montar-extensao.mjs: não edites à mão.
 export const CONFIG = ${JSON.stringify({ siteUrl: siteOrigem, supabaseUrl, supabaseKey }, null, 2)}
@@ -164,23 +167,23 @@ if (zip) {
   // A loja atribui o ID da extensão: o manifesto que vai para lá não leva a "key" de desenvolvimento.
   const { key: _key, ...paraLoja } = manifesto
   const lista = ficheiros(destino)
-    .filter((f) => f.nome !== 'manifest.json' && f.nome !== 'LEIA-ME.md')
+    .filter((f) => f.nome !== 'manifest.json' && f.nome !== 'README.md')
     .map((f) => ({ nome: f.nome, dados: readFileSync(f.caminho) }))
   lista.push({ nome: 'manifest.json', dados: Buffer.from(JSON.stringify(paraLoja, null, 2) + '\n') })
-  caminhoZip = `${origem}/rangify-extensao-${manifesto.version}.zip`
+  caminhoZip = `${origem}/rangify-extension-${manifesto.version}.zip`
   writeFileSync(caminhoZip, criarZip(lista))
 }
 
 console.log(`
-Extensão pronta em extensao/dist (versão ${manifesto.version})
+Extensão pronta em extension/dist (versão ${manifesto.version})
   site:      ${origens.join(', ')}
   Supabase:  ${supabaseUrl}
-${caminhoZip ? `  para as lojas: ${caminhoZip.replace(raiz, '')}  (passo a passo em extensao/PUBLICAR.md)\n` : ''}
+${caminhoZip ? `  para as lojas: ${caminhoZip.replace(raiz, '')}  (passo a passo em docs/extension-publishing.md)\n` : ''}
 Para usares já, no teu browser:
-1. Abre chrome://extensions (ou edge://extensions), liga o "Modo de programador" e carrega "Carregar sem compactação" na pasta extensao/dist.
+1. Abre chrome://extensions (ou edge://extensions), liga o "Modo de programador" e carrega "Carregar sem compactação" na pasta extension/dist.
 2. No Supabase, em Authentication > URL Configuration > Redirect URLs, junta (uma vez):
      https://${id}.chromiumapp.org/
      https://${id}.chromiumapp.org/**
    É para o "Entrar com o Discord" da extensão. Sem isto, só dá para entrar com utilizador e palavra-passe.
-   (Na versão das lojas o ID é outro, o que a loja atribuir: ver extensao/PUBLICAR.md.)
+   (Na versão das lojas o ID é outro, o que a loja atribuir: ver docs/extension-publishing.md.)
 `)

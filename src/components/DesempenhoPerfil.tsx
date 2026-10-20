@@ -1,6 +1,6 @@
 import { Activity, Crosshair, Crown, Flame, Map as MapIcon, Trophy, UserRound } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import type { EstatisticasPerfil } from '@/lib/dados'
+import type { EstatisticasPerfil } from '@/lib/data'
 import { imagemMapa } from '@/lib/mapas'
 import { IconeAgente, Painel, Segmentado, TituloPainel, Vazio } from './ui'
 import { l } from '@/lib/idioma'

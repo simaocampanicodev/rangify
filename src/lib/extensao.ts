@@ -1,5 +1,5 @@
 /**
- * A extensão do browser (pasta extensao/). Quando está instalada e viva, é ela que toca o aviso de "partida
+ * A extensão do browser (pasta extension/). Quando está instalada e viva, é ela que toca o aviso de "partida
  * encontrada", para se ouvir mesmo com outro separador à frente (o YouTube, por exemplo), e é ela que mantém o
  * sinal de vida da fila quando o separador do Rangify fecha. O site fala com o script de ponte da extensão por
  * window.postMessage; não passa nenhum dado da conta, só estas perguntas e avisos.

@@ -4,7 +4,7 @@ import { Cabecalho, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, V
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { dados, type EstadoSugestao } from '@/lib/dados'
+import { dados, type EstadoSugestao } from '@/lib/data'
 import { haQuanto } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
 

@@ -1,7 +1,7 @@
 /** Leituras sobre uma partida que várias fases do ecrã precisam. */
 import { equipaDoBan, totalBans } from './mapas'
 import { equipaDaEscolha } from './regras'
-import type { Equipa, JogadorPartida, Partida } from './dados'
+import type { Equipa, JogadorPartida, Partida } from './data'
 
 export function escolhidos(p: Partida) {
   return p.jogadores.filter((j) => j.equipa && !j.capitao).length

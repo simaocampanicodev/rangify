@@ -11,7 +11,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "testar-sql": "node scripts/testar-sql.mjs && node scripts/testar-filas.mjs && node scripts/testar-filas-demo.mjs && node scripts/testar-torneios.mjs && node scripts/testar-migracao-torneios.mjs && node scripts/testar-deteccao.mjs && node scripts/testar-torneios-demo.mjs && node scripts/testar-anuncio.mjs",
-    "extensao": "node scripts/montar-extensao.mjs"
+    "extension": "node scripts/montar-extensao.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -32,7 +32,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "esbuild": "^0.28.2",
-    "mp4-muxer": "^5.2.2",
     "tailwindcss": "^4.3.3",
     "typescript": "5.9",
     "vite": "^8.3.4"

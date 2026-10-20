@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useRef, useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { dados, type EstadoSugestao, type PaginaPartidas, type RecargaPartida, type ResumoPartida, type TesteApi } from '@/lib/dados'
+import { dados, type EstadoSugestao, type PaginaPartidas, type RecargaPartida, type ResumoPartida, type TesteApi } from '@/lib/data'
 import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
 import { comSinal, rangifyScores } from '@/lib/pontos'
@@ -271,7 +271,7 @@ export function DiscordStaff() {
       <div className="flex flex-wrap items-center gap-3 border-t border-white/6 pt-4">
         <button type="button" className="btn btn-fantasma" disabled={aTestar} onClick={testar}><PlugZap size={15} className="text-laranja" aria-hidden />{aTestar ? l('A perguntar ao Discord…', 'Asking Discord…') : l('Verificar a minha conta', 'Check my account')}</button>
         {eu != null && <Chip tom={eu ? 'vitoria' : 'derrota'}>{eu ? l('O bot encontrou-te no servidor', 'The bot found you in the server') : l('O bot não te encontrou no servidor', 'The bot did not find you in the server')}</Chip>}
-        <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver DISCORD.md).', 'Needs the verificar-discord Edge Function deployed (see DISCORD.md).')}</span>
+        <span className="text-[12.5px] text-mudo">{l('Precisa da Edge Function verificar-discord publicada (ver docs/discord.md).', 'Needs the verificar-discord Edge Function deployed (see docs/discord.md).')}</span>
       </div>
       <MensagensDiscord />
     </div>
@@ -332,7 +332,7 @@ function CargosRanked() {
       </span>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-suave" disabled={aCorrer} onClick={correr}><RefreshCw size={15} aria-hidden />{aCorrer ? l('A acertar os cargos…', 'Updating roles…') : l('Acertar o cargo Ranked de toda a gente', 'Update everyone\'s Ranked role')}</button>
-        <span className="text-[12.5px] text-mudo">{l('Precisa da função discord-ping (ver DISCORD.md).', 'Needs the discord-ping function (see DISCORD.md).')}</span>
+        <span className="text-[12.5px] text-mudo">{l('Precisa da função discord-ping (ver docs/discord.md).', 'Needs the discord-ping function (see docs/discord.md).')}</span>
       </div>
     </div>
   )
@@ -345,7 +345,7 @@ function MensagensDiscord() {
       <MensagemDiscord
         titulo={l('Canal de ping: botão "Chamar para a fila"', 'Ping channel: "Call to the queue" button')}
         descricao={l('Publica no canal de ping o embed com o banner e o botão. Quem carrega pinga o cargo de ping. Só pode haver uma chamada de 5 em 5 minutos para o servidor todo, e cada chamada nova apaga a anterior. Já não mostra quantas pessoas estão na fila (isso é do canal da fila). Carregar aqui outra vez atualiza a mesma mensagem, não cria outra.', 'Posts the embed with the banner and the button in the ping channel. Whoever clicks pings the ping role. Only one call every 5 minutes for the whole server, and each new call deletes the previous one. It no longer shows how many people are in the queue (that is the queue channel\'s job). Clicking here again updates the same message instead of creating a new one.')}
-        requisitos={l('Precisa das funções discord-ping e discord-interacoes (ver DISCORD.md).', 'Needs the discord-ping and discord-interacoes functions (see DISCORD.md).')}
+        requisitos={l('Precisa das funções discord-ping e discord-interacoes (ver docs/discord.md).', 'Needs the discord-ping and discord-interacoes functions (see docs/discord.md).')}
         botao={l('Publicar ou atualizar o ping', 'Post or update the ping')}
         publicar={() => dados.publicarPingDiscord()}
         feito={l('Mensagem do ping publicada no Discord.', 'Ping message posted on Discord.')}
@@ -353,7 +353,7 @@ function MensagensDiscord() {
       <MensagemDiscord
         titulo={l('Canal da fila aberta: quantas pessoas estão na fila', 'Open queue channel: how many people are in the queue')}
         descricao={l('Publica no canal da fila aberta a contagem (n/10) com os botões "Entrar na fila aberta" e "Abrir o site". "Entrar na fila aberta" abre o site e a pessoa entra na fila sozinha, sem carregar no botão do site. A contagem atualiza-se sozinha quando alguém entra ou sai da fila.', 'Posts the open queue count (n/10) in the open queue channel with the "Join the open queue" and "Open the site" buttons. "Join the open queue" opens the site and the person joins the queue on their own, without pressing the site\'s button. The count updates by itself when someone joins or leaves the queue.')}
-        requisitos={l('Precisa das funções discord-ping e discord-partida e das migrações 0027 e 0032 (ver DISCORD.md).', 'Needs the discord-ping and discord-partida functions and migrations 0027 and 0032 (see DISCORD.md).')}
+        requisitos={l('Precisa das funções discord-ping e discord-partida e das migrações 0027 e 0032 (ver docs/discord.md).', 'Needs the discord-ping and discord-partida functions and migrations 0027 and 0032 (see docs/discord.md).')}
         botao={l('Publicar ou atualizar a fila aberta', 'Post or update the open queue')}
         publicar={() => dados.publicarFilaDiscord()}
         feito={l('Mensagem da fila aberta publicada no Discord.', 'Open queue message posted on Discord.')}
@@ -361,7 +361,7 @@ function MensagensDiscord() {
       <MensagemDiscord
         titulo={l('Canal da fila ranked: só Ascendente 1 ou mais', 'Ranked queue channel: Ascendant 1 or higher only')}
         descricao={l('Publica no canal da fila ranked a contagem (n/10), quantos faltam e os botões "Entrar na fila ranked" e "Abrir o site". Só quem tem o cargo Ranked vê este canal. A contagem atualiza-se sozinha.', 'Posts the ranked queue count (n/10), how many are missing and the "Join the ranked queue" and "Open the site" buttons in the ranked queue channel. Only people with the Ranked role see this channel. The count updates by itself.')}
-        requisitos={l('Precisa das funções discord-ping e discord-partida e da migração 0032 (ver DISCORD.md).', 'Needs the discord-ping and discord-partida functions and migration 0032 (see DISCORD.md).')}
+        requisitos={l('Precisa das funções discord-ping e discord-partida e da migração 0032 (ver docs/discord.md).', 'Needs the discord-ping and discord-partida functions and migration 0032 (see docs/discord.md).')}
         botao={l('Publicar ou atualizar a fila ranked', 'Post or update the ranked queue')}
         publicar={() => dados.publicarFilaRankedDiscord()}
         feito={l('Mensagem da fila ranked publicada no Discord.', 'Ranked queue message posted on Discord.')}

@@ -1,4 +1,4 @@
-import type { ResumoPartida } from '@/lib/dados'
+import type { ResumoPartida } from '@/lib/data'
 import { imagemMapa } from '@/lib/mapas'
 import { comSinal } from '@/lib/pontos'
 import { nomeRank } from '@/lib/ranks'

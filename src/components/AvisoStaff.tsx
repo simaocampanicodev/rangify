@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { dados, type AvisoStaff } from '@/lib/dados'
+import { dados, type AvisoStaff } from '@/lib/data'
 import { l } from '@/lib/idioma'
 import { textoDuracaoBan } from '@/lib/tempo'
 

@@ -1,127 +1,319 @@
-# Rangify
+<div align="center">
 
-Hub competitivo de Valorant 5v5: fila por região, confirmação, draft de capitães, ban de mapas, código do grupo, resultado confirmado pela Henrik Dev API e um ranking próprio.
+<img src="assets/readme/banner.png" alt="Rangify Hub: o teu 5v5 de Valorant, a sério." width="100%">
 
-**O ranking:** toda a gente começa a temporada com 1000 pontos e a tabela é ordenada por esses pontos. O rank oficial da Riot nunca ordena nada nem entra nas contas dos pontos: é só informativo (perfil e média das equipas). Os pontos de cada partida são:
+<br>
 
-- vitória +20, derrota -20;
-- a margem de rondas: um 13-1 vale mais do que um 13-11 (de 18 a 24 pontos, ver `src/lib/pontos.ts`);
-- mais o desempenho (Rangify Score): de -6 a +6, um ponto por cada 6 de RS acima ou abaixo de 100;
-- exemplo: ganhas por 13-5 com um RS de 124. O resultado dá +21 e o desempenho soma mais 4, ficas com +25.
+[![Contribuidores](https://img.shields.io/github/contributors/simaocampanicodev/rangify?style=for-the-badge&color=ff5b1f&labelColor=0b0b0d&label=contribuidores)](https://github.com/simaocampanicodev/rangify/graphs/contributors)
+[![Commits](https://img.shields.io/github/commit-activity/t/simaocampanicodev/rangify?style=for-the-badge&color=ff5b1f&labelColor=0b0b0d&label=commits)](https://github.com/simaocampanicodev/rangify/commits/main)
+[![Último commit](https://img.shields.io/github/last-commit/simaocampanicodev/rangify?style=for-the-badge&color=ff5b1f&labelColor=0b0b0d&label=último%20commit)](https://github.com/simaocampanicodev/rangify/commits/main)
+[![Estrelas](https://img.shields.io/github/stars/simaocampanicodev/rangify?style=for-the-badge&color=ff5b1f&labelColor=0b0b0d&label=estrelas)](https://github.com/simaocampanicodev/rangify/stargazers)
 
-Rangify é um projeto independente e não é desenvolvido nem apoiado pela Riot Games.
+![React](https://img.shields.io/badge/React_19-0b0b0d?style=flat-square&logo=react&logoColor=ff5b1f)
+![TypeScript](https://img.shields.io/badge/TypeScript-0b0b0d?style=flat-square&logo=typescript&logoColor=ff5b1f)
+![Vite](https://img.shields.io/badge/Vite-0b0b0d?style=flat-square&logo=vite&logoColor=ff5b1f)
+![Tailwind](https://img.shields.io/badge/Tailwind_4-0b0b0d?style=flat-square&logo=tailwindcss&logoColor=ff5b1f)
+![Supabase](https://img.shields.io/badge/Supabase-0b0b0d?style=flat-square&logo=supabase&logoColor=ff5b1f)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-0b0b0d?style=flat-square&logo=postgresql&logoColor=ff5b1f)
+![Discord](https://img.shields.io/badge/Discord-0b0b0d?style=flat-square&logo=discord&logoColor=ff5b1f)
 
-## Correr em local
+<h3>Fila, draft de capitães, ban de mapas, resultado confirmado pela API da Riot e uma tabela só tua.</h3>
+
+[**Abrir o site**](https://rangify.onrender.com) &nbsp;·&nbsp; [Funcionalidades](#funcionalidades) &nbsp;·&nbsp; [Começar](#começar) &nbsp;·&nbsp; [Documentação](docs/README.md) &nbsp;·&nbsp; [Contribuir](#contribuir)
+
+</div>
+
+<br>
+
+<p align="center">
+  <img src="assets/readme/painel.webp" alt="O Painel do Rangify: a fila, os pontos e a forma recente." width="100%">
+</p>
+
+## O que é
+
+O Rangify é um **hub competitivo de Valorant 5v5**. Dez jogadores da mesma região entram numa fila, aceitam a partida, dois capitães escolhem as equipas, banem os mapas à vez e jogam um grupo personalizado. No fim, a **Henrik Dev API** lê o jogo e diz o resultado e as estatísticas de cada um, por isso ninguém escreve resultados à mão.
+
+Tudo conta para uma **tabela própria**: toda a gente começa a temporada com 1000 pontos, e o rank oficial da Riot nunca ordena nada.
+
+> **Rangify é um projeto independente e não é desenvolvido nem apoiado pela Riot Games.**
+
+<br>
+
+## Contribuições
+
+<div align="center">
+
+<a href="https://github.com/simaocampanicodev/rangify/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=simaocampanicodev/rangify" alt="Quem contribuiu para o Rangify" />
+</a>
+
+O número de contribuidores e de commits do repositório está nos selos lá em cima e atualiza-se sozinho.
+
+</div>
+
+<br>
+
+## Funcionalidades
+
+- [Duas filas](#duas-filas-aberta-e-ranked)
+- [A partida, fase a fase](#a-partida-fase-a-fase)
+- [Pontos justos e tabelas](#pontos-justos-e-tabelas)
+- [Perfil e estatísticas](#perfil-e-estatísticas)
+- [Comunidade](#comunidade)
+- [Discord](#discord)
+- [Extensão do browser](#extensão-do-browser)
+- [Streamers e convites](#streamers-e-convites)
+- [Torneios](#torneios)
+- [Área de staff](#área-de-staff)
+- [Feito para jogar](#feito-para-jogar)
+
+<br>
+
+### Duas filas: aberta e ranked
+
+<p align="center">
+  <img src="assets/readme/jogar.webp" alt="A página Jogar, com a fila aberta e a fila ranked lado a lado." width="100%">
+</p>
+
+- **Fila aberta**: para toda a gente, de Ferro a Radiante, sem requisitos.
+- **Fila ranked**: só para **Ascendente 1 ou mais**, com moldura própria, pontos próprios e a sua Tabela Ranked.
+- Uma fila de cada vez, por região. A escada de ranks mostra onde estás e quantas divisões faltam para a ranked.
+- Fechar o separador ou o browser tira-te da fila (um recarregar volta a pô-la), e quem fica sem dar sinal de vida é tirado ao fim de 3 minutos.
+- Banir da fila, avisar e castigar quem não aceita, tudo pela staff.
+
+<br>
+
+### A partida, fase a fase
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/readme/draft.webp" alt="O draft: o capitão da vez escolhe um jogador." width="100%"></td>
+    <td width="50%"><img src="assets/readme/bans.webp" alt="O ban de mapas: o cartão do mapa alarga e mostra o botão Banir." width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Draft de capitães</b></td>
+    <td align="center"><b>Ban de mapas</b></td>
+  </tr>
+</table>
+
+1. **Confirmação**: 20 segundos para aceitar. Quem recusa fica 5 minutos de castigo e os outros voltam à fila com o mesmo lugar.
+2. **Draft**: os dois capitães saem ao acaso. Escolhem à vez na ordem **A, B, B, A, A, B, B, A**, com 30 segundos por escolha. Se o tempo acabar, entra o rank oficial mais alto.
+3. **Bans de mapas**: 13 mapas em cartões altos. Ao passar o rato, o cartão alarga e aparece o botão **Banir**. Os colegas de equipa sugerem e o capitão decide, 60 segundos por ban.
+4. **Lado**: a equipa que não baniu por último escolhe atacar ou defender.
+5. **Código do grupo**: um dos dois capitães partilha o código de 6 caracteres, e a página mostra as definições que o grupo tem de ter. Aqui, e nos primeiros minutos de jogo, **7 de 10 jogadores** podem votar para cancelar a partida (sem pontos nem castigos).
+6. **Resultado**: os capitães só confirmam **quem ganhou** (A ou B). Quando os dois votam, ou 3 minutos depois do primeiro voto, a API da Riot define o resultado e quem ganhou: se alguém se enganar, ela corrige.
+
+<p align="center">
+  <img src="assets/readme/resultado.webp" alt="O ecrã Quem ganhou?, com os pontos em jogo para cada equipa." width="100%">
+</p>
+
+<br>
+
+### Pontos justos e tabelas
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/readme/tabela.webp" alt="A Tabela da temporada, com o pódio." width="100%"></td>
+    <td width="50%"><img src="assets/readme/partida.webp" alt="O detalhe de uma partida: KDA, ACS, KAST, HS%, trades, first bloods e pontos." width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Tabela da temporada</b></td>
+    <td align="center"><b>Detalhe da partida</b></td>
+  </tr>
+</table>
+
+- Cada partida vale **±20 pontos**, mais a **margem de rondas** (um 13-1 vale mais do que um 13-11) e o **desempenho** (Rangify Score, de -6 a +6).
+- O **rank oficial da Riot não conta** para os pontos. É só informativo.
+- **Quatro tabelas**: Pontos (aberta e ranked, cada uma com a sua), Nível, Rangify Score e Agentes (o melhor jogador de cada agente).
+- O **Rangify Score** junta ACS, KDA, KAST e trades, comparados com a média da partida (100 é a média).
+
+<br>
+
+### Perfil e estatísticas
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/readme/perfil.webp" alt="O perfil de um jogador: rank, pontos e estatísticas." width="100%"></td>
+    <td width="50%"><img src="assets/readme/partidas.webp" alt="O histórico de partidas, com filtros de fila e de mapa." width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Perfil</b></td>
+    <td align="center"><b>Histórico de partidas</b></td>
+  </tr>
+</table>
+
+- KDA, ACS, first bloods, trades, HS% e KAST de cada partida, a forma recente e os números por agente e por mapa.
+- Histórico **das minhas** e **de todas**, filtrável por **fila** e por **mapa**, de 10 em 10 e com o scoreboard a carregar só quando abres a partida.
+- O rank oficial atualiza-se sozinho depois de cada partida, sem ninguém ter de sincronizar.
+
+<br>
+
+### Comunidade
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/readme/missoes.webp" alt="As missões diárias e semanais e o passe de nível." width="100%"></td>
+    <td width="50%"><img src="assets/readme/staff.webp" alt="A área de staff, com as partidas ao vivo e quem as joga." width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Missões e níveis</b></td>
+    <td align="center"><b>Partidas ao vivo (staff)</b></td>
+  </tr>
+</table>
+
+- **Missões** diárias e semanais e o passe de **nível** (Rangify Experience), com XP.
+- **Amigos**: pedidos em tempo real, quem está ativo e quem está em jogo.
+- **Sugestões** da comunidade, com votos e estado, e **denúncias**.
+- **Novidades** publicadas pela staff no Painel e um **tour** de boas-vindas para contas novas.
+
+<br>
+
+### Discord
+
+<p align="center">
+  <img src="assets/readme/discord-avisos.webp" alt="Staff, Discord: escrever um aviso com pré-visualização, que o bot publica no canal de avisos." width="100%">
+</p>
+
+- **Entrar com o Discord**, com a opção de exigir o servidor para entrar na fila.
+- **Canais por partida**: um chat só para os 10 jogadores e uma call por equipa, criados e apagados pelo bot. O botão **Call da equipa** leva-te lá.
+- **Canais das filas** com a contagem em direto, o botão **Entrar na fila** e o cargo **Ranked** (dado e tirado pelo rank oficial).
+- **Chamar para a fila** com um botão no canal de ping, com limite de uma chamada de 5 em 5 minutos.
+- **Avisos**: a staff escreve no site, com pré-visualização e guia de formatação, e o bot publica-os num canal só de leitura, sempre com a barra laranja do Rangify.
+- Mensagens privadas do bot quando a staff dá um aviso ou um ban.
+
+<br>
+
+### Extensão do browser
+
+Uma extensão para **Chrome, Edge e Brave** com a roda da fila no popup, o botão de entrar e sair e o **aviso de partida encontrada a tocar na extensão**, por isso ouves a partida mesmo com o YouTube à frente.
+
+<br>
+
+### Streamers e convites
+
+- **Overlay do OBS** com o rank, os pontos e a última partida, e uma **marca animada** para a live.
+- **Twitch ligada ao perfil**, com o selo **AO VIVO** ao lado dos jogadores que estão em direto.
+- **Convites** com código e link próprios, com recompensa para quem convida e para quem é convidado.
+
+<br>
+
+### Torneios
+
+Equipas de 5 + coach + 2 suplentes, **fase de grupos** e **playoffs** de eliminação simples, **picks e bans de mapas** com os capitães das duas equipas, sorteio e calendário pela staff e **resultados lidos da API da Riot**.
+
+<br>
+
+### Área de staff
+
+- **Resultados** e **partidas ao vivo**: quem joga em cada uma, há quanto tempo e se alguma está parada.
+- **Inbox** (denúncias e sugestões), **mapas** (a rotação), **novidades** e **jogadores** (avisos, bans da fila, funções e pontos).
+- **Discord** (os avisos e as mensagens do bot), **Divulgação** e **Torneios**. A Divulgação e os Torneios nascem fechados e abrem-se a toda a gente quando a staff quiser.
+- **Ferramentas de teste** para Owner e Dev: simular a fila cheia ou uma partida completa com bots, sem mexer nos pontos reais.
+
+<br>
+
+### Feito para jogar
+
+<table>
+  <tr>
+    <td width="33%"><img src="assets/readme/movel-painel.webp" alt="O Painel no telemóvel." width="100%"></td>
+    <td width="33%"><img src="assets/readme/movel-jogar.webp" alt="A página Jogar no telemóvel." width="100%"></td>
+    <td width="33%"><img src="assets/readme/movel-tabela.webp" alt="A Tabela no telemóvel." width="100%"></td>
+  </tr>
+</table>
+
+- **Português e inglês**, com a escolha no topo.
+- **Telemóvel e computador**, com o mesmo fluxo de jogo.
+- **Fundo animado ou leve**: o modo leve deixa o fundo estático (e liga-se sozinho com o portátil a bateria).
+- Pensado para **não pesar**: dados em páginas pequenas, pedidos que pausam com o separador escondido e imagens leves.
+- **Modo demo** completo no browser, com 64 jogadores de exemplo, para experimentar sem configurar nada.
+
+<br>
+
+## Começar
 
 ```bash
+git clone https://github.com/simaocampanicodev/rangify.git
+cd rangify
 npm install
 npm run dev
 ```
 
-Abre em http://localhost:5175. Sem variáveis de ambiente, o site arranca em **modo demo**:
+Abre em http://localhost:5175. Sem configuração nenhuma, o site arranca em **modo demo**: tudo fica no browser e os outros 9 jogadores de cada partida são bots que aceitam, escolhem, banem e confirmam.
 
-- tudo fica no browser (localStorage);
-- há 64 jogadores de exemplo e cerca de 120 partidas já jogadas;
-- os outros 9 jogadores de cada partida são bots que aceitam, escolhem, banem e confirmam o resultado.
+- **Entrar como Nyx#4521** abre a conta de exemplo (Owner, com histórico).
+- Em **Jogar**, os botões **Simular fila cheia** e **Simular partida completa** deixam-te ver todas as fases.
 
-No modo demo:
+Para ligar a um projeto Supabase real (contas, Discord, a API da Riot e a máquina de estados na base de dados), segue o guia em [docs/setup.md](docs/setup.md). O deploy no Render está em [docs/deploy.md](docs/deploy.md).
 
-- **"Entrar como Nyx#4521"** abre a conta de exemplo (Owner, com histórico).
-- **"Continuar com o Discord"** cria uma conta nova, para veres o primeiro acesso e o guia de boas-vindas.
-- **Definições > Modo demo** muda a função da conta, para testar o que cada uma vê, e repõe os dados.
-
-## Ligar ao Supabase
-
-O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em [DEPLOY.md](DEPLOY.md). Em resumo:
-
-
-1. Cria um projeto no Supabase e corre `supabase/migrations/0001_schema.sql` e depois `0002_perfil.sql`, `0003_estatisticas.sql`, `0004_fila_amigos.sql`, `0005_perfil_estatisticas.sql`, `0006_rotacao_testes.sql`, `0007_experiencia.sql`, `0008_novidades_api.sql`, `0009_situacao.sql`, `0010_sugestoes_staff.sql`, `0011_discord.sql`, `0012_rangify_score.sql`, `0013_recarregar_partida.sql`, `0014_tempo_real.sql`, `0015_loja.sql`, `0016_discord_ping.sql`, `0017_lados_sugestoes.sql`, `0018_moedas_diarias.sql`, `0019_pontos_sem_rank.sql`, `0020_margem_cancelar_fila.sql`, `0021_partidas_ao_vivo.sql`, `0022_historico_paginas.sql` `0023_fila_presenca.sql` `0024_capitaes_votam_vencedor.sql`, `0025_ordem_draft.sql`, `0026_avisos_bans.sql`, `0027_discord_canal_fila.sql` `0028_codigo_dois_capitaes_cancelar_7.sql`, `0029_streamers_convites.sql`, `0030_tabelas_so_quem_jogou_agentes.sql`, `0031_torneios.sql` e `0032_filas_ranked.sql` e `0033_historico_fila.sql` e `0034_discord_anuncios.sql` e `0035_sem_loja.sql` no SQL Editor (ou `supabase db push`).
-2. Em **Authentication > Providers** ativa o **Discord**:
-   - cola o Client ID e o Secret da aplicação do Discord;
-   - no Discord, o redirect é `https://<projeto>.supabase.co/auth/v1/callback`;
-   - em **Authentication > URL Configuration**, junta o URL do site (por exemplo, o do Render) às Redirect URLs.
-3. Pede uma chave em https://docs.henrikdev.xyz e guarda-a como segredo das funções:
-   ```bash
-   supabase secrets set HENRIK_API_KEY=...
-   ```
-4. Publica as Edge Functions:
-   ```bash
-   supabase functions deploy sincronizar-rank processar-partida entrar testar-api verificar-discord recarregar-partida discord-ping
-   supabase functions deploy discord-partida discord-interacoes --no-verify-jwt   # canais de Discord, ver DISCORD.md
-   supabase functions deploy twitch-ligar twitch-sincronizar --no-verify-jwt       # Twitch ligada ao perfil, ver STREAMERS.md
-   supabase functions deploy processar-torneio --no-verify-jwt                      # resultados dos torneios, ver TORNEIOS.md
-   ```
-5. Cria o `.env` a partir do `.env.example` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
-6. Entra uma vez com o Discord e torna-te Owner:
-   ```sql
-   update profiles set role = 'owner' where username = 'o_teu_utilizador';
-   ```
-
-No Render, o `render.yaml` cria o site estático. As duas variáveis `VITE_` pedem-se ao criar o serviço.
+<br>
 
 ## Como está organizado
 
-- `src/lib/dados/`: a interface `Dados`, com duas implementações.
-  - `local.ts`: o modo demo, com o motor da partida no browser.
-  - `supabase.ts`: chama os RPCs, que devolvem o JSON já com os nomes do site.
-- `src/lib/{pontos,ranks,regras,mapas}.ts`: a fórmula dos pontos, os ranks, as regras do resultado e a pool de mapas.
-- `src/components/partida/`: as fases da partida (confirmação, draft, mapas, código e resultado).
-- `src/components/Tour.tsx`: o guia de boas-vindas para contas novas, que se pode rever nas Definições.
-- `src/components/Ajuda.tsx`: os "Como funciona" de cada secção (fila, draft, mapas, código, resultado, ranking, rank oficial, missões, amigos, sugestões e funções).
-- `src/components/FerramentasDev.tsx`: "Simular fila cheia" e "Simular partida completa", visíveis só para Owner e Dev. As partidas simuladas não mexem nos pontos reais.
-- `supabase/migrations/0001_schema.sql`: tabelas, RLS e a máquina de estados.
-  - Os clientes só leem; tudo o que muda dados passa por RPCs `security definer`.
-  - O código do grupo só é visível aos 10 jogadores da partida.
-- **Avisos e bans (Staff › Jogadores › Moderar)**: a staff avisa um jogador ou bane-o da fila (1 hora, 24 horas, 7 dias, 30 dias, permanente ou as horas que quiser), sempre com uma mensagem. O ban tira a pessoa da fila e impede-a de voltar a entrar, mas não cancela uma partida a decorrer nem mexe em pontos ou histórico. O jogador recebe uma mensagem privada do bot e um popup no site que tem de confirmar. Cada um só pune quem tem uma função abaixo da sua. Migração `0026`.
-- **Tabelas (pontos, nível, Rangify Score e Agentes)**: só aparece quem já acabou pelo menos uma partida (quem acabou de criar a conta vê "Ainda não estás na tabela"). O separador **Agentes** mostra o melhor jogador de cada agente (e os seguintes), pela média de Rangify Score com ele, com filtro por função e por partidas mínimas.
-- **Streamers e convites (página Divulgar)**: overlay do OBS com o rank e a partida, marca animada para o OBS (com o link de convite), canal da Twitch ligado ao perfil (com "AO VIVO" e o botão da live ao lado do jogador) e convites com recompensa em coins. Só Owner e Dev até abrirem a toda a gente em Staff › Divulgação. Ver `STREAMERS.md`.
-- **Torneios**: equipas de 5 + coach + 2 suplentes (convites pelo nome, o convidado aceita), fase de grupos, playoffs de eliminação simples, **picks e bans de mapas** com os capitães das duas equipas, sorteio e calendário pela staff e resultados lidos da API da Riot. Só Owner e Dev (a staff abre a quem quiser em Staff › Torneios), com ferramentas de teste com bots. Ver `TORNEIOS.md`.
-- **Desempenho**: o que se mediu, o que mudou e o que ficou de fora está em `DESEMPENHO.md`.
-- `supabase/functions/`: as Edge Functions.
-  - `sincronizar-rank`: liga o Riot ID e lê o rank oficial, no máximo de 6 em 6 horas.
-  - `processar-partida`: procura a partida personalizada na Henrik Dev API (no máximo uma consulta por minuto por partida) e tira o resultado, KDA, ACS, first bloods, trades, HS% e KAST. Depois de fechar a partida, volta a ler o **rank oficial dos dez jogadores** (mesmo que tenham descido, por exemplo com a reposição de um ato), sem esperar que alguém sincronize no perfil.
-  - `verificar-discord`: pergunta ao bot se o jogador está no servidor de Discord, quando a Staff torna o Discord obrigatório para a fila.
-  - `recarregar-partida`: só Owner e Dev; volta a ler na API o jogo de uma partida terminada e refaz o RS, o MVP e os pontos (a diferença vai para cada jogador).
-  - `testar-api`: só Owner e Dev; lê o último jogo personalizado da própria conta e mostra na Staff o que seria gravado, sem gravar nada.
-  - `entrar`: login por utilizador e palavra-passe, sem expor emails.
-  - `discord-partida`, `discord-ping` e `discord-interacoes`: o bot do Discord (canais da partida, mensagem da fila, botão de chamar e mensagens privadas dos avisos). Ver [DISCORD.md](DISCORD.md).
-- `extensao/`: a extensão do browser (Chrome, Edge e Brave) com a roda da fila e o aviso de partida encontrada. `npm run extensao` prepara-a; ver [extensao/LEIA-ME.md](extensao/LEIA-ME.md).
+```text
+rangify/
+├── src/                 O site (React + TypeScript)
+│   ├── pages/           Uma pasta por página: Painel, Jogar, Tabela, Perfil, Staff...
+│   ├── components/      Componentes (match/ tem as fases da partida, tournaments/ os torneios)
+│   ├── lib/             Regras, pontos, ranks, mapas e data/ (a camada de dados: demo e Supabase)
+│   ├── contexts/        Sessão, partida em curso e avisos
+│   └── hooks/           Carregar dados, polling inteligente, relógios
+├── supabase/
+│   ├── migrations/      O esquema, a máquina de estados e todas as regras em SQL
+│   └── functions/       As Edge Functions (Henrik API, bot do Discord, Twitch, avisos...)
+├── extension/           A extensão do browser (Chrome, Edge e Brave)
+├── scripts/             Testes (SQL, filas, torneios...) e ferramentas
+├── assets/              Marca, banners do Discord, mapas originais e imagens deste README
+├── public/              Ficheiros estáticos do site (favicon e arte dos mapas)
+└── docs/                Toda a documentação
+```
 
-### A máquina de estados
+A lógica do jogo vive na **base de dados**: os clientes só leem, e tudo o que muda dados passa por funções SQL `security definer` que fazem de máquina de estados. O site tem duas implementações da mesma interface, uma para o Supabase e outra para o modo demo, por isso o que vês na demo é o que corre a sério. A arquitetura completa está em [docs/architecture.md](docs/architecture.md).
 
-1. `READY_CHECK`: 20 s para aceitar. Quem recusa fica 5 min de castigo e os outros voltam à fila com o mesmo lugar.
-2. `DRAFT_PHASE`: os dois ranks oficiais mais altos são capitães. As 8 escolhas seguem a ordem A, B, B, A, A, B, B, A, 30 s por escolha.
-3. `MAP_BAN`: os 13 mapas do Valorant; 12 bans alternados de 20 s e o mapa que sobra é o da partida.
-4. `LOBBY_CREATION`: um dos dois capitães (A ou B) partilha o código do grupo (6 letras ou números); o primeiro a guardar vale, para a partida não cair se um se esquecer. Aqui e nos primeiros 10 minutos de jogo, 7 jogadores de 10 podem votar para cancelar a partida (sem pontos nem castigos).
-5. `IN_PROGRESS`: bloqueio de 15 minutos antes de se poder submeter o resultado.
-6. `RESULT_SUBMISSION`: cada capitão só escolhe a equipa que ganhou (A ou B), para confirmar que o jogo acabou. Quando os dois votam, ou 3 minutos depois do primeiro voto, a partida segue para a API.
-7. `PROCESSING_API`: a Edge Function procura o jogo na Henrik Dev API e fecha a partida com o resultado e o vencedor que a API diz (corrige quem votou mal). Sem resposta em 30 min, vai para disputa.
-8. `COMPLETED`, `DISPUTE` (a API não achou o jogo: a staff decide) ou `CANCELLED`.
+<br>
 
-Os prazos e as jogadas dos bots avançam em `avancar_partida`, que o site chama a cada segundo enquanto há uma partida a decorrer.
+## Documentação
+
+Tudo está em [`docs/`](docs/README.md):
+
+| Guia | O que tem |
+| --- | --- |
+| [Instalar e configurar](docs/setup.md) | Correr em local, variáveis de ambiente e ligar o Supabase |
+| [Arquitetura](docs/architecture.md) | A máquina de estados, os pontos, as Edge Functions e os testes |
+| [Deploy](docs/deploy.md) | Render, Supabase, Discord, Henrik Dev API e GitHub, passo a passo |
+| [Discord](docs/discord.md) | O bot, os canais, o botão de chamar, os avisos e o cargo Ranked |
+| [Torneios](docs/tournaments.md) | Equipas, grupos, playoffs e picks e bans |
+| [Streamers](docs/streamers.md) | Overlay do OBS, Twitch e convites |
+| [Extensão do browser](docs/extension.md) | Instalar a extensão e publicá-la nas lojas |
+| [Desempenho](docs/performance.md) | O que se mediu, o que mudou e o que ficou de fora |
+
+<br>
 
 ## Testes
 
 ```bash
-npm run build
-npm run testar-sql
+npm run build         # tipos e build do site
+npm run testar-sql    # as migrações e as regras, num Postgres local (PGlite)
 ```
 
-`testar-sql` aplica a migração num Postgres local (PGlite) e joga partidas inteiras pelos RPCs. Cobre:
+Os testes jogam partidas inteiras pelas funções SQL: a fila, a confirmação, o draft, os bans, o código, o resultado, os pontos, as filas aberta e ranked, os torneios, a segurança (RLS e funções internas) e o modo demo.
 
-- a fila, a confirmação, o draft, os bans, o código, o bloqueio e o resultado;
-- os pontos, comparados com a fórmula do site;
-- as disputas e as simulações;
-- a segurança: RLS, funções internas e o código do grupo.
+<br>
 
-## Vídeo de apresentação
+## Contribuir
 
-`video/video.html` é o vídeo de apresentação do Rangify (52 s, 16:9), com música e efeitos sonoros sintetizados na própria página (Web Audio API, sem ficheiros de som). Abre-o no browser e carrega em Reproduzir; `?lingua=en` dá a versão em inglês.
+Encontraste um problema ou tens uma ideia? Abre um [issue](https://github.com/simaocampanicodev/rangify/issues). Para mudar código:
 
-Para gerar os MP4 (1920x1080, H.264 + AAC) em `video/rangify-pt.mp4` e `video/rangify-en.mp4`:
+1. Faz um fork e cria um ramo a partir de `main`.
+2. Corre `npm run build` e `npm run testar-sql` antes de abrir o pull request.
+3. As mudanças na base de dados são **migrações novas** em `supabase/migrations/` (nunca mudes as antigas) com o teste respetivo em `scripts/`.
 
-```bash
-node scripts/gravar-video.mjs
-```
+<br>
 
-O script abre o Brave, o Chrome ou o Edge sem janela, tira uma foto da página por fotograma (as animações avançam 1/30 s de cada vez) e a página junta as fotos e o som num MP4 com a biblioteca `mp4-muxer`. Só a página é fotografada, nunca o ecrã.
+<div align="center">
+
+<img src="assets/brand/rangify-icone-512.png" alt="Rangify" width="56">
+
+<sub><b>Rangify é um projeto independente e não é desenvolvido nem apoiado pela Riot Games.</b></sub>
+
+</div>
