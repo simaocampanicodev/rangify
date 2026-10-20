@@ -25,13 +25,15 @@ function Rotulo({ recolhido, children }: { recolhido: boolean; children: ReactNo
   )
 }
 
-interface Item { para: string; texto: string; icone: ReactNode; tour: string; extra?: ReactNode; fim?: boolean }
+interface Item { para: string; texto: string; icone: ReactNode; tour: string; extra?: ReactNode; fim?: boolean; /** Outro caminho que também deixa este item aceso. */ tambem?: string }
 
 function lerRecolhido() {
   try { return localStorage.getItem('rangify:menu') === 'recolhido' } catch { return false }
 }
 
 function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean; onClick?: () => void }) {
+  const { pathname } = useLocation()
+  const tambem = !!item.tambem && pathname.startsWith(item.tambem)
   return (
     <NavLink
       to={item.para}
@@ -41,7 +43,7 @@ function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean;
       title={recolhido ? item.texto : undefined}
       className={({ isActive }) =>
         `relative flex min-h-11 items-center rounded-[10px] border text-[14.5px] no-underline transition-[padding,background-color,color,border-color] ${ANIM} ${recolhido ? 'px-[20px]' : 'px-3'} ${
-          isActive ? 'cantos border-white/9 bg-white/5 font-semibold text-texto' : 'border-transparent font-medium text-suave hover:bg-white/[0.045] hover:text-texto'
+          isActive || tambem ? 'cantos border-white/9 bg-white/5 font-semibold text-texto' : 'border-transparent font-medium text-suave hover:bg-white/[0.045] hover:text-texto'
         }`
       }
     >
@@ -131,7 +133,7 @@ export function Sidebar() {
       titulo: 'HUB', itens: [
         { para: '/', texto: l('Painel', 'Dashboard'), icone: <House size={18} />, tour: 'dashboard', fim: true },
         {
-          para: '/jogar', texto: l('Jogar', 'Play'), icone: <Swords size={18} />, tour: 'jogar',
+          para: '/jogar', texto: l('Jogar', 'Play'), icone: <Swords size={18} />, tour: 'jogar', tambem: '/partida/',
           extra: ativa ? <Contador vivo>{l('ao vivo', 'live')}</Contador> : fila?.naFila ? <Contador vivo>{fila.contagem}/10</Contador> : null,
         },
         { para: '/ranking', texto: l('Tabela', 'Leaderboard'), icone: <Trophy size={18} />, tour: 'ranking' },

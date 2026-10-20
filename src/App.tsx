@@ -11,7 +11,7 @@ import { ProvedorSessao } from './contexts/Sessao'
 import { BemVindo } from './pages/BemVindo'
 import { Dashboard } from './pages/Dashboard'
 import { Entrar } from './pages/Entrar'
-import { Jogar } from './pages/Jogar'
+import { Jogar, PaginaPartida } from './pages/Jogar'
 
 // As páginas menos usadas só descarregam quando são abertas.
 const Ranking = lazy(() => import('./pages/Ranking').then((m) => ({ default: m.Ranking })))
@@ -46,6 +46,7 @@ function Hub() {
                 <Route element={<Layout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="jogar" element={<Jogar />} />
+                  <Route path="partida/:id" element={<PaginaPartida />} />
                   <Route path="ranking" element={<Ranking />} />
                   <Route path="partidas" element={<Partidas />} />
                   <Route path="perfil" element={<Perfil />} />

@@ -87,6 +87,10 @@ Os prazos e as jogadas dos bots avançam em `avancar_partida`, que o site chama 
 - As decorações dos jogadores ficam em memória 10 minutos e só se apagam quando a loja muda.
 - Na Staff, as listas (partidas ao vivo, resultados, jogadores, denúncias, jogos de um torneio) desenham-se por partes, os jogadores de cada partida só quando se pedem, e as secções pesadas (Discord, torneios) abrem uma de cada vez.
 
+### Endereço da partida
+
+Uma partida em curso vive em `/partida/<ID>` (`PaginaPartida` em `pages/Jogar.tsx`, `caminhoPartida` em `lib/rotas.ts`). Com uma partida por fechar, `/jogar` redireciona para ela; sem partida (ou com o ID de outra), `/partida/<ID>` volta a `/jogar`. Atualizar a página, abrir noutro separador e o botão de voltar do browser levam à mesma partida. O endereço não dá acesso a nada: o servidor só devolve a partida de quem joga nela. Os links antigos para `/jogar` (Discord, extensão) continuam a funcionar.
+
 ### Um líder por partida
 
 Numa partida (confirmação, bans, draft), dez jogadores a perguntar à base de dados ao mesmo tempo, e cada um a ouvir as mudanças das tabelas, era o que mais pesava. Agora só um jogador, o **líder**, pergunta o estado e reenvia-o aos outros nove (`src/lib/lider.ts`, `Partida.tsx`).

@@ -27,7 +27,7 @@ const ativo = (p: Partida | null) => !!p && (ESTADOS_ATIVOS as readonly string[]
 
 /**
  * Segue a fila e a partida do utilizador em todo o site: a janela de
- * confirmação aparece em qualquer página e o resto das fases vive em /jogar.
+ * confirmação aparece em qualquer página e o resto das fases vive em /partida/<ID>.
  * No site real, o Realtime avisa quando a fila muda, quando entras numa partida e
  * quando ela avança; perguntar ao servidor fica como reserva (e, numa partida, para
  * fazer andar os prazos e os bots, que só avançam quando alguém pergunta).

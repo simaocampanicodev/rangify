@@ -31,7 +31,7 @@ export function FerramentasDev() {
     const r = await acao(async () => { await f(); return true }, ok)
     await atualizar()
     setOcupado(false)
-    if (r && irJogar) navegar('/jogar')
+    if (r && irJogar) navegar('/jogar') // a página Jogar leva ao endereço da partida, se já houver uma
   }
 
   return (

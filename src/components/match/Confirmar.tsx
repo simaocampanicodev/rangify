@@ -18,6 +18,7 @@ import { emFalta } from '@/lib/tempo'
 import { NomeRangify } from '../Marca'
 import { iniciais } from '../ui'
 import { Relogio } from './Relogio'
+import { caminhoPartida } from '@/lib/rotas'
 import { l } from '@/lib/idioma'
 
 /**
@@ -83,7 +84,7 @@ export function Confirmar() {
     await acao(() => dados.responderConfirmacao(partida.id, aceita))
     await atualizar()
     setAEnviar(false)
-    if (aceita) navegar('/jogar')
+    if (aceita) navegar(caminhoPartida(partida.id))
   }
 
   return createPortal(

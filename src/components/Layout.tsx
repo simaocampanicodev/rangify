@@ -6,6 +6,7 @@ import { useAgora } from '@/hooks/useAgora'
 import { useFila } from '@/hooks/useFila'
 import { useSessao } from '@/contexts/Sessao'
 import { NOMES_ESTADO } from '@/lib/regras'
+import { caminhoPartida } from '@/lib/rotas'
 import { relogio } from '@/lib/tempo'
 import { AvisoStaffPopup } from './AvisoStaff'
 import { Fundo } from './Fundo'
@@ -19,9 +20,9 @@ import { l } from '@/lib/idioma'
 function FaixaPartida() {
   const { partida, ativa } = usePartida()
   const local = useLocation()
-  if (!ativa || !partida || partida.estado === 'READY_CHECK' || local.pathname === '/jogar') return null
+  if (!ativa || !partida || partida.estado === 'READY_CHECK' || local.pathname === '/jogar' || local.pathname.startsWith('/partida/')) return null
   return (
-    <Link to="/jogar" className="flex items-center justify-center gap-3 border-b border-laranja/30 bg-laranja/12 px-4 py-2.5 text-[13.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/18">
+    <Link to={caminhoPartida(partida.id)} className="flex items-center justify-center gap-3 border-b border-laranja/30 bg-laranja/12 px-4 py-2.5 text-[13.5px] font-semibold text-pessego-claro no-underline hover:bg-laranja/18">
       <Radio size={16} className="ao-vivo text-laranja" aria-hidden />
       {l('Partida', 'Match')} {partida.codigo} {l('a decorrer', 'in progress')}: {NOMES_ESTADO[partida.estado]}
       <span className="inline-flex items-center gap-1 text-laranja-claro">{l('Voltar à partida', 'Back to match')}<ArrowRight size={14} aria-hidden /></span>

@@ -15,6 +15,7 @@ import { formatarXp } from '@/lib/experiencia'
 import { traduzirMissao } from '@/lib/missoes'
 import { nomeJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
+import { caminhoPartida } from '@/lib/rotas'
 import { nomeRegiao } from '@/lib/regioes'
 import { NOMES_ESTADO } from '@/lib/regras'
 import { diaCurto, duracaoAte, fimDaSemana, fimDoDia, haQuanto } from '@/lib/tempo'
@@ -85,7 +86,7 @@ function PartidaAtiva({ partida }: { partida: Partida }) {
           {l('Tens uma partida a decorrer. Volta à página Jogar para a fase em que está.', 'You have a match in progress. Go back to the Play page for its current phase.')}
         </p>
         <div className="flex flex-wrap items-center gap-2.5 pt-1">
-          <Link to="/jogar" className="btn btn-primario">{l('Voltar à partida', 'Back to match')}<ArrowRight size={16} aria-hidden /></Link>
+          <Link to={caminhoPartida(partida.id)} className="btn btn-primario">{l('Voltar à partida', 'Back to match')}<ArrowRight size={16} aria-hidden /></Link>
           <BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda>
           {partida.fila === 'ranked' && <span className="font-mono text-[11px] font-semibold tracking-[0.1em] text-pessego">RANKED</span>}
         </div>
@@ -137,7 +138,7 @@ export function Dashboard() {
           <>
             <SeletorIdioma />
             <Link to="/amigos" aria-label={l('Pedidos e amigos', 'Requests and friends')} className="grid size-11 place-items-center rounded-[11px] border border-white/8 bg-white/[0.03] text-[#d9d4cd] hover:bg-white/8"><Bell size={18} aria-hidden /></Link>
-            <Link to="/jogar" className="btn btn-primario">{ativa ? l('Voltar à partida', 'Back to match') : l('Jogar agora', 'Play now')}</Link>
+            <Link to={ativa && partida ? caminhoPartida(partida.id) : '/jogar'} className="btn btn-primario">{ativa ? l('Voltar à partida', 'Back to match') : l('Jogar agora', 'Play now')}</Link>
           </>
         }
       />

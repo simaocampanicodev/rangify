@@ -1,5 +1,6 @@
 import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Radio, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { FaixaAoVivo } from '@/components/AoVivo'
 import { FerramentasDev } from '@/components/FerramentasDev'
 import { ConviteExtensao } from '@/components/ConviteExtensao'
@@ -14,6 +15,7 @@ import { useIntervalo } from '@/hooks/useVisivel'
 import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
 import { useAvisos } from '@/contexts/Avisos'
 import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
+import { caminhoPartida } from '@/lib/rotas'
 import { l } from '@/lib/idioma'
 
 // Os ecrãs da partida só descarregam quando há fila ou partida (ver preCarregarPartida).
@@ -193,32 +195,44 @@ function DuasFilas() {
   )
 }
 
+/** A partida em curso, fase a fase. Vive em /partida/<ID>, um endereço só dela. */
+export function PaginaPartida() {
+  const { id } = useParams()
+  const { partida, fila } = usePartida()
+  const { perfil } = useSessao()
+  useEffect(() => { preCarregarPartida() }, [])
+  // Antes da primeira resposta do servidor não se sabe se a partida existe (por exemplo, ao atualizar a página).
+  if (!perfil || !fila) return <Carregando />
+  // Outra partida, ou uma que já não é tua (acabou e fechaste o resumo): volta à fila. O endereço é só um atalho: quem
+  // não joga nesta partida nunca a vê, porque o servidor só devolve a partida de quem está nela.
+  if (!partida || partida.id !== id) return <Navigate to={partida ? caminhoPartida(partida.id) : '/jogar'} replace />
+  const eu = perfil.id
+  let fase: React.ReactNode
+  switch (partida.estado) {
+    case 'READY_CHECK': fase = <Carregando texto={l('À espera de que todos aceitem a partida…', 'Waiting for everyone to accept the match…')} />; break
+    case 'DRAFT_PHASE': fase = <Draft p={partida} eu={eu} />; break
+    case 'MAP_BAN': fase = <Mapas p={partida} eu={eu} />; break
+    case 'LOBBY_CREATION':
+    case 'IN_PROGRESS': fase = <Codigo p={partida} eu={eu} />; break
+    default: fase = <Resultado p={partida} eu={eu} />
+  }
+  return (
+    <>
+      <Progresso p={partida} />
+      <Suspense fallback={<Carregando />}>{fase}</Suspense>
+      <FerramentasDev />
+    </>
+  )
+}
+
 export function Jogar() {
   const { partida, fila } = usePartida()
   const { perfil } = useSessao()
-  const preparar = !!partida || !!fila?.naFila
+  const preparar = !!fila?.naFila
   useEffect(() => { if (preparar) preCarregarPartida() }, [preparar])
   if (!perfil) return <Carregando />
-  const eu = perfil.id
-
-  if (partida) {
-    let fase: React.ReactNode
-    switch (partida.estado) {
-      case 'READY_CHECK': fase = <Carregando texto={l('À espera de que todos aceitem a partida…', 'Waiting for everyone to accept the match…')} />; break
-      case 'DRAFT_PHASE': fase = <Draft p={partida} eu={eu} />; break
-      case 'MAP_BAN': fase = <Mapas p={partida} eu={eu} />; break
-      case 'LOBBY_CREATION':
-      case 'IN_PROGRESS': fase = <Codigo p={partida} eu={eu} />; break
-      default: fase = <Resultado p={partida} eu={eu} />
-    }
-    return (
-      <>
-        <Progresso p={partida} />
-        <Suspense fallback={<Carregando />}>{fase}</Suspense>
-        <FerramentasDev />
-      </>
-    )
-  }
+  // Com uma partida em curso (ou por fechar), a página Jogar leva ao endereço dela.
+  if (partida) return <Navigate to={caminhoPartida(partida.id)} replace />
 
   return (
     <>
