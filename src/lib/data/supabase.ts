@@ -82,8 +82,18 @@ export const dadosSupabase: Dados = {
   },
 
   aoMudarSessao(cb) {
-    const { data } = cliente().auth.onAuthStateChange((evento) => {
-      if (evento === 'SIGNED_IN' || evento === 'SIGNED_OUT' || evento === 'USER_UPDATED') cb()
+    // O supabase-js repete o SIGNED_IN sempre que o separador volta a ficar à frente. Cada repetição recarregava o perfil e
+    // apagava as decorações de toda a gente (centenas de pedidos por hora): só conta quando a conta muda de facto.
+    let conta: string | null | undefined
+    const { data } = cliente().auth.onAuthStateChange((evento, sessao) => {
+      const id = sessao?.user?.id ?? null
+      if (evento === 'INITIAL_SESSION') { conta = id; return }
+      if (evento === 'USER_UPDATED') { cb(); return }
+      if (evento === 'SIGNED_IN' || evento === 'SIGNED_OUT') {
+        if (id === conta) return
+        conta = id
+        cb()
+      }
     })
     return () => data.subscription.unsubscribe()
   },
@@ -275,12 +285,17 @@ export const dadosSupabase: Dados = {
   amigos: () => rpc<Amizade[]>('amigos'),
   aoMudarJogo(perfilId, partidaId, cb) {
     let canal = cliente().channel(`jogo-${perfilId}-${partidaId ?? 'fila'}`)
-      // Alguém entrou ou saiu da fila (a contagem muda).
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, cb)
-      // A sala encheu e entraste numa partida.
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_players', filter: `profile_id=eq.${perfilId}` }, cb)
-    // A tua partida avançou: escolhas, bans, código, resultado.
-    if (partidaId) canal = canal.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${partidaId}` }, cb)
+    if (partidaId) {
+      // Dentro de uma partida só interessa a própria partida (escolhas, bans, código, resultado). A fila e as salas dos
+      // outros não: cada aviso a mais era uma verificação de permissões no Realtime e uma pergunta a mais à base de dados.
+      canal = canal.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${partidaId}` }, cb)
+    } else {
+      canal = canal
+        // Alguém entrou ou saiu da fila (a contagem muda).
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, cb)
+        // A sala encheu e entraste numa partida.
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_players', filter: `profile_id=eq.${perfilId}` }, cb)
+    }
     canal.subscribe()
     return () => { cliente().removeChannel(canal) }
   },
@@ -509,7 +524,9 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   definirPassword: ['perfil'], ligarRiotId: ['perfil'], definirAvatar: ['perfil'], atualizarPerfil: ['perfil'],
   marcarTourVisto: ['perfil'], sincronizarRank: ['perfil'],
   entrarFila: ['fila'], sairFila: ['fila'],
-  responderConfirmacao: ['partida'], escolherJogador: ['partida'], banirMapa: ['partida'], escolherLado: ['partida'], sugerirMapa: ['partida'], votarCancelar: ['partida'], definirCodigo: ['partida'],
+  // Escolher, banir, sugerir e votar para cancelar não mudam nada fora da partida (a página já se atualiza sozinha): avisar
+  // 'partida' recarregava o perfil de cada jogador a cada clique.
+  responderConfirmacao: ['partida'], definirCodigo: ['partida'],
   submeterResultado: ['partida'], devEncherFila: ['partida'], devCompletarFila: ['partida'], devSimularPartida: ['partida'],
   devSaltarBloqueio: ['partida'], devAcelerar: ['partida'],
   pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],

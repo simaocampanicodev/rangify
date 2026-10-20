@@ -354,6 +354,36 @@ console.log('\nMenos carga na base de dados')
   ok((await raiz(`select count(*)::int as n from match_players where match_id = $1 and not accepted`, [ms]))[0].n <= 1, 'e o avancar_partida cumpre-a')
   await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
 
+  // Uma partida só de pessoas, já no draft: o bot_move_at passado (fica sempre marcado depois de cada escolha) não conta,
+  // porque o capitão da vez é uma pessoa. Foi isto que punha as perguntas dos dez jogadores em fila no mesmo bloqueio.
+  await raiz(`update profiles set cooldown_until = null`)
+  await raiz(`delete from queue_entries`)
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'entrar_fila', { p_fila: 'aberta' })
+  const mh = (await rpc(uids[1], 'partida_ativa')).id
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'responder_confirmacao', { p_match: mh, p_aceita: true })
+  await rpc(uids[1], 'situacao', { p_partida: null })
+  const draft = (await raiz(`select state, automatic from matches where id = $1`, [mh]))[0]
+  ok(draft.state === 'DRAFT_PHASE' && draft.automatic === false, 'com os dez a aceitar, a partida de pessoas vai para o draft')
+  const pend = async () => (await servico(`select public._passo_pendente($1) as v`, [mh]))[0].v
+  await raiz(`update matches set bot_move_at = now() - interval '5 seconds', phase_deadline = now() + interval '25 seconds' where id = $1`, [mh])
+  ok((await pend()) === false, 'draft de pessoas com a jogada de bot "atrasada": nada por cumprir (as perguntas não bloqueiam a partida)')
+  await raiz(`update matches set automatic = true where id = $1`, [mh])
+  ok((await pend()) === true, 'se o capitão da vez for um bot, a jogada conta')
+  await raiz(`update matches set automatic = false where id = $1`, [mh])
+  await raiz(`update matches set state = 'MAP_BAN', phase_deadline = now() + interval '25 seconds', bot_move_at = now() - interval '5 seconds' where id = $1`, [mh])
+  ok((await pend()) === false, 'o mesmo nos bans de mapa')
+  await raiz(`update matches set phase_deadline = now() - interval '1 second' where id = $1`, [mh])
+  ok((await pend()) === true, 'mas o prazo da fase esgotado conta sempre')
+  const bansAntes = (await raiz(`select count(*)::int as n from match_bans where match_id = $1`, [mh]))[0].n
+  const depois = await rpc(uids[1], 'situacao', { p_partida: null })
+  ok(depois.partida.id === mh && (await raiz(`select count(*)::int as n from match_bans where match_id = $1`, [mh]))[0].n === bansAntes + 1, 'e a situação cumpre-o (um ban automático)')
+  // Nenhuma pergunta espera na fila do bloqueio da partida: situacao e avancar_partida só tentam o bloqueio com skip locked.
+  const defs = await raiz(`select p.proname, pg_get_functiondef(p.oid) as def from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('situacao', 'avancar_partida')`)
+  ok(defs.length === 2 && defs.every((d) => /for update skip locked/i.test(d.def)), 'situacao e avancar_partida nunca esperam pelo bloqueio da partida (skip locked)')
+  await db.exec(sql('0041_sem_fila_na_partida.sql'))
+  ok(true, 'correr a 0041 outra vez não dá erro')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+
   await raiz(`update profiles set cooldown_until = null`)
   await raiz(`delete from queue_entries`)
 }
