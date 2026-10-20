@@ -284,6 +284,29 @@ export const dadosSupabase: Dados = {
     canal.subscribe()
     return () => { cliente().removeChannel(canal) }
   },
+  sala(partidaId, perfilId, o) {
+    // Um canal privado por partida (só os 10 jogadores entram, ver a migração 0040). Se o canal não abrir, ninguém
+    // fica pior: cada jogador continua a perguntar por conta própria.
+    const canal = cliente().channel(`partida:${partidaId}`, { config: { private: true, presence: { key: perfilId }, broadcast: { self: false } } })
+    const desde = Date.now()
+    const marcar = () => { canal.track({ desde, visivel: document.visibilityState !== 'hidden' }).catch(() => {}) }
+    canal
+      .on('presence', { event: 'sync' }, () => {
+        const estado = canal.presenceState() as Record<string, { desde?: number; visivel?: boolean }[]>
+        o.aoPresencas(Object.fromEntries(Object.entries(estado).map(([id, ps]) => [id, ps.map((x) => ({ desde: Number(x.desde), visivel: x.visivel !== false }))])))
+      })
+      .on('broadcast', { event: 'estado' }, ({ payload }) => { if (payload && typeof payload === 'object') o.aoReceber(payload as Partida) })
+      .subscribe((estado) => {
+        if (estado === 'SUBSCRIBED') { o.aoLigado(true); marcar() }
+        else if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' || estado === 'CLOSED') o.aoLigado(false)
+      })
+    document.addEventListener('visibilitychange', marcar)
+    return {
+      transmitir: (p) => { canal.send({ type: 'broadcast', event: 'estado', payload: p }).catch(() => {}) },
+      marcar,
+      sair: () => { document.removeEventListener('visibilitychange', marcar); cliente().removeChannel(canal) },
+    }
+  },
   aoMudarAmizades(perfilId, cb) {
     // Pedidos que te chegam e pedidos teus que foram aceites. As remoções não se
     // filtram no servidor: confirma-se aqui se a amizade era tua.

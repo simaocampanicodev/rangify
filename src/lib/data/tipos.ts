@@ -4,6 +4,7 @@
  */
 
 import type { CategoriaLoja, Cosmeticos } from '../loja'
+import type { Presenca } from '../lider'
 
 export type Funcao = 'owner' | 'dev' | 'mod' | 'verified' | 'user'
 export type Regiao = 'eu' | 'na' | 'ap' | 'kr' | 'latam' | 'br'
@@ -478,6 +479,21 @@ export interface LojaAberta {
 }
 export type EstadoLoja = { visivel: false } | LojaAberta
 
+/** O que a sala de uma partida em curso avisa: quem lá está, o estado que o líder envia e se o canal está ligado. */
+export interface OuvintesSala {
+  aoPresencas(sala: Record<string, Presenca[]>): void
+  aoReceber(partida: Partida): void
+  aoLigado(ligado: boolean): void
+}
+/** A sala de uma partida em curso: o líder reenvia o estado aos outros nove (ver lib/lider.ts). */
+export interface SalaPartida {
+  /** Só o líder usa: envia o estado da partida aos outros jogadores. */
+  transmitir(partida: Partida): void
+  /** Atualiza o que este jogador diz de si (por exemplo, ao esconder o separador). */
+  marcar(): void
+  sair(): void
+}
+
 /** O que o draft mostra de cada jogador: só estes números, numa única chamada para todos. */
 export type ResumoEstatisticas = Pick<EstatisticasPerfil, 'partidas' | 'vitorias' | 'kda' | 'acs'>
 
@@ -778,6 +794,11 @@ export interface Dados {
    * partidaId avança (no site real, pelo Realtime; no demo não faz nada).
    */
   aoMudarJogo(perfilId: string, partidaId: string | null, cb: () => void): () => void
+  /**
+   * Entra na sala da partida: um jogador (o líder) pergunta o estado à base de dados e reenvia-o aos outros pelo Realtime,
+   * que perguntam muito menos. Devolve null onde isto não existe (o modo demo): aí cada um pergunta sozinho, como sempre.
+   */
+  sala(partidaId: string, perfilId: string, ouvintes: OuvintesSala): SalaPartida | null
   entrarComDiscord(): Promise<void>
   entrarComPassword(utilizador: string, password: string): Promise<void>
   /** Só no modo demo: entra na conta de exemplo com histórico. */

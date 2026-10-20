@@ -358,6 +358,26 @@ console.log('\nMenos carga na base de dados')
   await raiz(`delete from queue_entries`)
 }
 
+console.log('\nSala da partida (Realtime)')
+{
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'entrar_fila', { p_fila: 'ranked' })
+  const msala = (await rpc(uids[1], 'partida_ativa')).id
+  const pode = async (uid, topico) => (await como(uid, `select public._pode_sala($1) as v`, [topico]))[0].v
+  ok((await pode(uids[1], 'partida:' + msala)) === true, 'um jogador da partida entra na sala')
+  ok((await pode(uids[11], 'partida:' + msala)) === false, 'quem não joga nessa partida não entra')
+  ok((await pode(uids[1], 'partida:00000000-0000-0000-0000-000000000000')) === false, 'uma partida que não existe também não')
+  ok((await pode(uids[1], 'partida:x')) === false, 'nem um tópico que não é uma partida')
+  await falha(anon(`select public._pode_sala('partida:x')`), 'permission denied', 'sem sessão não se pergunta')
+  await db.exec(sql('0040_sala_da_partida.sql'))
+  ok(true, 'correr a 0040 outra vez não dá erro (sem Realtime, só avisa)')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+}
+
 console.log('\nAcessos')
 await falha(anon(`select public.entrar_fila('aberta')`), 'permission denied', 'sem sessão não se entra na fila')
 await falha(como(uids[1], `select public._pode_ranked(p) from profiles p limit 1`), 'permission denied', 'as regras internas não se chamam do browser')

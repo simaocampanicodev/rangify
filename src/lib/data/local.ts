@@ -1719,6 +1719,9 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
 
   // No demo, as mudanças de amizade já avisam a página (avisarMudanca).
   // No demo, a fila e as partidas correm no próprio browser e avisam com avisarMudanca.
+  // No demo não há Realtime: cada um pergunta sozinho (os bots andam ao ritmo da pergunta).
+  sala() { return null },
+
   aoMudarJogo() {
     return () => {}
   },

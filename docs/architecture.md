@@ -87,6 +87,18 @@ Os prazos e as jogadas dos bots avançam em `avancar_partida`, que o site chama 
 - As decorações dos jogadores ficam em memória 10 minutos e só se apagam quando a loja muda.
 - Na Staff, as listas (partidas ao vivo, resultados, jogadores, denúncias, jogos de um torneio) desenham-se por partes, os jogadores de cada partida só quando se pedem, e as secções pesadas (Discord, torneios) abrem uma de cada vez.
 
+### Um líder por partida
+
+Numa partida (confirmação, bans, draft), dez jogadores a perguntar à base de dados ao mesmo tempo, e cada um a ouvir as mudanças das tabelas, era o que mais pesava. Agora só um jogador, o **líder**, pergunta o estado e reenvia-o aos outros nove (`src/lib/lider.ts`, `Partida.tsx`).
+
+- Cada partida tem um canal do Realtime privado, `partida:<ID>`, onde só entram os seus jogadores (migração `0040`, regras em `realtime.messages`). Usa Presence e Broadcast, que não tocam na base de dados.
+- O líder é quem tem o separador à frente e está na sala há mais tempo (`eleger`). Se sair ou esconder o separador, passa para outro. Reenvia o estado quando muda e de 4 em 4 segundos.
+- Quem recebe não ouve as tabelas e só confirma o estado com a base de dados de 15 em 15 segundos (5 s nos bans, onde há sugestões só da equipa). Mudou a fase, ou a partida acabou: pergunta logo.
+- O que é pessoal nunca viaja no canal: o código do grupo, as sugestões da equipa e o voto de cada um para cancelar ficam por jogador (`publica` e `fundir`).
+- Tudo o que muda (aceitar, banir, escolher) continua a passar pelas funções da base de dados, que validam tudo. O líder só poupa perguntas repetidas.
+- Se o canal não abrir (por exemplo, sem a `0040`), ou o líder se calar durante 8 segundos, cada jogador volta a perguntar por conta própria, como antes. No demo não há sala.
+- Limite: um jogador malicioso da partida poderia enviar um estado falso, mas só até à confirmação seguinte com a base de dados, e só os dez da partida podem escrever no canal.
+
 ## Edge Functions
 
 Em `supabase/functions/`. As que o bot ou outros serviços chamam sem sessão publicam-se com `--no-verify-jwt`.
