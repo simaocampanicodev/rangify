@@ -11,7 +11,7 @@ import { PADRAO_RIOT_ID } from '../regras'
 import type { Cosmeticos } from '../loja'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
-  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, ResumoEstatisticas, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, FilasFechadas, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, ResumoEstatisticas, Sugestao,
 } from './tipos'
 
 /**
@@ -203,6 +203,7 @@ export const dadosSupabase: Dados = {
       await rpc('entrar_fila', args)
     }
   },
+  definirFilaFechada: (fila, fechada, motivo) => rpc<FilasFechadas>('definir_fila_fechada', { p_fila: fila, p_fechada: fechada, p_motivo: motivo?.trim() || null }),
   async sairFila() { await rpc('sair_fila') },
   async batimentoFila() {
     try {
@@ -523,7 +524,7 @@ export const dadosSupabase: Dados = {
 const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   definirPassword: ['perfil'], ligarRiotId: ['perfil'], definirAvatar: ['perfil'], atualizarPerfil: ['perfil'],
   marcarTourVisto: ['perfil'], sincronizarRank: ['perfil'],
-  entrarFila: ['fila'], sairFila: ['fila'],
+  entrarFila: ['fila'], sairFila: ['fila'], definirFilaFechada: ['fila', 'staff'],
   // Escolher, banir, sugerir e votar para cancelar não mudam nada fora da partida (a página já se atualiza sozinha): avisar
   // 'partida' recarregava o perfil de cada jogador a cada clique.
   responderConfirmacao: ['partida'], definirCodigo: ['partida'],

@@ -24,6 +24,9 @@ export function useVistaFila(tipo: FilaTipo = 'aberta') {
   // Só se pode estar numa fila de cada vez: com a outra aberta, esta fica à espera.
   const naOutra = !!fila?.naFila && !naFila
   const bloqueada = tipo === 'ranked' && fila?.rankedPermitido === false
+  // Fechada por Owner ou Dev (por exemplo, enquanto se corrige um problema): ninguém entra.
+  const fechada = !!fila?.filasFechadas?.[tipo]
+  const motivoFecho = fila?.filasFechadas?.motivo ?? null
   // O ban da staff ganha ao castigo dos 5 minutos. Um ban com a data passada deixa de contar.
   const ban = fila?.ban && (fila.ban.permanente || !fila.ban.ate || new Date(fila.ban.ate).getTime() > agoraCerto()) ? fila.ban : null
   // Só conta os segundos na fila, durante um castigo ou até acabar um ban; fora disso o painel não se redesenha.
@@ -35,6 +38,8 @@ export function useVistaFila(tipo: FilaTipo = 'aberta') {
     naFila,
     naOutra,
     bloqueada,
+    fechada,
+    motivoFecho,
     ocupado,
     alternar: () => alternar(tipo),
     ban,
@@ -47,10 +52,21 @@ export function useVistaFila(tipo: FilaTipo = 'aberta') {
 
 /** Entrar, sair ou a contagem do castigo. */
 export function BotaoFila({ tipo = 'aberta', grande = false }: { tipo?: FilaTipo; grande?: boolean }) {
-  const { naFila, naOutra, bloqueada, ocupado, alternar, castigo, ban } = useVistaFila(tipo)
+  const { naFila, naOutra, bloqueada, fechada, motivoFecho, ocupado, alternar, castigo, ban } = useVistaFila(tipo)
   const discord = useDiscordFila()
   const tamanho = grande ? '!h-[50px] !rounded-xl !px-6 !text-[15px] !font-extrabold' : ''
   const fantasma = `btn btn-fantasma ${grande ? '!h-[50px] !rounded-xl !px-5' : ''}`
+  // Fila fechada pela equipa: nada de entrar, e o motivo à vista se houver.
+  if (!naFila && fechada) {
+    return (
+      <span className="flex min-w-0 flex-col items-start gap-1.5">
+        <button type="button" disabled className={fantasma}>
+          <Lock size={16} aria-hidden />{l('Fila fechada', 'Queue closed')}
+        </button>
+        {motivoFecho && <span className="text-[12.5px] leading-snug text-mudo">{motivoFecho}</span>}
+      </span>
+    )
+  }
   // Banido pela staff: nada de entrar, e a razão à vista.
   if (!naFila && ban) {
     return (
@@ -315,18 +331,22 @@ export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
   const ranked = tipo === 'ranked'
   const linhas = alinhada ? 5 + (rodape ? 1 : 0) : undefined
   const faltam = 10 - v.contagem
-  const modo = v.bloqueada ? 'bloqueada' : v.naOutra ? 'ocupada' : 'livre'
+  const fechada = v.fechada && !v.naFila
+  const modo = v.bloqueada || fechada ? 'bloqueada' : v.naOutra ? 'ocupada' : 'livre'
   const chip = 'inline-flex h-[30px] items-center rounded-[9px] border border-white/8 bg-white/[0.035] px-3 text-[12.5px] text-[#d0cbc4]'
 
   let legenda = l('À ESPERA DE TI', 'WAITING FOR YOU')
   if (v.naFila) legenda = `${l('NA FILA', 'IN QUEUE')} ${relogio(v.espera)}`
+  else if (fechada) legenda = l('FECHADA', 'CLOSED')
   else if (v.bloqueada) legenda = l('BLOQUEADA', 'LOCKED')
   else if (v.naOutra) legenda = l('NOUTRA FILA', 'IN OTHER QUEUE')
   else if (v.ban) legenda = l('BANIDO', 'BANNED')
   else if (v.castigo > 0) legenda = `${l('CASTIGO', 'COOLDOWN')} ${relogio(v.castigo)}`
 
   let descricao: string
-  if (v.ban && !v.bloqueada) {
+  if (fechada) {
+    descricao = l(`A fila ${ranked ? 'ranked' : 'aberta'} está fechada de momento.${v.motivoFecho ? ` ${v.motivoFecho}` : ' Volta daqui a pouco.'}`, `The ${ranked ? 'ranked' : 'open'} queue is closed for now.${v.motivoFecho ? ` ${v.motivoFecho}` : ' Check back soon.'}`)
+  } else if (v.ban && !v.bloqueada) {
     descricao = l(`Estás banido da fila ${textoDuracaoBan(v.ban)}.${v.ban.mensagem ? ` Motivo: ${v.ban.mensagem}` : ''}`, `You are banned from the queue ${textoDuracaoBan(v.ban)}.${v.ban.mensagem ? ` Reason: ${v.ban.mensagem}` : ''}`)
   } else if (v.castigo > 0 && !v.bloqueada && !v.naOutra) {
     descricao = l(`Não aceitaste a última partida. Podes voltar à fila daqui a ${relogio(v.castigo)}.`, `You did not accept the last match. You can queue again in ${relogio(v.castigo)}.`)
@@ -344,6 +364,7 @@ export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
 
   let ajuda: string
   if (v.naFila) ajuda = l(`Tens ${SEGUNDOS_CONFIRMAR} segundos para aceitar quando a sala encher.`, `You have ${SEGUNDOS_CONFIRMAR} seconds to accept when the lobby fills.`)
+  else if (fechada) ajuda = ranked ? l('Podes jogar na fila aberta, se estiver aberta.', 'You can play the open queue, if it is open.') : l('Podes jogar na fila ranked, se estiver aberta e tiveres o rank.', 'You can play the ranked queue, if it is open and you have the rank.')
   else if (v.bloqueada) ajuda = l('O rank vem da Riot e atualiza depois de cada partida.', 'The rank comes from Riot and updates after each match.')
   else if (v.naOutra) ajuda = l('Sai da outra fila para entrares aqui.', 'Leave the other queue to join this one.')
   else ajuda = l(`${v.contagem} ${v.contagem === 1 ? 'jogador está' : 'jogadores estão'} à espera.`, `${v.contagem} ${v.contagem === 1 ? 'player is' : 'players are'} waiting.`)
@@ -383,7 +404,7 @@ export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
   )
 
   if (ranked) {
-    return <MoldeRanked aria-labelledby={id} bloqueada={v.bloqueada} naFila={v.naFila} linhas={linhas}>{corpo}</MoldeRanked>
+    return <MoldeRanked aria-labelledby={id} bloqueada={v.bloqueada || fechada} naFila={v.naFila} linhas={linhas}>{corpo}</MoldeRanked>
   }
   return (
     <section

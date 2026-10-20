@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { BotaoMais, Colapsavel, useMais } from '@/components/Mais'
 import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { StaffFilas } from '@/components/StaffFilas'
 import { Moderacao } from '@/components/StaffModeracao'
 import { StaffTorneios } from '@/components/tournaments/StaffTorneios'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -421,6 +422,7 @@ export function Admin() {
           </Painel>
         ))}
       </div>
+      {ownerDev && <StaffFilas />}
       <Painel className="flex flex-col gap-4 p-[22px]">
         <Segmentado
           rotulo={tx('Secção', 'Section')}

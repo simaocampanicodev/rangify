@@ -33,7 +33,7 @@ import {
   ID_DEMO, INICIO_TEMPORADA, MISSOES, PASSWORD_DEMO, gerarSemente,
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
-import type {
+import type { FilasFechadas,
   Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
@@ -68,6 +68,8 @@ interface Estado {
   novidades: Novidade[]
   /** Discord obrigatório para a fila. No demo, "verificar" faz de conta que entraste no servidor. */
   discord?: { obrigatorio: boolean; convite: string | null; membro: boolean }
+  /** Filas fechadas por Owner ou Dev. */
+  filasFechadas?: FilasFechadas
   /** A loja de Rangify Coins (só aparece a Owner e Dev até ser pública). */
   loja?: LojaDemo
   /** Avisos e bans da staff. */
@@ -485,6 +487,9 @@ function criarPartida(e: Estado, ids: string[], opts: { simulada: boolean; autom
   return p
 }
 
+/** Uma fila fechada por Owner ou Dev (ninguém entra e não se formam partidas). */
+const filaFechada = (e: Estado, fila: FilaTipo) => !!e.filasFechadas?.[fila]
+
 /** Quantos há numa fila (cada fila junta os seus dez). */
 const contarFila = (e: Estado, fila: FilaTipo) => e.fila.filter((f) => f.fila === fila).length
 
@@ -500,7 +505,7 @@ function passoFila(e: Estado, agora: number): boolean {
     e.proximoBotEm = agora + aleatorio(2500, 4500)
     mudou = true
   }
-  if (naFila && contarFila(e, fila) >= 10) {
+  if (naFila && contarFila(e, fila) >= 10 && !filaFechada(e, fila)) {
     const outros = e.fila.filter((f) => f.perfilId !== humano && f.fila === fila).slice(0, 9).map((f) => f.perfilId)
     const ids = [humano!, ...outros]
     e.fila = e.fila.filter((f) => !ids.includes(f.perfilId))
@@ -1318,6 +1323,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       rankedPermitido: p ? podeRanked(p.tier) : false, regiao: p?.regiao ?? 'eu',
       cooldownAte: p?.cooldownAte && ms(p.cooldownAte) > Date.now() ? p.cooldownAte : null,
       ban: id ? banPublico(banAtivo(e, id)) : null,
+      filasFechadas: { aberta: !!e.filasFechadas?.aberta, ranked: !!e.filasFechadas?.ranked, motivo: e.filasFechadas?.motivo ?? null },
     }
   },
 
@@ -1325,6 +1331,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const e = await pronto()
     const p = eu(e)
     if (fila !== 'aberta' && fila !== 'ranked') throw new Error('Escolhe a fila aberta ou a ranked.')
+    if (filaFechada(e, fila)) throw new Error(`A fila ${fila === 'ranked' ? 'ranked' : 'aberta'} está fechada de momento.${e.filasFechadas?.motivo ? ' ' + e.filasFechadas.motivo : ''}`)
     const ban = banAtivo(e, p.id)
     if (ban) {
       throw new Error(`Estás banido da fila ${ban.permanente ? 'para sempre' : 'até ' + new Date(ban.ate!).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Motivo: ${ban.mensagem}`)
@@ -1349,6 +1356,25 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     e.proximoBotEm = Date.now() + aleatorio(2000, 3500)
     guardar()
     avisarMudanca('fila')
+  },
+
+  async definirFilaFechada(fila, fechada, motivo) {
+    const e = await pronto()
+    const me = eu(e)
+    if (me.funcao !== 'owner' && me.funcao !== 'dev') throw new Error('Só Owner e Dev podem fazer isto.')
+    if (fila !== 'aberta' && fila !== 'ranked') throw new Error('Escolhe a fila aberta ou a ranked.')
+    const m = motivo?.trim() || null
+    if (m && m.length > 140) throw new Error('O motivo tem no máximo 140 caracteres.')
+    const atual = e.filasFechadas ?? { aberta: false, ranked: false, motivo: null }
+    const novo = { ...atual, [fila]: fechada }
+    novo.motivo = fechada ? (m ?? atual.motivo) : (novo.aberta || novo.ranked ? atual.motivo : null)
+    e.filasFechadas = novo
+    // Ao fechar, sai quem estava à espera nessa fila.
+    if (fechada) e.fila = e.fila.filter((f) => f.fila !== fila)
+    guardar()
+    avisarMudanca('fila')
+    avisarMudanca('staff')
+    return { ...novo }
   },
 
   async sairFila() {

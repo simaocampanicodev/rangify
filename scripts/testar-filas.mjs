@@ -86,6 +86,8 @@ await db.exec(sql('0032_filas_ranked.sql'))
 ok(true, 'correr a 0032 outra vez não dá erro')
 // Voltar a correr a 0032 repõe as versões antigas de estatisticas_perfil e forma_perfil: a 0038 corre outra vez por cima.
 await db.exec(sql('0038_perfil_por_fila.sql'))
+// ...e a 0042 (fechar filas) refaz o estado_fila, o entrar_fila, o _emparelhar e o _falhou_confirmacao que a 0032 deixou antigos.
+await db.exec(sql('0042_fechar_filas.sql'))
 
 // A 0035 apagou a loja e a 0036 trouxe-a de volta: depois das duas, tudo o que a loja precisa existe e o registo dos convites continua.
 const loja = await raiz(`select
@@ -403,6 +405,59 @@ console.log('\nSala da partida (Realtime)')
   await falha(anon(`select public._pode_sala('partida:x')`), 'permission denied', 'sem sessão não se pergunta')
   await db.exec(sql('0040_sala_da_partida.sql'))
   ok(true, 'correr a 0040 outra vez não dá erro (sem Realtime, só avisa)')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+}
+
+console.log('\nFechar as filas')
+{
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+  const estado = async (uid) => (await rpc(uid, 'estado_fila')).filasFechadas
+  const regiao = (await raiz(`select region from profiles where id = $1`, [pid(1)]))[0].region
+  let f = await estado(uids[1])
+  ok(f.aberta === false && f.ranked === false && f.motivo === null, 'por omissão as duas filas estão abertas')
+  await falha(rpc(uids[1], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: true }), 'Owner e Dev', 'um jogador normal não fecha filas')
+  await falha(rpc(uids[0], 'definir_fila_fechada', { p_fila: 'outra', p_fechada: true }), 'aberta ou a ranked', 'só existem a fila aberta e a ranked')
+  await falha(rpc(uids[0], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: true, p_motivo: 'x'.repeat(141) }), '140', 'o motivo tem limite')
+  // Alguém já à espera na ranked e outro na aberta.
+  await rpc(uids[1], 'entrar_fila', { p_fila: 'ranked' })
+  await rpc(uids[2], 'entrar_fila', { p_fila: 'aberta' })
+  const r = await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: true, p_motivo: '  Manutenção  ' })
+  ok(r.ranked === true && r.aberta === false && r.motivo === 'Manutenção', 'o Owner fecha a ranked, com o motivo (sem espaços a mais)')
+  const resto = await raiz(`select fila, count(*)::int as n from queue_entries group by fila`)
+  ok(resto.length === 1 && resto[0].fila === 'aberta' && resto[0].n === 1, 'ao fechar, sai quem esperava na ranked; a aberta fica como estava')
+  f = await estado(uids[3])
+  ok(f.ranked === true && f.aberta === false && f.motivo === 'Manutenção', 'o estado da fila diz que a ranked está fechada, e porquê')
+  await falha(rpc(uids[3], 'entrar_fila', { p_fila: 'ranked' }), 'fechada de momento. Manutenção', 'ninguém entra numa fila fechada')
+  await rpc(uids[3], 'entrar_fila', { p_fila: 'aberta' })
+  ok((await raiz(`select count(*)::int as n from queue_entries where fila = 'aberta'`))[0].n === 2, 'a outra fila continua a funcionar')
+  // Dez à espera numa fila fechada (por exemplo, a fechar a meio): não se forma partida.
+  await raiz(`delete from queue_entries`)
+  await raiz(`insert into queue_entries (profile_id, region, fila) select id, region, 'ranked' from profiles where id = any ($1::uuid[])`, [Array.from({ length: 10 }, (_, i) => pid(i + 1))])
+  ok((await servico(`select public._emparelhar($1, 'ranked') as v`, [regiao]))[0].v === null, 'com a fila fechada não se forma partida, mesmo com dez à espera')
+  await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: false })
+  ok((await servico(`select public._emparelhar($1, 'ranked') as v`, [regiao]))[0].v !== null, 'aberta outra vez, a partida forma-se')
+  f = await estado(uids[1])
+  ok(f.ranked === false && f.motivo === null, 'com as duas abertas o motivo desaparece')
+  // Uma partida que cai (alguém não aceitou) não devolve os outros a uma fila que entretanto fechou.
+  const mf = (await rpc(uids[1], 'partida_ativa')).id
+  for (let i = 1; i <= 9; i++) await rpc(uids[i], 'responder_confirmacao', { p_match: mf, p_aceita: true })
+  await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: true })
+  await raiz(`update matches set ready_deadline = now() - interval '1 second' where id = $1`, [mf])
+  await rpc(uids[1], 'avancar_partida', { p_match: mf })
+  ok((await raiz(`select state from matches where id = $1`, [mf]))[0].state === 'CANCELLED', 'a partida cai como sempre')
+  ok((await raiz(`select count(*)::int as n from queue_entries`))[0].n === 0, 'mas os nove não voltam a uma fila fechada')
+  await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'aberta', p_fechada: true, p_motivo: 'Teste' })
+  await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'ranked', p_fechada: false })
+  f = await estado(uids[1])
+  ok(f.aberta === true && f.ranked === false && f.motivo === 'Teste', 'com uma ainda fechada o motivo fica')
+  await falha(anon(`select public.definir_fila_fechada('aberta', false, null)`), 'permission denied', 'sem sessão não se mexe nas filas')
+  await db.exec(sql('0042_fechar_filas.sql'))
+  ok((await estado(uids[1])).aberta === true, 'correr a 0042 outra vez não dá erro nem reabre nada')
+  await rpc(uids[0], 'definir_fila_fechada', { p_fila: 'aberta', p_fechada: false })
   await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
   await raiz(`delete from queue_entries`)
   await raiz(`update profiles set cooldown_until = null`)

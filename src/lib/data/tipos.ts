@@ -171,6 +171,15 @@ export interface EstadoFila {
   agora?: string | null
   /** Banido da fila pela staff: mostra-se em vez do castigo de 5 minutos. */
   ban?: BanFila | null
+  /** Filas fechadas por Owner ou Dev (ninguém entra) e o motivo, se houver. Ausente num servidor ainda sem a migração 0042. */
+  filasFechadas?: FilasFechadas
+}
+
+/** Que filas estão fechadas e porquê. */
+export interface FilasFechadas {
+  aberta: boolean
+  ranked: boolean
+  motivo: string | null
 }
 
 /** Um jogador na lista da staff: o perfil e o ban da fila de agora. */
@@ -832,6 +841,8 @@ export interface Dados {
   estadoFila(): Promise<EstadoFila>
   /** Entra numa fila (a aberta, se não disseres). A ranked pede Ascendente 1 ou mais. */
   entrarFila(fila?: FilaTipo): Promise<void>
+  /** Owner e Dev: fecha ou abre uma fila. Ao fechar, sai quem estava à espera nela; as partidas já formadas continuam. */
+  definirFilaFechada(fila: FilaTipo, fechada: boolean, motivo?: string): Promise<FilasFechadas>
   sairFila(): Promise<void>
   /** Sinal de vida de quem está na fila: quem passa 3 minutos sem o dar é tirado dela. */
   batimentoFila(): Promise<void>

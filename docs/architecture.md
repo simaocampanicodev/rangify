@@ -89,6 +89,14 @@ Os prazos e as jogadas dos bots avançam em `avancar_partida`, que o site chama 
 - As decorações dos jogadores ficam em memória 10 minutos e só se apagam quando a loja muda.
 - Na Staff, as listas (partidas ao vivo, resultados, jogadores, denúncias, jogos de um torneio) desenham-se por partes, os jogadores de cada partida só quando se pedem, e as secções pesadas (Discord, torneios) abrem uma de cada vez.
 
+### Fechar as filas
+
+Owner e Dev têm, no topo da área de Staff, um painel para fechar e abrir a fila aberta e a ranked (`StaffFilas.tsx`, `definir_fila_fechada`, migração `0042`). É o interruptor de emergência para quando há problemas. Segura-se o botão para fechar, e dá para escrever um motivo (até 140 caracteres) que os jogadores veem.
+
+- Fechada, ninguém entra (`entrar_fila` recusa com o motivo), quem esperava nessa fila sai, e não se formam partidas novas nela. Quem aceitou uma partida que caiu não volta a uma fila fechada.
+- As partidas já formadas continuam e acabam normalmente. As ferramentas de teste (partidas com bots) continuam a funcionar.
+- O estado vem em `estado_fila().filasFechadas` (`{ aberta, ranked, motivo }`), por isso os cartões da fila mostram "Fila fechada" e o motivo, o mais tardar à pergunta seguinte (30 s fora da fila). Sem a `0042`, o site não mostra nada e tudo funciona como antes.
+
 ### Endereço da partida
 
 Uma partida em curso vive em `/partida/<ID>` (`PaginaPartida` em `pages/Jogar.tsx`, `caminhoPartida` em `lib/rotas.ts`). Com uma partida por fechar, `/jogar` redireciona para ela; sem partida (ou com o ID de outra), `/partida/<ID>` volta a `/jogar`. Atualizar a página, abrir noutro separador e o botão de voltar do browser levam à mesma partida. O endereço não dá acesso a nada: o servidor só devolve a partida de quem joga nela. Os links antigos para `/jogar` (Discord, extensão) continuam a funcionar.

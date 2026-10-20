@@ -49,3 +49,4 @@ O esquema, as regras e a máquina de estados do Rangify vivem em `supabase/migra
 | [`0039_menos_carga.sql`](../supabase/migrations/0039_menos_carga.sql) | Menos trabalho para a base de dados: o site pergunta o estado da partida a toda a hora (de 1 em 1 segundo, por jogador) e cada pergunta bloqueava a linha da partida e montava o JSON inteiro. |
 | [`0040_sala_da_partida.sql`](../supabase/migrations/0040_sala_da_partida.sql) | A sala da partida: só os jogadores dela entram no canal do Realtime onde o líder reenvia o estado. |
 | [`0041_sem_fila_na_partida.sql`](../supabase/migrations/0041_sem_fila_na_partida.sql) | Acabar com a fila de espera à volta da linha da partida (o que punha o PostgREST e o Auth "unhealthy" nos picks e bans). |
+| [`0042_fechar_filas.sql`](../supabase/migrations/0042_fechar_filas.sql) | Fechar a fila aberta ou a ranked: um interruptor de emergência para Owner e Dev. |

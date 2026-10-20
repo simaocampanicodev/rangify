@@ -92,6 +92,38 @@ ok(p.jogadores.every((j) => Number.isInteger(j.pontos)), 'cada jogador traz os p
 const hoje = await D.partidas({ minhas: true })
 ok(hoje.linhas.length > 0 && hoje.linhas.every((m) => m.fila === 'aberta' || m.fila === 'ranked'), 'o histórico diz a fila de cada partida')
 
+console.log('\nFechar as filas')
+await D.entrarComDiscord()
+await D.ligarRiotId('Curioso#EU7', 'eu')
+await falha(D.definirFilaFechada('ranked', true), 'Owner e Dev', 'um jogador normal não fecha filas')
+await D.entrarDemo()
+await D.sairFila()
+const emCurso = await D.partidaAtiva()
+if (emCurso) await D.cancelarPartida(emCurso.id)
+let ff = (await D.estadoFila()).filasFechadas
+ok(ff && !ff.aberta && !ff.ranked && ff.motivo === null, 'por omissão as duas filas estão abertas')
+await falha(D.definirFilaFechada('casual', true), 'Escolhe a fila', 'só existem a fila aberta e a ranked')
+await falha(D.definirFilaFechada('ranked', true, 'x'.repeat(141)), '140', 'o motivo tem limite')
+const fechou = await D.definirFilaFechada('ranked', true, '  Manutenção  ')
+ok(fechou.ranked && !fechou.aberta && fechou.motivo === 'Manutenção', 'o Owner fecha a ranked, com o motivo')
+await falha(D.entrarFila('ranked'), 'fechada de momento. Manutenção', 'ninguém entra numa fila fechada')
+ff = (await D.estadoFila()).filasFechadas
+ok(ff.ranked && !ff.aberta && ff.motivo === 'Manutenção', 'o estado da fila diz que está fechada e porquê')
+await D.entrarFila('aberta')
+ok((await D.estadoFila()).naFila, 'a outra fila continua a funcionar')
+await D.definirFilaFechada('aberta', true)
+ok(!(await D.estadoFila()).naFila, 'ao fechar, sai quem esperava nessa fila')
+await falha(D.entrarFila('aberta'), 'fechada de momento', 'e já não entra')
+await D.definirFilaFechada('ranked', false)
+ff = (await D.estadoFila()).filasFechadas
+ok(!ff.ranked && ff.aberta && ff.motivo === 'Manutenção', 'com uma ainda fechada o motivo fica')
+await D.definirFilaFechada('aberta', false)
+ff = (await D.estadoFila()).filasFechadas
+ok(!ff.aberta && !ff.ranked && ff.motivo === null, 'com as duas abertas o motivo desaparece')
+await D.entrarFila('ranked')
+ok((await D.estadoFila()).naFila, 'aberta outra vez, entra-se')
+await D.sairFila()
+
 console.log('\nOverlay do OBS')
 const { chave } = await D.meuOverlay()
 const ov = await D.overlayDados(chave)
