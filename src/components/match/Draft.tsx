@@ -4,12 +4,13 @@ import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useAgora } from '@/hooks/useAgora'
 import { useTelemovelPequeno } from '@/hooks/useMedia'
-import { dados, type EstatisticasPerfil, type Partida } from '@/lib/data'
+import { dados, type ResumoEstatisticas, type Partida } from '@/lib/data'
 import { capitao, equipa, escolhidos, nomeJogador, tagJogador, vezDe } from '@/lib/partida'
 import { corRank, nomeRank, tierMedio } from '@/lib/ranks'
 import { SEGUNDOS_ESCOLHA, equipaDaEscolha } from '@/lib/regras'
 import { emFalta } from '@/lib/tempo'
 import { rgba } from '../ui'
+import { ComCosmeticos, TituloJogador } from '../Cosmeticos'
 import { ColunaEquipa, ICONE_FUNCAO, Iniciais } from './comum'
 import { Relogio } from './Relogio'
 import { l, nomeFuncaoJogo } from '@/lib/idioma'
@@ -25,7 +26,7 @@ function CartaoCapitao({ p, eq, vez }: { p: Partida; eq: 'A' | 'B'; vez: boolean
       className={`painel flex min-w-0 items-center gap-2.5 p-3 transition-[border-color,box-shadow] duration-300 sm:flex-1 sm:basis-[250px] sm:gap-3.5 sm:p-[18px] ${eq === 'A' ? 'order-2' : 'order-3'} basis-[calc(50%-7px)] sm:order-none`}
       style={vez ? { borderColor: 'rgba(255,91,31,0.55)', boxShadow: '0 0 40px -12px rgba(255,91,31,0.6)' } : undefined}
     >
-      <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={pequeno ? 38 : 58} url={c.avatarUrl} />
+      <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={pequeno ? 38 : 58} url={c.avatarUrl} perfilId={c.perfilId} />
       <span className="flex min-w-0 flex-col gap-0.5 sm:gap-1">
         <span className={`flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.1em] sm:text-[10.5px] sm:tracking-[0.16em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>
           <Crown size={12} aria-hidden />{l('CAPITÃO', 'CAPTAIN')} {eq}
@@ -43,7 +44,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
   const acao = useAcao()
   const { atualizar } = usePartida()
   const agora = useAgora(250)
-  const [stats, setStats] = useState<Record<string, EstatisticasPerfil>>({})
+  const [stats, setStats] = useState<Record<string, ResumoEstatisticas>>({})
   const [aEscolher, setAEscolher] = useState<string | null>(null)
 
   const vez = vezDe(p)!
@@ -60,8 +61,8 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
   const ids = p.jogadores.map((j) => j.perfilId).join(',')
   useEffect(() => {
     let vivo = true
-    Promise.all(ids.split(',').map(async (id) => [id, await dados.estatisticas(id)] as const))
-      .then((lista) => { if (vivo) setStats(Object.fromEntries(lista)) })
+    dados.estatisticasResumo(ids.split(','))
+      .then((r) => { if (vivo) setStats(r) })
       .catch(() => {})
     return () => { vivo = false }
   }, [ids])
@@ -125,19 +126,20 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
               const s = stats[j.perfilId]
               const cor = corRank(j.tier)
               return (
+                <ComCosmeticos key={j.perfilId} perfilId={j.perfilId}>{(cz) => (
                 <button
-                  key={j.perfilId}
                   type="button"
                   data-assinatura={nomeJogador(j)}
                   disabled={!souEu || !!aEscolher}
                   onClick={() => escolher(j.perfilId)}
                   aria-label={`${l('Escolher', 'Pick')} ${nomeJogador(j)}, ${nomeRank(j.tier)}`}
-                  className={`group relative flex flex-col gap-2.5 rounded-2xl border bg-[rgba(16,16,19,0.88)] p-3 text-left sm:gap-3 sm:p-3.5 text-texto transition-[border-color,transform] duration-200 ${souEu ? 'cursor-pointer border-white/10 hover:-translate-y-0.5 hover:border-laranja/60' : 'cursor-default border-white/8'} disabled:opacity-100`}
+                  className={`group relative flex flex-col gap-2.5 rounded-2xl border bg-[rgba(16,16,19,0.88)] p-3 text-left sm:gap-3 sm:p-3.5 text-texto transition-[border-color,transform] duration-200 ${souEu ? 'cursor-pointer border-white/10 hover:-translate-y-0.5 hover:border-laranja/60' : 'cursor-default border-white/8'} disabled:opacity-100 ${cz.cartao}`}
                 >
                   <span className="flex items-center gap-[11px]">
-                    <Iniciais nome={nomeJogador(j)} equipa={null} tamanho={46} url={j.avatarUrl} />
+                    <Iniciais nome={nomeJogador(j)} equipa={null} tamanho={46} url={j.avatarUrl} perfilId={j.perfilId} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-[15px] font-extrabold">
+                      <TituloJogador perfilId={j.perfilId} className="truncate" />
+                      <span className="cz-nome truncate text-[15px] font-extrabold">
                         {nomeJogador(j)}<span className="font-mono text-[11px] font-medium text-mudo">{tagJogador(j)}</span>
                       </span>
                       <span className="flex items-center gap-1.5 text-[12px] text-[#a6a19a]">
@@ -177,6 +179,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                     </span>
                   )}
                 </button>
+                )}</ComCosmeticos>
               )
             })}
           </div>

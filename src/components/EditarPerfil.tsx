@@ -75,7 +75,7 @@ export function EditarPerfil({ pequeno = false, onRiotMudou }: { pequeno?: boole
           <div className="flex flex-wrap items-center gap-4">
             {preview
               ? <img src={preview.url} alt={l('Pré-visualização da nova foto', 'Preview of the new picture')} width={84} height={84} className="size-[84px] rounded-[22px] border border-laranja/45 object-cover" />
-              : <Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} tamanho={84} destaque />}
+              : <Avatar nome={nomeJogador(perfil)} url={perfil.avatarUrl} tamanho={84} destaque perfilId={perfil.id} />}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn btn-suave !min-h-10" onClick={() => ficheiro.current?.click()} disabled={!!aGuardar}>

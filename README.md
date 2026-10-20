@@ -142,7 +142,8 @@ O número de contribuidores e de commits do repositório está nos selos lá em 
   </tr>
 </table>
 
-- KDA, ACS, first bloods, trades, HS% e KAST de cada partida, a forma recente e os números por agente e por mapa.
+- KDA, K/D, ACS, first bloods, trades, HS% e KAST de cada partida, a forma recente e os números por agente e por mapa.
+- Um filtro **Todas as filas | Aberta | Ranked** muda as estatísticas, a forma e as partidas recentes. A posição na tabela fica dentro dos pontos de cada fila.
 - Histórico **das minhas** e **de todas**, filtrável por **fila** e por **mapa**, de 10 em 10 e com o scoreboard a carregar só quando abres a partida.
 - O rank oficial atualiza-se sozinho depois de cada partida, sem ninguém ter de sincronizar.
 
@@ -164,6 +165,7 @@ O número de contribuidores e de commits do repositório está nos selos lá em 
 - **Missões** diárias e semanais e o passe de **nível** (Rangify Experience), com XP.
 - **Amigos**: pedidos em tempo real, quem está ativo e quem está em jogo.
 - **Sugestões** da comunidade, com votos e estado, e **denúncias**.
+- **Loja de Rangify Coins**: bordas, efeitos, banners, títulos e animações de MVP, com uma rotação diária de itens e cartas por revelar. Fechada ao público até a staff a abrir.
 - **Novidades** publicadas pela staff no Painel e um **tour** de boas-vindas para contas novas.
 
 <br>

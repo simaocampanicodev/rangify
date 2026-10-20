@@ -1,4 +1,4 @@
-import { ChevronUp, CircleAlert, Lightbulb, Lock, Megaphone, PlugZap, RefreshCw, Trash } from 'lucide-react'
+import { ChevronUp, CircleAlert, Lightbulb, Lock, Megaphone, PlugZap, RefreshCw, ShoppingBag, Trash } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useRef, useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
@@ -8,6 +8,7 @@ import { l, locale } from '@/lib/idioma'
 import { diaCurto, haQuanto } from '@/lib/tempo'
 import { comSinal, rangifyScores } from '@/lib/pontos'
 import { AnunciosDiscord } from './AnunciosDiscord'
+import { Colapsavel } from './Mais'
 import { BotaoSegurar, Carregando, Chip, IconeAgente, Segmentado, Vazio } from './ui'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -293,16 +294,13 @@ function MensagemDiscord({ titulo, descricao, requisitos, botao, publicar, feito
     setAPublicar(false)
   }
   return (
-    <div className="flex flex-col gap-3 border-t border-white/6 pt-4">
-      <span className="flex flex-col gap-1">
-        <span className="text-[14px] font-bold">{titulo}</span>
-        <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{descricao}</span>
-      </span>
+    <Colapsavel titulo={titulo}>
+      <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{descricao}</span>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-suave" disabled={aPublicar} onClick={correr}><Megaphone size={15} aria-hidden />{aPublicar ? l('A publicar…', 'Posting…') : botao}</button>
         <span className="text-[12.5px] text-mudo">{requisitos}</span>
       </div>
-    </div>
+    </Colapsavel>
   )
 }
 
@@ -325,16 +323,15 @@ function CargosRanked() {
     ), r.falhas ? 'erro' : undefined)
   }
   return (
-    <div className="flex flex-col gap-3 border-t border-white/6 pt-4">
+    <Colapsavel titulo={l('Cargo Ranked: quem vê o canal da fila ranked', 'Ranked role: who sees the ranked queue channel')}>
       <span className="flex flex-col gap-1">
-        <span className="text-[14px] font-bold">{l('Cargo Ranked: quem vê o canal da fila ranked', 'Ranked role: who sees the ranked queue channel')}</span>
         <span className="max-w-[640px] text-[13px] leading-normal text-mudo">{l('Quem tem Ascendente 1 ou mais (pelo rank oficial) recebe o cargo Ranked e quem desce abaixo perde-o. O bot acerta o cargo sozinho quando o rank muda; este botão acerta toda a gente agora. O bot precisa da permissão "Gerir cargos" e do cargo dele acima do Ranked.', 'Players with Ascendant 1 or higher (by official rank) get the Ranked role and lose it when they drop below. The bot updates the role on its own when the rank changes; this button updates everyone now. The bot needs the "Manage Roles" permission and its role above Ranked.')}</span>
       </span>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-suave" disabled={aCorrer} onClick={correr}><RefreshCw size={15} aria-hidden />{aCorrer ? l('A acertar os cargos…', 'Updating roles…') : l('Acertar o cargo Ranked de toda a gente', 'Update everyone\'s Ranked role')}</button>
         <span className="text-[12.5px] text-mudo">{l('Precisa da função discord-ping (ver docs/discord.md).', 'Needs the discord-ping function (see docs/discord.md).')}</span>
       </div>
-    </div>
+    </Colapsavel>
   )
 }
 
@@ -367,7 +364,7 @@ function MensagensDiscord() {
         feito={l('Mensagem da fila ranked publicada no Discord.', 'Ranked queue message posted on Discord.')}
       />
       <CargosRanked />
-      <AnunciosDiscord />
+      <Colapsavel titulo={l('Avisos: escrever uma mensagem para o Discord', 'Announcements: write a message for Discord')} manter><AnunciosDiscord /></Colapsavel>
     </>
   )
 }
@@ -541,6 +538,34 @@ export function RecarregarStaff() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Owner e Dev: abrir a loja de Rangify Coins a toda a gente (ou voltar a fechá-la). */
+export function LojaStaff() {
+  const acao = useAcao()
+  const estado = useCarregar(() => dados.loja(), [], ['loja', 'staff'])
+  if (!estado.valor) return <Carregando />
+  const publica = estado.valor.visivel && estado.valor.publica
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 max-w-[640px] text-[13px] leading-normal text-mudo">
+        {l('Enquanto está fechada, só Owner e Dev veem a loja no menu, e as decorações compradas só aparecem a Owner e Dev. Ao abrir, toda a gente passa a ver a loja e as decorações de todos.', 'While closed, only Owner and Dev see the shop in the menu, and bought decorations only show to Owner and Dev. Once open, everyone sees the shop and everyone\'s decorations.')}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Chip tom={publica ? 'vitoria' : 'laranja'}>{publica ? l('Aberta a toda a gente', 'Open to everyone') : l('Fechada: só Owner e Dev', 'Closed: Owner and Dev only')}</Chip>
+        {publica ? (
+          <BotaoSegurar rotulo={l('Segura para fechar a loja ao público', 'Hold to close the shop to the public')} className="btn btn-fantasma" onConfirmar={() => acao(() => dados.definirLojaPublica(false), l('A loja voltou a estar fechada.', 'The shop is closed again.'))}>
+            <Lock size={16} aria-hidden />{l('Fechar a loja ao público', 'Close the shop to the public')}
+          </BotaoSegurar>
+        ) : (
+          <BotaoSegurar rotulo={l('Segura para abrir a loja a toda a gente', 'Hold to open the shop to everyone')} className="btn btn-primario" onConfirmar={() => acao(() => dados.definirLojaPublica(true), l('A loja está aberta a toda a gente.', 'The shop is open to everyone.'))}>
+            <ShoppingBag size={16} aria-hidden />{l('Abrir a loja a toda a gente', 'Open the shop to everyone')}
+          </BotaoSegurar>
+        )}
+        <Link to="/loja" className="btn btn-fantasma no-underline">{l('Ir para a loja', 'Go to the shop')}</Link>
+      </div>
     </div>
   )
 }

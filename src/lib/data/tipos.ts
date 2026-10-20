@@ -3,6 +3,7 @@
  * guarda em inglês (como no PRD) e o adaptador faz a tradução.
  */
 
+import type { CategoriaLoja, Cosmeticos } from '../loja'
 
 export type Funcao = 'owner' | 'dev' | 'mod' | 'verified' | 'user'
 export type Regiao = 'eu' | 'na' | 'ap' | 'kr' | 'latam' | 'br'
@@ -462,6 +463,24 @@ export interface EstadoDiscord {
   verificadoEm: string | null
 }
 
+/** A loja de Rangify Coins, para quem a pode ver (Owner e Dev, ou todos quando é pública). */
+export interface LojaAberta {
+  visivel: true
+  publica: boolean
+  /** Owner e Dev: compram tudo (para testar), dão coins a si próprios, sorteiam a loja e devolvem itens. */
+  staff: boolean
+  moedas: number
+  ganhas: { nivel: number; porNivel: number; porMarcos: number; porDiarias: number; porSemanais: number; porMvp: number; testes: number; porConvites?: number }
+  hoje: { dia: string; diarios: string[]; semanais: string[]; destaque: string | null; mudaEm: string; semanaisAte: string; destaqueAte: string }
+  inventario: string[]
+  equipados: Partial<Record<CategoriaLoja, string>>
+  avatarGif: string | null
+}
+export type EstadoLoja = { visivel: false } | LojaAberta
+
+/** O que o draft mostra de cada jogador: só estes números, numa única chamada para todos. */
+export type ResumoEstatisticas = Pick<EstatisticasPerfil, 'partidas' | 'vitorias' | 'kda' | 'acs'>
+
 /** O que o overlay do OBS mostra: o jogador, o dia, o estado e a última partida. */
 export interface OverlayDados {
   nome: string
@@ -776,8 +795,11 @@ export interface Dados {
   atualizarPerfil(alteracoes: { funcaoJogo?: FuncaoJogo | null; regiao?: Regiao }): Promise<Perfil>
   marcarTourVisto(visto: boolean): Promise<void>
   sincronizarRank(): Promise<{ perfil: Perfil; atualizado: boolean; proximaEm: string | null }>
-  estatisticas(perfilId: string): Promise<EstatisticasPerfil>
-  forma(perfilId: string, n: number): Promise<PontoForma[]>
+  /** As estatísticas de um jogador. Com fila, só das partidas dessa fila; sem ela, das duas juntas. */
+  estatisticas(perfilId: string, fila?: FilaTipo | null): Promise<EstatisticasPerfil>
+  forma(perfilId: string, n: number, fila?: FilaTipo | null): Promise<PontoForma[]>
+  /** Partidas, vitórias, KDA e ACS de vários jogadores de uma vez (até 20), para o draft. Mais leve do que pedir o perfil inteiro de cada um. */
+  estatisticasResumo(perfilIds: string[]): Promise<Record<string, ResumoEstatisticas>>
 
   // Ranking (paginação por cursor, 50 de cada vez)
   /** A tabela de pontos de uma fila (a aberta, se não disseres). */
@@ -898,6 +920,26 @@ export interface Dados {
   discordPartida(id: string): Promise<{ servidor: string; chat: string; call: string } | null>
   /** Muda-te para a call da tua equipa, se já estiveres numa call do servidor (o Discord não deixa de outra forma). */
   puxarCall(id: string): Promise<{ movido: boolean; foraDaVoz?: boolean }>
+
+  // Loja
+  /** Se quem pergunta pode ver a loja (Owner e Dev sempre; os outros quando é pública). */
+  lojaVisivel(): Promise<boolean>
+  loja(): Promise<EstadoLoja>
+  comprarItem(id: string): Promise<EstadoLoja>
+  equiparItem(id: string): Promise<EstadoLoja>
+  desequiparItem(categoria: CategoriaLoja): Promise<EstadoLoja>
+  /** O link da GIF de perfil (precisa da "Foto em GIF"); null tira-a. */
+  definirAvatarGif(url: string | null): Promise<EstadoLoja>
+  /** O que cada jogador tem equipado (vazio enquanto a loja não for pública, exceto para Owner e Dev). */
+  cosmeticos(ids: string[]): Promise<Record<string, Cosmeticos>>
+  /** Owner e Dev: abre a loja a toda a gente (ou volta a fechá-la). */
+  definirLojaPublica(publica: boolean): Promise<EstadoLoja>
+  /** Owner e Dev: sorteia a loja de hoje outra vez. */
+  lojaResetar(): Promise<EstadoLoja>
+  /** Owner e Dev: coins de teste para si próprio (negativo tira). */
+  lojaMoedasTeste(quantidade: number): Promise<EstadoLoja>
+  /** Owner e Dev: devolve um item comprado (ou todos, com null) e as coins voltam. */
+  lojaDevolver(id: string | null): Promise<EstadoLoja>
 
   // Staff
   disputas(): Promise<Partida[]>

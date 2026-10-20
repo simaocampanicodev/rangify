@@ -6,6 +6,7 @@ import { corRank, nomeRank } from '@/lib/ranks'
 import { iconeAgente } from '@/lib/agentes'
 import { urlAvatar } from '@/lib/imagem'
 import { useAjuda, type TopicoAjuda } from './Ajuda'
+import { DecoracaoAvatar, DecoracaoMvp } from './Cosmeticos'
 import { l } from '@/lib/idioma'
 
 /** Converte #rrggbb em rgba(r,g,b,a). */
@@ -114,7 +115,13 @@ export function iniciais(nome: string) {
 }
 
 /** Avatar do Discord ou, sem ele, as iniciais num quadrado escuro com laranja. */
-export function Avatar({ nome, url, tamanho = 38, destaque = false }: { nome: string; url?: string | null; tamanho?: number; destaque?: boolean }) {
+/** Com perfilId, a foto leva as decorações da loja que o jogador tem equipadas. */
+export function Avatar({ nome, url, tamanho = 38, destaque = false, perfilId }: { nome: string; url?: string | null; tamanho?: number; destaque?: boolean; perfilId?: string }) {
+  const r = Math.round(tamanho * 0.27)
+  return <DecoracaoAvatar perfilId={perfilId} tamanho={tamanho} raio={r}><FotoBase nome={nome} url={url} tamanho={tamanho} destaque={destaque} /></DecoracaoAvatar>
+}
+
+function FotoBase({ nome, url, tamanho, destaque }: { nome: string; url?: string | null; tamanho: number; destaque: boolean }) {
   const r = Math.round(tamanho * 0.27)
   if (url) return <img src={urlAvatar(url, tamanho)} alt="" width={tamanho} height={tamanho} loading="lazy" decoding="async" className="shrink-0 object-cover" style={{ borderRadius: r }} />
   return (
@@ -350,7 +357,12 @@ export function BotaoSegurar({ onConfirmar, rotulo, children, className = '', du
   )
 }
 
-export function SeloMvp({ tamanho = 22 }: { tamanho?: number }) {
+/** Com perfilId, à volta do selo aparece a animação de MVP que o jogador tem equipada. */
+export function SeloMvp({ tamanho = 22, perfilId }: { tamanho?: number; perfilId?: string }) {
+  return <DecoracaoMvp perfilId={perfilId}><SeloMvpBase tamanho={tamanho} /></DecoracaoMvp>
+}
+
+function SeloMvpBase({ tamanho }: { tamanho: number }) {
   return (
     <span role="img" aria-label={l('MVP da partida', 'Match MVP')} title={l('MVP da partida', 'Match MVP')} className="inline-grid shrink-0 place-items-center rounded-[6px] border border-laranja/45 bg-laranja/14 text-laranja" style={{ width: tamanho, height: tamanho }}>
       <Star size={Math.round(tamanho * 0.55)} fill="currentColor" strokeWidth={1.5} aria-hidden />

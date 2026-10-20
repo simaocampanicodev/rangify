@@ -80,6 +80,13 @@ Os prazos e as jogadas dos bots avançam em `avancar_partida`, que o site chama 
 - O **polling** (`situacao`) é inteligente: pergunta mais vezes durante uma partida, menos na fila, e pára com o separador escondido.
 - Quem fecha o separador sai da fila (pedido `keepalive`), e quem fica sem dar sinal de vida é tirado ao fim de 3 minutos.
 
+### Menos carga na base de dados
+
+- `_passo_pendente` diz, sem bloquear nada, se a partida tem algum prazo ou jogada de bot por cumprir. `situacao` e `avancar_partida` só correm a máquina de estados (que bloqueia a linha da partida) quando há. Com o Realtime a avisar das mudanças, o site pergunta de 2,5 em 2,5 segundos durante uma partida no Supabase (1 s no demo, onde não há Realtime).
+- O draft pede as estatísticas de todos os jogadores numa só chamada (`estatisticas_resumo`: partidas, vitórias, KDA e ACS) em vez de calcular o perfil inteiro de cada um.
+- As decorações dos jogadores ficam em memória 10 minutos e só se apagam quando a loja muda.
+- Na Staff, as listas (partidas ao vivo, resultados, jogadores, denúncias, jogos de um torneio) desenham-se por partes, os jogadores de cada partida só quando se pedem, e as secções pesadas (Discord, torneios) abrem uma de cada vez.
+
 ## Edge Functions
 
 Em `supabase/functions/`. As que o bot ou outros serviços chamam sem sessão publicam-se com `--no-verify-jwt`.

@@ -1,7 +1,8 @@
 import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { DiscordStaff, DivulgacaoStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
+import { BotaoMais, Colapsavel, useMais } from '@/components/Mais'
+import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
 import { Moderacao } from '@/components/StaffModeracao'
 import { StaffTorneios } from '@/components/tournaments/StaffTorneios'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
@@ -68,7 +69,7 @@ function estaParada(p: Partida) {
 function JogadoresDaPartida({ p }: { p: Partida }) {
   const linha = (j: Partida['jogadores'][number]) => (
     <li key={j.perfilId} className="flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.03]">
-      <Avatar nome={nomeJogador(j)} url={j.avatarUrl} tamanho={26} />
+      <Avatar nome={nomeJogador(j)} url={j.avatarUrl} tamanho={26} perfilId={j.perfilId} />
       <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 flex-1 items-baseline gap-1.5 text-texto no-underline hover:text-pessego">
         <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
         <span className="font-mono text-[11px] text-mudo">{tagJogador(j)}</span>
@@ -115,6 +116,8 @@ function JogadoresDaPartida({ p }: { p: Partida }) {
 function PartidaAoVivo({ p }: { p: Partida }) {
   const acao = useAcao()
   const parada = estaParada(p)
+  // Os 10 jogadores só se desenham quando se pede: com várias partidas ao vivo, o ecrã ficava enorme.
+  const [ver, setVer] = useState(false)
   return (
     <article className={`flex flex-col gap-3 rounded-[14px] border p-4 ${parada ? 'border-derrota/35 bg-derrota/[0.04]' : 'border-white/8 bg-white/[0.025]'}`}>
       <div className="flex flex-wrap items-center gap-2.5">
@@ -129,7 +132,11 @@ function PartidaAoVivo({ p }: { p: Partida }) {
           </BotaoSegurar>
         </span>
       </div>
-      <JogadoresDaPartida p={p} />
+      <button type="button" aria-expanded={ver} className="btn btn-fantasma self-start !min-h-9 !px-3 !text-[12.5px]" onClick={() => setVer((v) => !v)}>
+        <Users size={14} className="text-laranja" aria-hidden />{ver ? tx('Esconder os jogadores', 'Hide players') : tx(`Ver os ${p.jogadores.length} jogadores`, `Show the ${p.jogadores.length} players`)}
+        <ChevronDown size={14} aria-hidden className={`transition-transform ${ver ? 'rotate-180' : ''}`} />
+      </button>
+      {ver && <JogadoresDaPartida p={p} />}
     </article>
   )
 }
@@ -276,7 +283,7 @@ function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; a
   const podeAcertar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-white/6 py-3">
-      <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} />
+      <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
       <span className="flex min-w-0 flex-1 basis-[160px] flex-col">
         <span className="truncate text-[13.5px] font-semibold">{p.riotId ?? p.utilizador}</span>
         <span className="font-mono text-[11px] text-mudo">{p.utilizador}</span>
@@ -315,6 +322,7 @@ function Jogadores() {
   const { perfil: eu } = useSessao()
   const [q, setQ] = useState('')
   const [lista, setLista] = useState<JogadorStaff[]>([])
+  const mais = useMais(lista, 12)
   const recarregar = () => { dados.pesquisarJogadores(q).then(setLista).catch(() => {}) }
   useEffect(() => {
     const t = window.setTimeout(recarregar, 200)
@@ -333,8 +341,9 @@ function Jogadores() {
         <input className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx('Utilizador ou Riot ID', 'Username or Riot ID')} />
       </label>
       <ul className="m-0 flex list-none flex-col p-0">
-        {lista.map((p) => <LinhaJogador key={p.id} p={p} eu={eu} aMudou={recarregar} />)}
+        {mais.visiveis.map((p) => <LinhaJogador key={p.id} p={p} eu={eu} aMudou={recarregar} />)}
       </ul>
+      <BotaoMais restam={mais.restam} passo={mais.passo} onClick={mais.verMais} />
     </div>
   )
 }
@@ -342,10 +351,11 @@ function Jogadores() {
 /** As denúncias da comunidade, abertas primeiro. */
 function Denuncias({ lista }: { lista: Denuncia[] }) {
   const acao = useAcao()
+  const mais = useMais(lista, 8)
   if (!lista.length) return <Vazio icone={<Flag size={22} />} titulo={tx('Sem denúncias', 'No reports')} />
   return (
     <>
-      {lista.map((d) => (
+      {mais.visiveis.map((d) => (
         <article key={d.id} className={`flex flex-col gap-2 rounded-[14px] border p-4 ${d.estado === 'aberta' ? 'border-laranja/30 bg-laranja/5' : 'border-white/7 bg-white/[0.02] opacity-70'}`}>
           <div className="flex flex-wrap items-center gap-2">
             <Chip tom={d.estado === 'aberta' ? 'laranja' : 'neutro'}>{d.motivo}</Chip>
@@ -361,11 +371,12 @@ function Denuncias({ lista }: { lista: Denuncia[] }) {
           ) : <span className="text-[12px] text-mudo">{d.estado === 'resolvida' ? tx('Resolvida', 'Resolved') : tx('Arquivada', 'Archived')}</span>}
         </article>
       ))}
+      <BotaoMais restam={mais.restam} passo={mais.passo} onClick={mais.verMais} />
     </>
   )
 }
 
-type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'divulgacao' | 'torneios'
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao' | 'torneios'
 
 export function Admin() {
   const { eStaff, carregando, perfil } = useSessao()
@@ -379,7 +390,9 @@ export function Admin() {
   const pendentes = useCarregar(() => (eStaff ? dados.resultadosPendentes() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   const aoVivo = useCarregar(() => (eStaff ? dados.partidasAoVivo() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
   // O que se passa agora: pergunta outra vez de pouco em pouco, enquanto o separador está à frente.
-  useIntervalo(aoVivo.recarregar, eStaff ? 15000 : null)
+  useIntervalo(aoVivo.recarregar, eStaff && aba === 'partidas' ? 15000 : null)
+  const maisPendentes = useMais(pendentes.valor ?? [], 6)
+  const maisAoVivo = useMais(aoVivo.valor ?? [], 5)
   const denuncias = useCarregar(() => (eStaff ? dados.denuncias() : Promise.resolve([])), [eStaff], ['staff'])
   const jogadores = useCarregar(() => (eStaff ? dados.contarJogadores() : Promise.resolve(0)), [eStaff], ['staff', 'perfil'])
   if (carregando) return <Carregando />
@@ -420,7 +433,7 @@ export function Admin() {
             { valor: 'mapas', texto: tx('Mapas', 'Maps') },
             { valor: 'novidades', texto: tx('Novidades', 'News') },
             { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
-            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
+            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
           ]}
         />
         {aba === 'resultados' && (
@@ -433,18 +446,15 @@ export function Admin() {
               </div>
             )}
             {pendentes.valor?.length
-              ? [...pendentes.valor].sort((x, y) => (x.estado === 'RESULT_SUBMISSION' ? 0 : 1) - (y.estado === 'RESULT_SUBMISSION' ? 0 : 1)).map((p) => <ResultadoPendente key={p.id} p={p} />)
+              ? [...maisPendentes.visiveis].sort((x, y) => (x.estado === 'RESULT_SUBMISSION' ? 0 : 1) - (y.estado === 'RESULT_SUBMISSION' ? 0 : 1)).map((p) => <ResultadoPendente key={p.id} p={p} />)
               : pendentes.erro
                 ? <Vazio icone={<Gavel size={22} />} titulo={tx('Não foi possível carregar os resultados', 'Could not load the results')} texto={pendentes.erro} />
                 : comDisputa.length === 0 && <Vazio icone={<Gavel size={22} />} titulo={tx('Nada à espera', 'Nothing waiting')} texto={tx('Quando uma partida estiver a jogar ou à espera do resultado, aparece aqui.', 'Matches being played or waiting for the result show up here.')} />}
+            <BotaoMais restam={maisPendentes.restam} passo={maisPendentes.passo} onClick={maisPendentes.verMais} />
             {ownerDev && (
-              <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
-                <TituloPainel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')} />
-                <TesteApiStaff />
-                <div className="mt-3 flex flex-col gap-3 border-t border-white/6 pt-5">
-                  <TituloPainel eyebrow={tx('PARTIDAS JOGADAS', 'PLAYED MATCHES')} titulo={tx('Recarregar os dados de uma partida', 'Reload match data')} />
-                  <RecarregarStaff />
-                </div>
+              <div className="mt-2 flex flex-col gap-2.5 border-t border-white/6 pt-4">
+                <Colapsavel eyebrow="HENRIK DEV API" titulo={tx('Testar a leitura de um jogo personalizado', 'Test reading a custom game')}><TesteApiStaff /></Colapsavel>
+                <Colapsavel eyebrow={tx('PARTIDAS JOGADAS', 'PLAYED MATCHES')} titulo={tx('Recarregar os dados de uma partida', 'Reload match data')}><RecarregarStaff /></Colapsavel>
               </div>
             )}
           </div>
@@ -456,7 +466,7 @@ export function Admin() {
               titulo={aoVivo.valor ? (aoVivo.valor.length === 1 ? tx('1 partida a decorrer agora', '1 match in progress right now') : tx(`${aoVivo.valor.length} partidas a decorrer agora`, `${aoVivo.valor.length} matches in progress right now`)) : tx('A carregar…', 'Loading…')}
               direita={<span className="text-[12px] text-mudo">{tx('Atualiza sozinho a cada 15 segundos.', 'Refreshes on its own every 15 seconds.')}</span>}
             />
-            {!aoVivo.valor ? <Carregando /> : aoVivo.valor.length ? aoVivo.valor.map((p) => <PartidaAoVivo key={p.id} p={p} />) : <Vazio icone={<Radio size={22} />} titulo={tx('Nenhuma partida a decorrer', 'No match in progress')} texto={tx('Quando houver partidas a jogar, aparecem aqui com os jogadores de cada uma.', 'When matches are being played, they show up here with each one\'s players.')} />}
+            {!aoVivo.valor ? <Carregando /> : aoVivo.valor.length ? <>{maisAoVivo.visiveis.map((p) => <PartidaAoVivo key={p.id} p={p} />)}<BotaoMais restam={maisAoVivo.restam} passo={maisAoVivo.passo} onClick={maisAoVivo.verMais} /></> : <Vazio icone={<Radio size={22} />} titulo={tx('Nenhuma partida a decorrer', 'No match in progress')} texto={tx('Quando houver partidas a jogar, aparecem aqui com os jogadores de cada uma.', 'When matches are being played, they show up here with each one\'s players.')} />}
           </div>
         )}
         {aba === 'inbox' && (
@@ -490,6 +500,12 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow="DISCORD" titulo={tx('Servidor obrigatório para a fila', 'Server required for the queue')} />
             <DiscordStaff />
+          </div>
+        )}
+        {aba === 'loja' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('LOJA', 'SHOP')} titulo={tx('Abrir a loja a toda a gente', 'Open the shop to everyone')} />
+            <LojaStaff />
           </div>
         )}
         {aba === 'divulgacao' && ownerDev && (

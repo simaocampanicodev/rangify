@@ -100,7 +100,7 @@ function Submeter({ p, eu }: { p: Partida; eu: string }) {
           const s = c && p.submissoes.find((x) => x.capitaoId === c.perfilId)
           return c ? (
             <div key={eq} className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5">
-              <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={30} url={c.avatarUrl} />
+              <Iniciais nome={nomeJogador(c)} equipa={eq} tamanho={30} url={c.avatarUrl} perfilId={c.perfilId} />
               <span className="flex flex-1 flex-col gap-px">
                 <span className="text-[13.5px] font-bold">{nomeJogador(c)} · {l('capitão', 'captain')} {eq}</span>
                 <span className="text-[12px] text-[#d0cbc4]">{s ? l(`Votou na Equipa ${s.vencedor}`, `Voted for Team ${s.vencedor}`) : l('Ainda não votou', 'Has not voted yet')}</span>
@@ -191,11 +191,11 @@ function LinhaEstatisticas({ j, eu }: { j: JogadorPartida; eu: string }) {
     <tr className={j.perfilId === eu ? 'bg-laranja/8' : ''}>
       <td className="py-2 pr-2 pl-3">
         <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
-          <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} />
+          <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} perfilId={j.perfilId} />
           <IconeAgente nome={j.agente} tamanho={24} />
           <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
           {j.capitao && <span className="font-mono text-[11px] font-bold text-laranja">(C)</span>}
-          {j.mvp && <SeloMvp tamanho={20} />}
+          {j.mvp && <SeloMvp tamanho={20} perfilId={j.perfilId} />}
         </Link>
       </td>
       <td className={`${num} font-semibold ${(j.rangifyScore ?? 0) >= 100 ? 'text-pessego' : 'text-suave'}`}>{j.rangifyScore ?? '-'}</td>
@@ -302,7 +302,7 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
             const c = p.jogadores.find((j) => j.perfilId === s.capitaoId)
             return (
               <div key={s.capitaoId} className="flex min-h-[52px] items-center gap-3 rounded-[13px] border border-white/8 bg-white/[0.03] px-3.5">
-                {c && <Iniciais nome={nomeJogador(c)} equipa={c.equipa} tamanho={30} url={c.avatarUrl} />}
+                {c && <Iniciais nome={nomeJogador(c)} equipa={c.equipa} tamanho={30} url={c.avatarUrl} perfilId={c.perfilId} />}
                 <span className="flex-1 text-[13.5px] font-bold">{c ? nomeJogador(c) : '?'} · {l('capitão', 'captain')} {c?.equipa}</span>
                 <span className="font-mono text-[15px] font-semibold">{l('Equipa', 'Team')} {s.vencedor}</span>
               </div>

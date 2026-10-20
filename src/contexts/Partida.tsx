@@ -100,7 +100,9 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   const naFila = !!fila?.naFila
   const demo = dados.modo === 'demo'
   // De quanto em quanto tempo pergunta (null: só quando o Realtime avisa).
-  const intervalo = naPartida ? (visivel ? 1000 : 3000)
+  // No Supabase o Realtime avisa de cada mudança, por isso aqui só se pergunta para cumprir os prazos (draft, bans...): 2,5 s
+  // chegam. No demo não há Realtime e os bots andam ao ritmo desta pergunta.
+  const intervalo = naPartida ? (demo ? (visivel ? 1000 : 3000) : visivel ? 2500 : 5000)
     : naFila ? (demo ? 1000 : visivel ? 5000 : 10_000)
     : visivel ? (demo ? 8000 : 30_000) : null
   useEffect(() => {

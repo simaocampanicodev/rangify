@@ -84,17 +84,19 @@ for (const f of migracoes()) await db.exec(sql(f))
 ok(migracoes().includes('0032_filas_ranked.sql'), 'as migrações aplicam-se sem erros (a 0032 incluída)')
 await db.exec(sql('0032_filas_ranked.sql'))
 ok(true, 'correr a 0032 outra vez não dá erro')
+// Voltar a correr a 0032 repõe as versões antigas de estatisticas_perfil e forma_perfil: a 0038 corre outra vez por cima.
+await db.exec(sql('0038_perfil_por_fila.sql'))
 
-// A 0035 tirou a loja: nem tabelas, nem funções, nem colunas dela; o registo de coins dos convites fica.
-const resto = await raiz(`select
-  (select count(*)::int from pg_tables where schemaname = 'public' and tablename like 'shop\_%') as tabelas,
+// A 0035 apagou a loja e a 0036 trouxe-a de volta: depois das duas, tudo o que a loja precisa existe e o registo dos convites continua.
+const loja = await raiz(`select
+  (select count(*)::int from pg_tables where schemaname = 'public' and tablename in ('shop_items', 'shop_inventory', 'shop_equipped', 'shop_rotation', 'coin_ledger')) as tabelas,
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('loja', 'comprar_item', 'equipar_item', 'cosmeticos', 'loja_visivel', '_moedas', '_loja_hoje')) as funcoes,
-  (select count(*)::int from information_schema.columns where table_schema = 'public' and ((table_name = 'profiles' and column_name = 'avatar_gif') or (table_name = 'config' and column_name = 'shop_public'))) as colunas,
-  to_regclass('public.coin_ledger') is not null as registo`)
-ok(resto[0].tabelas === 0 && resto[0].funcoes === 0 && resto[0].colunas === 0, 'a 0035 apagou a loja: tabelas, funções e colunas')
-ok(resto[0].registo === true, 'o registo de coins dos convites continua')
-await db.exec(sql('0035_sem_loja.sql'))
-ok(true, 'correr a 0035 outra vez não dá erro')
+  (select count(*)::int from information_schema.columns where table_schema = 'public' and ((table_name = 'profiles' and column_name = 'avatar_gif') or (table_name = 'config' and column_name = 'shop_public') or (table_name = 'coin_ledger' and column_name = 'item_id'))) as colunas,
+  (select count(*)::int from shop_items) as itens`)
+ok(loja[0].tabelas === 5 && loja[0].funcoes === 7 && loja[0].colunas === 3, 'depois da 0035 e da 0036 a loja existe: tabelas, funções e colunas')
+ok(loja[0].itens >= 100, 'o catálogo da loja voltou (' + loja[0].itens + ' itens)')
+await db.exec(sql('0036_loja_de_volta.sql'))
+ok(true, 'correr a 0036 outra vez não dá erro')
 
 // ------------------------------------------------------------ contas
 // 0 owner (Imortal), 1..19 Ascendente 1 ou mais, 20..23 abaixo (Diamante 3 e Ouro), 24 sem rank, 25 sem Riot ID.
@@ -224,6 +226,24 @@ ok(minhaRanked.linhas.length === 1 && minhaAberta.linhas.length === 0, 'o histó
 await falha(rpc(uids[0], 'historico', { p_perfil: null, p_minhas: false, p_mapa: null, p_offset: 0, p_fila: 'casual' }), 'Escolhe a fila', 'uma fila inexistente dá erro no histórico')
 const st = await rpc(uids[0], 'estatisticas_perfil', { p_perfil: soRanked })
 ok(st.partidas === 1 && st.posicao === 0 && st.totalJogadores === 10 && st.posicaoRanked >= 1 && st.totalRanked === 10, 'as estatísticas dão a posição na aberta (0, nunca jogou nela) e na ranked')
+// As estatísticas e a forma do perfil, por fila (0038).
+const stR = await rpc(uids[0], 'estatisticas_perfil', { p_perfil: soRanked, p_fila: 'ranked' })
+const stA = await rpc(uids[0], 'estatisticas_perfil', { p_perfil: soRanked, p_fila: 'aberta' })
+ok(stR.partidas === 1 && stA.partidas === 0, 'as estatísticas filtram por fila: o jogador só jogou ranked (1 na ranked, 0 na aberta)')
+ok(stR.porMapa.length === 1 && stA.porMapa.length === 0 && stA.kd === null, 'o K/D, os mapas e os agentes seguem o filtro')
+ok(stR.posicaoRanked >= 1 && stR.totalRanked === 10, 'a posição na tabela não depende do filtro')
+const fR = await rpc(uids[0], 'forma_perfil', { p_perfil: soRanked, p_n: 20, p_fila: 'ranked' })
+const fA = await rpc(uids[0], 'forma_perfil', { p_perfil: soRanked, p_n: 20, p_fila: 'aberta' })
+const fT = await rpc(uids[0], 'forma_perfil', { p_perfil: soRanked, p_n: 20 })
+ok(fR.length === 1 && fA.length === 0 && fT.length === 1, 'a forma filtra por fila e, sem filtro, junta as duas')
+// As estatísticas do draft (0039): vários jogadores numa só chamada, só com o que o draft mostra.
+const resumo = await rpc(uids[0], 'estatisticas_resumo', { p_ids: [soRanked, pid(25)] })
+const completo = await rpc(uids[0], 'estatisticas_perfil', { p_perfil: soRanked })
+ok(resumo[soRanked]?.partidas === 1 && resumo[soRanked].partidas === completo.partidas && resumo[soRanked].vitorias === completo.vitorias, 'o resumo do draft bate certo com o perfil completo (partidas e vitórias)')
+ok(resumo[soRanked].acs === completo.acs && resumo[soRanked].kda === completo.kda, 'e também no ACS e no KDA')
+ok(resumo[pid(25)] === undefined, 'quem nunca jogou não aparece no resumo')
+const muitos = await rpc(uids[0], 'estatisticas_resumo', { p_ids: Array.from({ length: 30 }, (_, i) => pid(i % 26)) })
+ok(Object.keys(muitos).length <= 20, 'no máximo 20 jogadores de cada vez')
 const niv = await rpc(uids[0], 'ranking_nivel', { p_limite: 100 })
 ok(niv.length === 20 && niv.some((x) => x.perfil.id === soRanked) && niv.some((x) => x.perfil.id === ab.equipaA[0]), 'a tabela de nível junta quem jogou numa fila e quem jogou na outra')
 
@@ -268,6 +288,75 @@ await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: true, p_fila: 'ranked' })
 const sim = (await raiz(`select fila, simulated from matches order by created_at desc limit 1`))[0]
 ok(sim.fila === 'ranked' && sim.simulated, 'a staff simula uma partida ranked com bots')
 await falha(rpc(uids[1], 'dev_encher_fila', { p_ser_capitao: false, p_fila: 'ranked' }), 'Owner e Dev', 'as ferramentas de teste continuam só para Owner e Dev')
+
+console.log('\nPartida ranked que cai')
+{
+  // Uma partida ranked em que um jogador não aceita: os outros nove voltam à fila RANKED (não à aberta).
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'entrar_fila', { p_fila: 'ranked' })
+  const mr = (await rpc(uids[1], 'partida_ativa')).id
+  ok((await raiz(`select fila from matches where id = $1`, [mr]))[0].fila === 'ranked', 'a partida formada na fila ranked é ranked')
+  for (let i = 1; i <= 9; i++) await rpc(uids[i], 'responder_confirmacao', { p_match: mr, p_aceita: true })
+  await raiz(`update matches set ready_deadline = now() - interval '1 second' where id = $1`, [mr])
+  const caida = await rpc(uids[1], 'avancar_partida', { p_match: mr })
+  ok(caida.estado === 'CANCELLED', 'sem a confirmação de todos a partida cai')
+  const voltaram = await raiz(`select fila, count(*)::int as n from queue_entries group by fila`)
+  ok(voltaram.length === 1 && voltaram[0].fila === 'ranked' && voltaram[0].n === 9, 'os nove que aceitaram voltam à fila ranked, não à aberta')
+  const e1 = await rpc(uids[1], 'estado_fila')
+  ok(e1.naFila && e1.fila === 'ranked' && e1.contagemRanked === 9 && e1.contagemAberta === 0, 'o estado da fila diz ranked (9) e aberta (0)')
+  // Entra mais um na ranked: com 10, forma-se logo outra partida ranked, sem tocar na fila aberta.
+  await raiz(`update profiles set cooldown_until = null`)
+  await rpc(uids[11], 'entrar_fila', { p_fila: 'ranked' })
+  const nova = await raiz(`select fila from matches where state = 'READY_CHECK' order by created_at desc limit 1`)
+  ok(nova.length === 1 && nova[0].fila === 'ranked', 'com mais um jogador forma-se outra partida ranked')
+  // E numa partida da fila aberta, quem aceita continua a voltar à aberta.
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'entrar_fila', { p_fila: 'aberta' })
+  const ma = (await rpc(uids[1], 'partida_ativa')).id
+  for (let i = 1; i <= 9; i++) await rpc(uids[i], 'responder_confirmacao', { p_match: ma, p_aceita: true })
+  await raiz(`update matches set ready_deadline = now() - interval '1 second' where id = $1`, [ma])
+  await rpc(uids[1], 'avancar_partida', { p_match: ma })
+  const aberta = await raiz(`select fila, count(*)::int as n from queue_entries group by fila`)
+  ok(aberta.length === 1 && aberta[0].fila === 'aberta' && aberta[0].n === 9, 'na fila aberta, quem aceita volta à aberta')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+}
+
+console.log('\nMenos carga na base de dados')
+{
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+  await raiz(`delete from queue_entries`)
+  await raiz(`update profiles set cooldown_until = null`)
+  for (let i = 1; i <= 10; i++) await rpc(uids[i], 'entrar_fila', { p_fila: 'ranked' })
+  const mc = (await rpc(uids[1], 'partida_ativa')).id
+  const pendente = async () => (await servico(`select public._passo_pendente($1) as v`, [mc]))[0].v
+  ok((await pendente()) === false, 'uma partida acabada de formar não tem nada por cumprir (a máquina de estados nem é chamada)')
+  const antes = (await raiz(`select updated_at from matches where id = $1`, [mc]))[0].updated_at
+  const s0 = await rpc(uids[1], 'situacao', { p_partida: null })
+  ok(s0.partida.id === mc && s0.partida.estado === 'READY_CHECK' && s0.fila.naFila === false, 'a situação devolve a fila e a partida sem a avançar')
+  ok(String((await raiz(`select updated_at from matches where id = $1`, [mc]))[0].updated_at) === String(antes), 'e sem mexer na partida')
+  await raiz(`update matches set ready_deadline = now() - interval '1 second' where id = $1`, [mc])
+  ok((await pendente()) === true, 'com o prazo da confirmação esgotado, há algo por cumprir')
+  const s1 = await rpc(uids[1], 'situacao', { p_partida: null })
+  ok(s1.partida.estado === 'CANCELLED', 'a situação cumpre o prazo: a partida cai')
+  ok((await pendente()) === false, 'depois de cancelada já não há nada por cumprir')
+  // Bots que aceitam sozinhos: numa partida de teste, a aceitação "chega a horas" e conta como pendente.
+  await raiz(`update profiles set cooldown_until = null`)
+  await rpc(uids[0], 'dev_encher_fila', { p_ser_capitao: true, p_fila: 'aberta' })
+  const ms = (await rpc(uids[0], 'partida_ativa')).id
+  await raiz(`update match_players set accept_at = now() - interval '1 second' where match_id = $1 and accept_at is not null and not accepted`, [ms])
+  ok((await servico(`select public._passo_pendente($1) as v`, [ms]))[0].v === true, 'a aceitação de um bot que já devia ter acontecido conta como pendente')
+  await rpc(uids[0], 'avancar_partida', { p_match: ms })
+  ok((await raiz(`select count(*)::int as n from match_players where match_id = $1 and not accepted`, [ms]))[0].n <= 1, 'e o avancar_partida cumpre-a')
+  await raiz(`update matches set state = 'CANCELLED', finished_at = now() where state not in ('COMPLETED', 'CANCELLED')`)
+
+  await raiz(`update profiles set cooldown_until = null`)
+  await raiz(`delete from queue_entries`)
+}
 
 console.log('\nAcessos')
 await falha(anon(`select public.entrar_fila('aberta')`), 'permission denied', 'sem sessão não se entra na fila')

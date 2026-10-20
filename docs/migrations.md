@@ -43,3 +43,7 @@ O esquema, as regras e a máquina de estados do Rangify vivem em `supabase/migra
 | [`0033_historico_fila.sql`](../supabase/migrations/0033_historico_fila.sql) | Filtrar as partidas por fila: abertas ou ranked. |
 | [`0034_discord_anuncios.sql`](../supabase/migrations/0034_discord_anuncios.sql) | Avisos no Discord: um canal onde o bot publica as mensagens que a staff escreve em Staff › Discord. |
 | [`0035_sem_loja.sql`](../supabase/migrations/0035_sem_loja.sql) | Fora a loja e todos os cosméticos. |
+| [`0036_loja_de_volta.sql`](../supabase/migrations/0036_loja_de_volta.sql) | A loja de Rangify Coins e os cosméticos voltam. |
+| [`0037_ranked_volta_a_ranked.sql`](../supabase/migrations/0037_ranked_volta_a_ranked.sql) | Quem aceita uma partida ranked que cai volta à fila ranked (e não à aberta). |
+| [`0038_perfil_por_fila.sql`](../supabase/migrations/0038_perfil_por_fila.sql) | As estatísticas e a forma do perfil, por fila. |
+| [`0039_menos_carga.sql`](../supabase/migrations/0039_menos_carga.sql) | Menos trabalho para a base de dados: o site pergunta o estado da partida a toda a hora (de 1 em 1 segundo, por jogador) e cada pergunta bloqueava a linha da partida e montava o JSON inteiro. |

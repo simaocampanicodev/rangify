@@ -42,7 +42,7 @@ function CartaoAgente({ nome, funcao, jogadores, eu, minimo }: { nome: string; f
         <>
           <div className="flex items-center gap-2">
             <Link to={caminhoPerfil(melhor.perfil.riotId)} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.035] p-2.5 text-texto no-underline transition-colors hover:border-laranja/40">
-              <Avatar nome={nomeJogador(melhor.perfil)} url={melhor.perfil.avatarUrl} tamanho={40} destaque={melhor.perfil.id === eu} />
+              <Avatar nome={nomeJogador(melhor.perfil)} url={melhor.perfil.avatarUrl} tamanho={40} destaque={melhor.perfil.id === eu} perfilId={melhor.perfil.id} />
               <span className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-bold">
                   <Crown size={13} className="shrink-0 text-ouro" aria-label={l('Melhor com este agente', 'Best with this agent')} />

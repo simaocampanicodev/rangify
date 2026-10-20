@@ -5,13 +5,14 @@ import { Desempenho, OndeJogaMelhor } from '@/components/DesempenhoPerfil'
 import { EditarPerfil } from '@/components/EditarPerfil'
 import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
+import { FundoBanner, TituloJogador } from '@/components/Cosmeticos'
 import { EmDireto } from '@/components/AoVivo'
-import { Avatar, Cabecalho, Carregando, Chip, LinkSeta, Modal, Painel, RankBadge, TituloPainel, Vazio } from '@/components/ui'
+import { Avatar, Cabecalho, Carregando, Chip, LinkSeta, Modal, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
-import { avisarMudanca, dados } from '@/lib/data'
+import { avisarMudanca, dados, type FilaTipo } from '@/lib/data'
 import { caminhoPerfil, nomeJogador, riotIdDoCaminho, tagJogador } from '@/lib/partida'
 import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
 import { nomeRegiao } from '@/lib/regioes'
@@ -67,9 +68,12 @@ export function Perfil() {
   const alvo = useCarregar(() => dados.perfilPorRiotId(riotId), [riotId, eu?.pontos, eu?.rankAtualizadoEm], ['perfil', 'partida'], { chave: `perfil:${riotId}:${eu?.pontos}:${eu?.rankAtualizadoEm}` })
   const p = alvo.valor
   const id = p?.id ?? ''
-  const stats = useCarregar(() => (id ? dados.estatisticas(id) : Promise.resolve(null)), [id], ['partida'], { chave: `estatisticas:${id}` })
-  const forma = useCarregar(() => (id ? dados.forma(id, 20) : Promise.resolve([])), [id], ['partida'], { chave: `forma:${id}:20` })
-  const historico = useCarregar(() => (id ? dados.partidas({ minhas: true, perfilId: id }) : Promise.resolve(null)), [id], ['partida'], { chave: `partidas:perfil:${id}` })
+  // O filtro das estatísticas: as duas filas juntas, só a aberta ou só a ranked.
+  const [filtro, setFiltro] = useState<'todas' | FilaTipo>('todas')
+  const fila = filtro === 'todas' ? null : filtro
+  const stats = useCarregar(() => (id ? dados.estatisticas(id, fila) : Promise.resolve(null)), [id, filtro], ['partida'], { chave: `estatisticas:${id}:${filtro}` })
+  const forma = useCarregar(() => (id ? dados.forma(id, 20, fila) : Promise.resolve([])), [id, filtro], ['partida'], { chave: `forma:${id}:20:${filtro}` })
+  const historico = useCarregar(() => (id ? dados.partidas({ minhas: true, perfilId: id, fila, limite: 8 }) : Promise.resolve(null)), [id, filtro], ['partida'], { chave: `partidas:perfil:${id}:${filtro}` })
   const amigos = useCarregar(() => dados.amigos(), [], ['amigos'], { chave: 'amigos' })
 
   if (!riot && eu?.riotId) return <Navigate to={caminhoPerfil(eu.riotId)} replace />
@@ -85,12 +89,28 @@ export function Perfil() {
   const ganhoRanked = p.pontosRanked - PONTOS_INICIAIS
   const vitoriasTodas = p.vitorias + p.vitoriasRanked
   const derrotasTodas = p.derrotas + p.derrotasRanked
+  // A posição vive dentro dos pontos de cada fila (e não em mosaicos à parte).
+  const posAberta = s && p.vitorias + p.derrotas > 0 ? l(`#${s.posicao} de ${s.totalJogadores} na tabela`, `#${s.posicao} of ${s.totalJogadores} on the board`) : ''
+  const posRanked = s?.posicaoRanked ? l(`#${s.posicaoRanked} de ${s.totalRanked} na tabela`, `#${s.posicaoRanked} of ${s.totalRanked} on the board`) : ''
+  const verde = (n: number) => (n >= 0 ? 'text-vitoria' : 'text-derrota')
+  const taxa = s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : ''
+  const registo = filtro === 'aberta' ? [p.vitorias, p.derrotas] : filtro === 'ranked' ? [p.vitoriasRanked, p.derrotasRanked] : [vitoriasTodas, derrotasTodas]
+  const tiles: [string, string, string, string, string?][] = [
+    ...(filtro !== 'ranked' ? [[comRanked ? l('Pontos · aberta', 'Points · open') : l('Pontos', 'Points'), String(p.pontos), comSinal(ganho) + l(' desde 1000', ' since 1000'), verde(ganho), posAberta] as [string, string, string, string, string]] : []),
+    ...(comRanked && filtro !== 'aberta' ? [[l('Pontos · ranked', 'Points · ranked'), String(p.pontosRanked), comSinal(ganhoRanked) + l(' desde 1000', ' since 1000'), verde(ganhoRanked), posRanked] as [string, string, string, string, string]] : []),
+    [l('Registo', 'Record'), `${registo[0]}${l('V', 'W')}·${registo[1]}${l('D', 'L')}`, filtro === 'todas' && comRanked ? l(`${p.vitoriasRanked}V-${p.derrotasRanked}D na ranked`, `${p.vitoriasRanked}W-${p.derrotasRanked}L in ranked`) : taxa, 'text-mudo'],
+    ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-', s?.acs != null ? l(`${Math.round(s.acs)} ACS de média`, `${Math.round(s.acs)} average ACS`) : '', 'text-mudo'],
+    ['K/D', s?.kd != null ? s.kd.toFixed(2) : '-', s?.killsMedia != null && s?.mortesMedia != null ? l(`${s.killsMedia.toFixed(1)} kills · ${s.mortesMedia.toFixed(1)} mortes por jogo`, `${s.killsMedia.toFixed(1)} kills · ${s.mortesMedia.toFixed(1)} deaths per game`) : '', 'text-mudo'],
+    ['Rangify Score', s?.rangifyScore != null ? String(Math.round(s.rangifyScore)) : '-', s?.melhorRs != null ? l(`melhor: ${s.melhorRs}`, `best: ${s.melhorRs}`) : l('100 é a média', '100 is average'), 'text-mudo'],
+    ['MVP', s ? String(s.mvps) : '-', s ? `${s.firstBloods} first bloods` : '', 'text-mudo'],
+  ]
 
   return (
     <>
+      <FundoBanner perfilId={p.id}>
       <Cabecalho
         migalhas={[l('Conta', 'Account'), souEu ? l('O teu perfil', 'Your profile') : l('Perfil', 'Profile')]}
-        titulo={<span className="flex flex-wrap items-center gap-4"><Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={64} destaque={souEu} /><span className="flex flex-col gap-1.5"><span>{nomeJogador(p)}<span className="font-mono text-[0.45em] font-medium tracking-normal text-mudo">{tagJogador(p)}</span></span></span></span>}
+        titulo={<span className="flex flex-wrap items-center gap-4"><Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={64} destaque={souEu} perfilId={p.id} /><span className="flex flex-col gap-1.5"><span>{nomeJogador(p)}<span className="font-mono text-[0.45em] font-medium tracking-normal text-mudo">{tagJogador(p)}</span></span><TituloJogador perfilId={p.id} className="tracking-normal" /></span></span>}
         descricao={<span className="flex flex-wrap items-center gap-2">
           <RankBadge tier={p.tier} rr={p.rr} />
           <EmDireto perfilId={p.id} />
@@ -112,24 +132,20 @@ export function Perfil() {
           </>
         )}
       />
+      </FundoBanner>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
-        {[
-          [comRanked ? l('Pontos · aberta', 'Points · open') : l('Pontos', 'Points'), String(p.pontos), comSinal(ganho) + l(' desde 1000', ' since 1000'), ganho >= 0 ? 'text-vitoria' : 'text-derrota'],
-          [comRanked ? l('Posição · aberta', 'Position · open') : l('Posição', 'Position'), s && p.vitorias + p.derrotas > 0 ? `#${s.posicao}` : '-', s ? l(`de ${s.totalJogadores} jogadores`, `of ${s.totalJogadores} players`) : '', 'text-mudo'],
-          ...(comRanked ? [
-            [l('Pontos · ranked', 'Points · ranked'), String(p.pontosRanked), comSinal(ganhoRanked) + l(' desde 1000', ' since 1000'), ganhoRanked >= 0 ? 'text-vitoria' : 'text-derrota'],
-            [l('Posição · ranked', 'Position · ranked'), s?.posicaoRanked ? `#${s.posicaoRanked}` : '-', s?.totalRanked ? l(`de ${s.totalRanked} jogadores`, `of ${s.totalRanked} players`) : '', 'text-mudo'],
-          ] : []),
-          [l('Registo', 'Record'), `${vitoriasTodas}${l('V', 'W')} · ${derrotasTodas}${l('D', 'L')}`, comRanked ? l(`${p.vitoriasRanked}V-${p.derrotasRanked}D na ranked`, `${p.vitoriasRanked}W-${p.derrotasRanked}L in ranked`) : s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : l('sem partidas', 'no matches'), 'text-mudo'],
-          ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-', s?.acs != null ? l(`${Math.round(s.acs)} ACS de média`, `${Math.round(s.acs)} average ACS`) : '', 'text-mudo'],
-          ['Rangify Score', s?.rangifyScore != null ? String(Math.round(s.rangifyScore)) : '-', s?.melhorRs != null ? l(`melhor: ${s.melhorRs}`, `best: ${s.melhorRs}`) : l('100 é a média', '100 is average'), 'text-mudo'],
-          ['MVP', s ? String(s.mvps) : '-', s ? `${s.firstBloods} first bloods` : '', 'text-mudo'],
-        ].map(([rotulo, valor, sub, cor]) => (
+      {comRanked && (
+        <div className="flex justify-end">
+          <Segmentado rotulo={l('Estatísticas por fila', 'Stats by queue')} valor={filtro} onChange={setFiltro} opcoes={[{ valor: 'todas', texto: l('Todas as filas', 'All queues') }, { valor: 'aberta', texto: l('Aberta', 'Open') }, { valor: 'ranked', texto: 'Ranked' }]} />
+        </div>
+      )}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+        {tiles.map(([rotulo, valor, sub, cor, sub2]) => (
           <Painel key={rotulo} as="div" className="flex flex-col gap-1.5 !rounded-[14px] p-4">
             <span className="rotulo">{rotulo}</span>
             <span className="font-mono text-[26px] leading-none font-semibold tracking-[-0.03em]">{valor}</span>
             <span className={`text-[12px] ${cor}`}>{sub}</span>
+            {sub2 && <span className="text-[12px] text-mudo">{sub2}</span>}
           </Painel>
         ))}
       </div>

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { Link, useSearchParams } from 'react-router-dom'
 import { EmDireto } from '@/components/AoVivo'
 import { TabelaAgentes } from '@/components/TabelaAgentes'
+import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
 import { nomeTabela } from '@/components/Fila'
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -61,7 +62,7 @@ function Podio({ top, eu }: { top: ItemPodio[]; eu?: string }) {
             <span aria-hidden className="absolute top-2 right-4 font-mono text-[60px] leading-none font-bold tracking-[-0.06em]" style={{ color: lugar.cor, opacity: 0.22 }}>{String(l.posicao).padStart(2, '0')}</span>
             <span className="relative font-mono text-[11px] font-semibold tracking-[0.16em]" style={{ color: lugar.cor }}>{lugar.rotulo}</span>
             <span className="relative flex items-center gap-3">
-              <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={primeiro ? 60 : 50} destaque={primeiro || p.id === eu} />
+              <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={primeiro ? 60 : 50} destaque={primeiro || p.id === eu} perfilId={p.id} />
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="truncate text-[17px] font-bold tracking-[-0.01em]">{nomeJogador(p)}<span className="font-mono text-[12px] font-medium text-mudo">{tagJogador(p)}</span></span>
                 <RankBadge tier={p.tier} pequeno />
@@ -97,17 +98,18 @@ function PodioEsqueleto() {
 
 /** As duas primeiras células de qualquer tabela (posição e jogador); as outras vêm em children. */
 function LinhaBase({ posicao: pos, perfil: p, eu, i, children }: { posicao: number; perfil: Perfil; eu: boolean; i: number; children: ReactNode }) {
+  const cz = useClassesCosmeticos(p.id)
   return (
-    <tr className={`linha-hover entra-linha ${eu ? 'bg-laranja/8' : ''}`} style={{ '--i': i } as React.CSSProperties}>
+    <tr className={`linha-hover entra-linha cz-item ${eu ? 'bg-laranja/8 cz-sempre' : ''} ${cz.linha}`} style={{ '--i': i } as React.CSSProperties}>
       <td className="w-12 py-2.5 pl-3 font-mono text-[14px] font-semibold">
         <span className={pos <= 3 || eu ? 'text-laranja' : 'text-suave'}>#{pos}</span>
       </td>
       <td className="py-2.5 pr-2">
        <div className="flex min-w-0 items-center gap-2">
         <Link to={caminhoPerfil(p.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
-          <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} destaque={eu} />
+          <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} destaque={eu} perfilId={p.id} />
           <span className="flex min-w-0 flex-col">
-            <span className="flex min-w-0 items-center gap-1.5 truncate text-[14px] font-semibold"><span className="truncate">{nomeJogador(p)}</span>{eu && <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{tx('TU', 'YOU')}</span>}</span>
+            <span className="flex min-w-0 items-center gap-1.5 truncate text-[14px] font-semibold"><span className="cz-nome truncate">{nomeJogador(p)}</span><ExtraLinha />{eu && <span className="rounded bg-laranja px-1.5 py-px font-mono text-[9.5px] font-bold text-escuro-laranja">{tx('TU', 'YOU')}</span>}</span>
             <span className="font-mono text-[11px] text-mudo">{tagJogador(p)}</span>
           </span>
         </Link>
@@ -194,7 +196,7 @@ function PainelClassificacao({ total, etiqueta, ambito, setAmbito, pesquisa, set
       </label>
       {carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : linhas.length ? (
         <div className="-mx-2 overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="cz-calmo w-full border-collapse">
             <thead>
               <tr className="rotulo text-left">
                 <th scope="col" className="py-2 pl-3 font-normal">#</th>

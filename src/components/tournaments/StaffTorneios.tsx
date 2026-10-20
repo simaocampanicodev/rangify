@@ -2,6 +2,7 @@
  * Staff › Torneios (só Owner e Dev): criar e editar torneios, publicar, convidar a testar, sortear, marcar o calendário,
  * pôr resultados à mão (final presencial, falta de comparência, falha da API) e as ferramentas de teste com bots.
  */
+import { BotaoMais, Colapsavel, useMais } from '../Mais'
 import { Bot, CalendarClock, Dices, ExternalLink, Eye, EyeOff, Lock, Megaphone, Plus, RotateCcw, Save, Swords, Trash2, Trophy, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -145,59 +146,70 @@ function FormTorneio({ inicial, aoGuardar, aoCancelar }: { inicial?: TorneioResu
       <Campo id="rg-t-desc" rotulo={l('Descrição (opcional)', 'Description (optional)')}>
         <textarea id="rg-t-desc" className="campo !h-auto min-h-[84px] py-2.5" maxLength={600} value={descricao ?? ''} onChange={(e) => setDescricao(e.target.value)} />
       </Campo>
-      <div className="grid gap-3.5 sm:grid-cols-4">
-        <Campo id="rg-t-tam" rotulo={l('Equipas por grupo', 'Teams per group')}>
-          <select id="rg-t-tam" className="campo" disabled={!grupoEditavel} value={tamanho} onChange={(e) => { const v = Number(e.target.value); setTamanho(v); if (passam >= v) setPassam(v - 1) }}>
-            {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+      <Colapsavel titulo={l('Grupos e limites', 'Groups and limits')} resumo={l(`${tamanho} equipas por grupo, passam ${passam}${maxEquipas ? `, máx. ${maxEquipas} equipas` : ''}`, `${tamanho} teams per group, ${passam} advance${maxEquipas ? `, max ${maxEquipas} teams` : ''}`)}>
+        <div className="grid gap-3.5 sm:grid-cols-4">
+          <Campo id="rg-t-tam" rotulo={l('Equipas por grupo', 'Teams per group')}>
+            <select id="rg-t-tam" className="campo" disabled={!grupoEditavel} value={tamanho} onChange={(e) => { const v = Number(e.target.value); setTamanho(v); if (passam >= v) setPassam(v - 1) }}>
+              {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </Campo>
+          <Campo id="rg-t-passam" rotulo={l('Passam por grupo', 'Advance per group')}>
+            <select id="rg-t-passam" className="campo" disabled={!grupoEditavel} value={passam} onChange={(e) => setPassam(Number(e.target.value))}>
+              {[1, 2, 3].filter((n) => n < tamanho).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </Campo>
+          <Campo id="rg-t-max" rotulo={l('Máx. equipas', 'Max teams')} dica={l('Vazio = sem limite.', 'Empty = no limit.')}>
+            <input id="rg-t-max" className="campo" inputMode="numeric" value={maxEquipas} onChange={(e) => setMaxEquipas(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="16" />
+          </Campo>
+          <Campo id="rg-t-min" rotulo={l('Jogadores a reconhecer', 'Players to match')} dica={l('Quantos dos 10 jogadores têm de aparecer numa partida da API da Riot para a darmos como deste jogo. 8 deixa folga para quem joga com outra conta.', 'How many of the 10 players must appear in a Riot API match for us to accept it as this game. 8 leaves room for anyone playing on another account.')}>
+            <input id="rg-t-min" className="campo" inputMode="numeric" value={minJogadores} onChange={(e) => setMinJogadores(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder={teste ? '2' : '8'} />
+          </Campo>
+        </div>
+        <Campo id="rg-t-inicio" rotulo={l('Primeiro jogo (opcional)', 'First match (optional)')} dica={l('Só informativo, aparece na página do torneio.', 'Informational only, shown on the tournament page.')}>
+          <input id="rg-t-inicio" type="datetime-local" className="campo sm:max-w-[260px]" value={inicio} onChange={(e) => setInicio(e.target.value)} />
         </Campo>
-        <Campo id="rg-t-passam" rotulo={l('Passam por grupo', 'Advance per group')}>
-          <select id="rg-t-passam" className="campo" disabled={!grupoEditavel} value={passam} onChange={(e) => setPassam(Number(e.target.value))}>
-            {[1, 2, 3].filter((n) => n < tamanho).map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </Campo>
-        <Campo id="rg-t-max" rotulo={l('Máx. equipas', 'Max teams')} dica={l('Vazio = sem limite.', 'Empty = no limit.')}>
-          <input id="rg-t-max" className="campo" inputMode="numeric" value={maxEquipas} onChange={(e) => setMaxEquipas(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="16" />
-        </Campo>
-        <Campo id="rg-t-min" rotulo={l('Jogadores a reconhecer', 'Players to match')} dica={l('Quantos dos 10 jogadores têm de aparecer numa partida da API da Riot para a darmos como deste jogo. 8 deixa folga para quem joga com outra conta.', 'How many of the 10 players must appear in a Riot API match for us to accept it as this game. 8 leaves room for anyone playing on another account.')}>
-          <input id="rg-t-min" className="campo" inputMode="numeric" value={minJogadores} onChange={(e) => setMinJogadores(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder={teste ? '2' : '8'} />
-        </Campo>
-      </div>
-      <Campo id="rg-t-inicio" rotulo={l('Primeiro jogo (opcional)', 'First match (optional)')} dica={l('Só informativo, aparece na página do torneio.', 'Informational only, shown on the tournament page.')}>
-        <input id="rg-t-inicio" type="datetime-local" className="campo sm:max-w-[260px]" value={inicio} onChange={(e) => setInicio(e.target.value)} />
-      </Campo>
-      <div className="flex flex-col gap-3.5 rounded-xl border border-white/8 bg-white/[0.025] p-4">
-        <Interruptor ligado={presencial} aoMudar={setPresencial} texto={l('Final presencial', 'In-person final')} ajuda={l('Não se abre no hub: a staff põe o resultado. Os restantes jogos são detetados pela API.', 'Not opened in the hub: staff enters the result. All other matches are detected by the API.')} />
-        {!editar && <Interruptor ligado={teste} aoMudar={(v) => { setTeste(v); setPublico(!v) }} texto={l('Torneio de teste', 'Test tournament')} ajuda={l('Liga as ferramentas com bots (equipas de bots, encher a tua equipa, simular jogos). Os jogos abrem a qualquer hora e a API precisa só de 2 jogadores.', 'Turns on the bot tools (bot teams, fill your team, simulate matches). Matches open at any time and the API only needs 2 players.')} />}
-        {!editar && <Interruptor ligado={publico} aoMudar={setPublico} texto={l('Visível a toda a gente quando a área estiver aberta', 'Visible to everyone once the area is open')} ajuda={l('Desligado, só a staff, quem convidares a testar e as pessoas das equipas inscritas veem este torneio (bom para testes).', 'Off, only staff, whoever you invite to test and people on registered teams see this tournament (good for tests).')} />}
-        <Interruptor ligado={veto} aoMudar={setVeto} texto={l('Picks e bans de mapas', 'Map picks and bans')} ajuda={l('Antes de cada jogo os capitães vetam os mapas à vez. Desligado: o mapa é livre (ou fixado por ti no calendário) e todos os jogos são à melhor de 1.', 'Before each match the captains veto maps in turns. Off: the map is free (or set by you in the schedule) and every match is best of 1.')} />
-        {veto && (
-          <div className="flex flex-col gap-3.5 border-t border-white/8 pt-3.5">
-            <div className="flex flex-col gap-1.5">
-              <Papel>{l('FORMATO DOS JOGOS', 'MATCH FORMAT')}</Papel>
-              <Segmentado<'1' | '3' | '5'>
-                rotulo={l('Formato dos jogos', 'Match format')}
-                valor={String(melhorDe) as '1' | '3' | '5'}
-                onChange={(v) => setMelhorDe(Number(v) as MelhorDe)}
-                opcoes={[{ valor: '1', texto: l('Melhor de 1', 'Best of 1') }, { valor: '3', texto: l('Melhor de 3', 'Best of 3') }, { valor: '5', texto: l('Melhor de 5', 'Best of 5') }]}
-              />
-              <span className="text-[11.5px] leading-snug text-mudo">
-                {melhorDe === 1
-                  ? l('Um mapa por jogo: banem à vez até sobrar um; quem não baniu por último escolhe o lado (como no hub).', 'One map per match: ban in turns until one is left; whoever did not make the last ban picks the side (like the hub).')
-                  : melhorDe === 3
-                    ? l('Ganha quem fizer 2 mapas. Picks e bans: ban, ban, pick (a outra equipa escolhe o lado), pick (idem), ban, ban e o que sobra é o decisivo.', 'First to 2 maps wins. Picks and bans: ban, ban, pick (the other team picks the side), pick (same), ban, ban and the map left is the decider.')
-                    : l('Ganha quem fizer 3 mapas. Picks e bans: ban, ban, quatro picks (a outra equipa escolhe o lado em cada um) e o que sobra é o decisivo.', 'First to 3 maps wins. Picks and bans: ban, ban, four picks (the other team picks the side on each) and the map left is the decider.')}
-                {' '}{l('É o formato por defeito: depois mudas jogo a jogo no calendário (por exemplo só a final).', 'This is the default: you can change it match by match in the schedule (for example only the final).')}
-              </span>
-              {melhorDe > nMapas && <span className="text-[11.5px] text-derrota">{l(`À melhor de ${melhorDe} são precisos pelo menos ${melhorDe} mapas em jogo (há ${nMapas}).`, `Best of ${melhorDe} needs at least ${melhorDe} maps in play (there are ${nMapas}).`)}</span>}
+
+      </Colapsavel>
+      <Colapsavel titulo={l('Opções do torneio', 'Tournament options')} resumo={[presencial && l('final presencial', 'in-person final'), teste && l('de teste', 'test'), !editar && !publico && l('não visível a todos', 'not visible to all')].filter(Boolean).join(' · ') || l('Final online, visível a todos', 'Online final, visible to all')}>
+        <div className="flex flex-col gap-3.5">
+          <Interruptor ligado={presencial} aoMudar={setPresencial} texto={l('Final presencial', 'In-person final')} ajuda={l('Não se abre no hub: a staff põe o resultado. Os restantes jogos são detetados pela API.', 'Not opened in the hub: staff enters the result. All other matches are detected by the API.')} />
+          {!editar && <Interruptor ligado={teste} aoMudar={(v) => { setTeste(v); setPublico(!v) }} texto={l('Torneio de teste', 'Test tournament')} ajuda={l('Liga as ferramentas com bots (equipas de bots, encher a tua equipa, simular jogos). Os jogos abrem a qualquer hora e a API precisa só de 2 jogadores.', 'Turns on the bot tools (bot teams, fill your team, simulate matches). Matches open at any time and the API only needs 2 players.')} />}
+          {!editar && <Interruptor ligado={publico} aoMudar={setPublico} texto={l('Visível a toda a gente quando a área estiver aberta', 'Visible to everyone once the area is open')} ajuda={l('Desligado, só a staff, quem convidares a testar e as pessoas das equipas inscritas veem este torneio (bom para testes).', 'Off, only staff, whoever you invite to test and people on registered teams see this tournament (good for tests).')} />}
+
+        </div>
+      </Colapsavel>
+      <Colapsavel titulo={l('Picks e bans e mapas', 'Picks, bans and maps')} resumo={veto ? l(`Picks e bans, melhor de ${melhorDe}${mapas.length ? `, ${mapas.length} mapas` : ', rotação do hub'}`, `Picks and bans, best of ${melhorDe}${mapas.length ? `, ${mapas.length} maps` : ', hub rotation'}`) : l('Sem picks e bans', 'No picks and bans')}>
+        <div className="flex flex-col gap-3.5">
+          <Interruptor ligado={veto} aoMudar={setVeto} texto={l('Picks e bans de mapas', 'Map picks and bans')} ajuda={l('Antes de cada jogo os capitães vetam os mapas à vez. Desligado: o mapa é livre (ou fixado por ti no calendário) e todos os jogos são à melhor de 1.', 'Before each match the captains veto maps in turns. Off: the map is free (or set by you in the schedule) and every match is best of 1.')} />
+          {veto && (
+            <div className="flex flex-col gap-3.5 border-t border-white/8 pt-3.5">
+              <div className="flex flex-col gap-1.5">
+                <Papel>{l('FORMATO DOS JOGOS', 'MATCH FORMAT')}</Papel>
+                <Segmentado<'1' | '3' | '5'>
+                  rotulo={l('Formato dos jogos', 'Match format')}
+                  valor={String(melhorDe) as '1' | '3' | '5'}
+                  onChange={(v) => setMelhorDe(Number(v) as MelhorDe)}
+                  opcoes={[{ valor: '1', texto: l('Melhor de 1', 'Best of 1') }, { valor: '3', texto: l('Melhor de 3', 'Best of 3') }, { valor: '5', texto: l('Melhor de 5', 'Best of 5') }]}
+                />
+                <span className="text-[11.5px] leading-snug text-mudo">
+                  {melhorDe === 1
+                    ? l('Um mapa por jogo: banem à vez até sobrar um; quem não baniu por último escolhe o lado (como no hub).', 'One map per match: ban in turns until one is left; whoever did not make the last ban picks the side (like the hub).')
+                    : melhorDe === 3
+                      ? l('Ganha quem fizer 2 mapas. Picks e bans: ban, ban, pick (a outra equipa escolhe o lado), pick (idem), ban, ban e o que sobra é o decisivo.', 'First to 2 maps wins. Picks and bans: ban, ban, pick (the other team picks the side), pick (same), ban, ban and the map left is the decider.')
+                      : l('Ganha quem fizer 3 mapas. Picks e bans: ban, ban, quatro picks (a outra equipa escolhe o lado em cada um) e o que sobra é o decisivo.', 'First to 3 maps wins. Picks and bans: ban, ban, four picks (the other team picks the side on each) and the map left is the decider.')}
+                  {' '}{l('É o formato por defeito: depois mudas jogo a jogo no calendário (por exemplo só a final).', 'This is the default: you can change it match by match in the schedule (for example only the final).')}
+                </span>
+                {melhorDe > nMapas && <span className="text-[11.5px] text-derrota">{l(`À melhor de ${melhorDe} são precisos pelo menos ${melhorDe} mapas em jogo (há ${nMapas}).`, `Best of ${melhorDe} needs at least ${melhorDe} maps in play (there are ${nMapas}).`)}</span>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Papel>{l('MAPAS EM JOGO', 'MAPS IN PLAY')}</Papel>
+                <EscolherMapas valor={mapas} aoMudar={setMapas} rotacaoHub={hub.valor ?? []} />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Papel>{l('MAPAS EM JOGO', 'MAPS IN PLAY')}</Papel>
-              <EscolherMapas valor={mapas} aoMudar={setMapas} rotacaoHub={hub.valor ?? []} />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+
+        </div>
+      </Colapsavel>
       <div className="flex flex-wrap justify-end gap-2.5">
         <button type="button" className="btn btn-fantasma" onClick={aoCancelar}>{l('Cancelar', 'Cancel')}</button>
         <button type="submit" className="btn btn-primario" disabled={!valido}><Save size={16} aria-hidden />{editar ? l('Guardar', 'Save') : l('Criar rascunho', 'Create draft')}</button>
@@ -316,6 +328,8 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
   const acao = useAcao()
   const t = d.torneio
   const jogos = useMemo(() => d.jogos.filter((j) => j.como !== 'bye'), [d.jogos])
+  // Os jogos desenham-se por partes: um torneio tem dezenas, cada um com quatro campos.
+  const mais = useMais(jogos, 12)
   const original = (j: TorneioJogo): Edicao => ({
     quando: paraInput(j.agendadoPara),
     mapa: j.veto?.mapaStaff || !t.vetoMapas ? j.mapa ?? '' : '',
@@ -387,7 +401,7 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
         <button type="button" className="btn btn-fantasma" onClick={preencher}><CalendarClock size={16} aria-hidden />{l('Preencher horas', 'Fill in times')}</button>
       </div>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {jogos.map((j) => {
+        {mais.visiveis.map((j) => {
           const e = valor(j)
           const fixo = bloqueado(j)
           const veto = j.veto
@@ -436,6 +450,8 @@ function Calendario({ d }: { d: TorneioDetalhe }) {
           )
         })}
       </ul>
+      <BotaoMais restam={mais.restam} passo={mais.passo} onClick={mais.verMais} />
+      {alterados.some((j) => !mais.visiveis.includes(j)) && <span className="text-center text-[12px] text-mudo">{l('Há alterações em jogos que ainda não estão à vista: o "Guardar tudo" guarda-as também.', 'Some changes are on matches not shown yet: "Save all" saves them too.')}</span>}
     </Painel>
   )
 }
@@ -510,6 +526,7 @@ function Resultados({ d }: { d: TorneioDetalhe }) {
   const jogos = d.jogos.filter((j) => j.equipaA && j.equipaB && j.como !== 'bye')
   const lista = jogos.filter((j) => filtro === 'todos' || (filtro === 'feitos') === (j.estado === 'concluido'))
     .sort((x, y) => Number(y.semResultadoAuto) - Number(x.semResultadoAuto) || Number(y.estado === 'a_decorrer') - Number(x.estado === 'a_decorrer') || Number(x.fase === 'playoff') - Number(y.fase === 'playoff') || x.ronda - y.ronda || x.ordem - y.ordem)
+  const mais = useMais(lista, 8)
   return (
     <Painel aria-label={l('Resultados', 'Results')} className="flex min-w-0 flex-col gap-4 p-[22px]">
       <TituloPainel
@@ -518,7 +535,8 @@ function Resultados({ d }: { d: TorneioDetalhe }) {
         direita={<Segmentado<FiltroResultados> rotulo={l('Filtrar jogos', 'Filter matches')} valor={filtro} onChange={setFiltro} pequeno opcoes={[{ valor: 'jogar', texto: l('Por jogar', 'To play') }, { valor: 'feitos', texto: l('Feitos', 'Done') }, { valor: 'todos', texto: l('Todos', 'All') }]} />}
       />
       <p className="m-0 text-[12.5px] leading-normal text-mudo">{l('Os resultados vêm da API da Riot sozinhos. Isto é para a final presencial, uma falta de comparência (W.O.) ou quando a API falha.', 'Results come from the Riot API by themselves. This is for the in-person final, a forfeit (W.O.) or when the API fails.')}</p>
-      {lista.length === 0 ? <Vazio icone={<Trophy size={18} />} titulo={l('Nada por aqui', 'Nothing here')} /> : <ul className="m-0 flex list-none flex-col gap-2 p-0">{lista.map((j) => <ResultadoLinha key={j.id} j={j} />)}</ul>}
+      {lista.length === 0 ? <Vazio icone={<Trophy size={18} />} titulo={l('Nada por aqui', 'Nothing here')} /> : <ul className="m-0 flex list-none flex-col gap-2 p-0">{mais.visiveis.map((j) => <ResultadoLinha key={j.id} j={j} />)}</ul>}
+      <BotaoMais restam={mais.restam} passo={mais.passo} onClick={mais.verMais} />
     </Painel>
   )
 }
@@ -572,6 +590,8 @@ function Testes({ d }: { d: TorneioDetalhe }) {
 function Gerir({ id, area, aoApagar }: { id: string; area: boolean; aoApagar: () => void }) {
   const acao = useAcao()
   const [editar, setEditar] = useState(false)
+  // Uma parte da gestão de cada vez (em vez de tudo empilhado): visibilidade, sorteio, calendário, resultados e testes.
+  const [vista, setVista] = useState<'geral' | 'sorteio' | 'calendario' | 'resultados' | 'testes'>('geral')
   const detalhe = useCarregar(() => dados.torneioDetalhe(id), [id], ['torneios', 'staff'], { chave: `torneio:${id}` })
   if (detalhe.erro && !detalhe.valor) return <Vazio icone={<Trophy size={18} />} titulo={l('Não foi possível abrir o torneio', 'Could not open the tournament')} texto={detalhe.erro} />
   if (!detalhe.valor) return <Carregando />
@@ -618,11 +638,23 @@ function Gerir({ id, area, aoApagar }: { id: string; area: boolean; aoApagar: ()
       <Modal aberto={editar} onFechar={() => setEditar(false)} eyebrow={l('EDITAR', 'EDIT')} titulo={t.nome} largura={760}>
         <FormTorneio inicial={t} aoGuardar={() => { setEditar(false); detalhe.recarregar() }} aoCancelar={() => setEditar(false)} />
       </Modal>
-      <Visibilidade t={t} area={area} />
-      {t.estado !== 'cancelado' && <Sorteio d={d} />}
-      <Calendario d={d} />
-      <Resultados d={d} />
-      {t.teste && <Testes d={d} />}
+      <Segmentado<typeof vista>
+        rotulo={l('Gerir o torneio', 'Manage the tournament')}
+        valor={vista}
+        onChange={setVista}
+        opcoes={[
+          { valor: 'geral', texto: l('Visibilidade', 'Visibility') },
+          ...(t.estado !== 'cancelado' ? [{ valor: 'sorteio' as const, texto: l('Sorteio', 'Draw') }] : []),
+          { valor: 'calendario', texto: `${l('Calendário', 'Schedule')} (${d.jogos.filter((j) => j.como !== 'bye').length})` },
+          { valor: 'resultados', texto: l('Resultados', 'Results') },
+          ...(t.teste ? [{ valor: 'testes' as const, texto: l('Testes', 'Tests') }] : []),
+        ]}
+      />
+      {vista === 'geral' && <Visibilidade t={t} area={area} />}
+      {vista === 'sorteio' && t.estado !== 'cancelado' && <Sorteio d={d} />}
+      {vista === 'calendario' && <Calendario d={d} />}
+      {vista === 'resultados' && <Resultados d={d} />}
+      {vista === 'testes' && t.teste && <Testes d={d} />}
     </div>
   )
 }

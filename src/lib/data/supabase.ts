@@ -8,9 +8,10 @@
 import { chaveSupabase, supabase, urlSupabase } from '../supabase'
 import { avisarMudanca, type Mudanca } from './eventos'
 import { PADRAO_RIOT_ID } from '../regras'
+import type { Cosmeticos } from '../loja'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
-  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, Sugestao,
+  Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, ResumoEstatisticas, Sugestao,
 } from './tipos'
 
 /**
@@ -150,8 +151,25 @@ export const dadosSupabase: Dados = {
 
   async marcarTourVisto(visto) { await rpc('marcar_tour', { p_visto: visto }) },
   sincronizarRank: () => funcao('sincronizar-rank', {}),
-  estatisticas: (perfilId) => rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId }),
-  forma: (perfilId, n) => rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n }),
+  // Sem a migração 0039 não há estatisticas_resumo: pede o perfil de cada um (mais pesado, mas funciona).
+  estatisticasResumo: (ids) => rpc<Record<string, ResumoEstatisticas>>('estatisticas_resumo', { p_ids: ids }).catch(async (e) => {
+    if (!(e instanceof Error) || !/estatisticas_resumo/.test(e.message)) throw e
+    const todas = await Promise.all(ids.map(async (id) => [id, await rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: id })] as const))
+    return Object.fromEntries(todas.map(([id, s]) => [id, { partidas: s.partidas, vitorias: s.vitorias, kda: s.kda, acs: s.acs }]))
+  }),
+  // Sem a migração 0038 o servidor não conhece p_fila: pede as duas filas juntas (o filtro do perfil não faz nada).
+  estatisticas: (perfilId, fila) => (fila
+    ? rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId, p_fila: fila }).catch((e) => {
+      if (e instanceof Error && /estatisticas_perfil|p_fila/.test(e.message)) return rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId })
+      throw e
+    })
+    : rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId })),
+  forma: (perfilId, n, fila) => (fila
+    ? rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n, p_fila: fila }).catch((e) => {
+      if (e instanceof Error && /forma_perfil|p_fila/.test(e.message)) return rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n })
+      throw e
+    })
+    : rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n })),
 
   async ranking({ cursor, limite = 50, soAmigos = false, pesquisa = '', fila }) {
     const inicio = cursor ? Number(cursor) : 0
@@ -312,6 +330,17 @@ export const dadosSupabase: Dados = {
   discordPartida: (id) => rpc<{ servidor: string; chat: string; call: string } | null>('discord_partida', { p_match: id }),
   puxarCall: (id) => funcao<{ movido: boolean; foraDaVoz?: boolean }>('puxar-call', { matchId: id }),
 
+  lojaVisivel: () => rpc<boolean>('loja_visivel'),
+  loja: () => rpc<EstadoLoja>('loja'),
+  comprarItem: (id) => rpc<EstadoLoja>('comprar_item', { p_item: id }),
+  equiparItem: (id) => rpc<EstadoLoja>('equipar_item', { p_item: id }),
+  desequiparItem: (categoria) => rpc<EstadoLoja>('desequipar_item', { p_categoria: categoria }),
+  definirAvatarGif: (url) => rpc<EstadoLoja>('definir_avatar_gif', { p_url: url }),
+  cosmeticos: (ids) => rpc<Record<string, Cosmeticos>>('cosmeticos', { p_ids: ids }),
+  definirLojaPublica: (publica) => rpc<EstadoLoja>('definir_loja_publica', { p_publica: publica }),
+  lojaResetar: () => rpc<EstadoLoja>('loja_resetar'),
+  lojaMoedasTeste: (quantidade) => rpc<EstadoLoja>('loja_moedas_teste', { p_quantidade: quantidade }),
+  lojaDevolver: (id) => rpc<EstadoLoja>('loja_devolver', { p_item: id }),
 
   poolMapas: () => rpc<string[]>('pool_mapas'),
   definirPoolMapas: (mapas) => rpc<string[]>('definir_pool_mapas', { p_mapas: mapas }),
@@ -466,7 +495,9 @@ const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
   avisarJogador: ['staff'], banirDaFila: ['staff', 'fila'], levantarBan: ['staff'], confirmarAviso: ['perfil'],
   resolverDisputa: ['staff', 'partida'], submeterResultadoStaff: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'], recarregarPartida: ['partida', 'perfil', 'staff'],
   definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
-  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers'],
+  comprarItem: ['loja'], equiparItem: ['loja'], desequiparItem: ['loja'], definirAvatarGif: ['loja'], definirLojaPublica: ['loja', 'staff'],
+  lojaResetar: ['loja'], lojaMoedasTeste: ['loja'], lojaDevolver: ['loja'],
+  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers', 'loja'],
 }
 for (const [nome, tipos] of Object.entries(AVISOS)) {
   const tabela = dadosSupabase as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>

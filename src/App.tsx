@@ -20,6 +20,7 @@ const Perfil = lazy(() => import('./pages/Perfil').then((m) => ({ default: m.Per
 const Missoes = lazy(() => import('./pages/Missoes').then((m) => ({ default: m.Missoes })))
 const Amigos = lazy(() => import('./pages/Amigos').then((m) => ({ default: m.Amigos })))
 const Sugestoes = lazy(() => import('./pages/Sugestoes').then((m) => ({ default: m.Sugestoes })))
+const Loja = lazy(() => import('./pages/Loja').then((m) => ({ default: m.Loja })))
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })))
 const Divulgar = lazy(() => import('./pages/Divulgar').then((m) => ({ default: m.Divulgar })))
 const Torneios = lazy(() => import('./pages/Torneios').then((m) => ({ default: m.Torneios })))
@@ -52,6 +53,7 @@ function Hub() {
                   <Route path="missoes" element={<Missoes />} />
                   <Route path="amigos" element={<Amigos />} />
                   <Route path="sugestoes" element={<Sugestoes />} />
+                  <Route path="loja" element={<Loja />} />
                   <Route path="divulgar" element={<Divulgar />} />
                   <Route path="torneios" element={<Torneios />} />
                   <Route path="torneios/:id" element={<Torneio />} />

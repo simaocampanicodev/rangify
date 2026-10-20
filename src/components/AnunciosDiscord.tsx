@@ -114,9 +114,8 @@ export function AnunciosDiscord() {
 
   const botaoFormato = 'grid size-9 cursor-pointer place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-suave hover:bg-white/10 hover:text-texto'
   return (
-    <div className="flex flex-col gap-4 border-t border-white/6 pt-4">
+    <div className="flex flex-col gap-4">
       <span className="flex flex-col gap-1">
-        <span className="text-[14px] font-bold">{l('Avisos: escrever uma mensagem para o Discord', 'Announcements: write a message for Discord')}</span>
         <span className="max-w-[680px] text-[13px] leading-normal text-mudo">
           {l('Escreve o aviso e carrega em enviar: o bot publica-o no canal de avisos (cria-o na primeira vez, visível para o cargo Member e só de leitura). Todos os avisos levam a barra laranja, "Rangify Hub" no topo e, no fim, a nota de que o hub não é afiliado com a Riot. O título, o texto e a imagem são teus.', 'Write the announcement and click send: the bot posts it in the announcements channel (it creates it the first time, visible to the Member role and read-only). Every announcement has the orange bar, "Rangify Hub" at the top and, at the bottom, the note that the hub is not affiliated with Riot. The title, text and image are yours.')}
         </span>

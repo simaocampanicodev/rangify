@@ -11,6 +11,7 @@ import '@fontsource-variable/geist'
 import '@fontsource-variable/jetbrains-mono'
 import '@fontsource/instrument-serif/400-italic.css'
 import './index.css'
+import './cosmeticos.css'
 
 // A extensão do browser, se estiver instalada, avisa que está lá (toca o som da partida no lugar do site).
 iniciarExtensao()
