@@ -177,13 +177,14 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
                 <h2 id="rg-cod-caixa" className="m-0 text-[22px] font-extrabold tracking-[-0.03em]">{l('Entra no grupo com este código', 'Join the party with this code')}</h2>
                 <span className="text-[13px] text-[#a6a19a]">{l('Partilhado por um dos capitães', 'Shared by one of the captains')}{nomesCapitaes ? ` (${nomesCapitaes})` : ''}.</span>
               </div>
-              <div role="img" aria-label={`${l('Código', 'Code')} ${p.codigoGrupo.split('').join(' ')}`} className="flex flex-wrap gap-2.5">
-                {p.codigoGrupo.split('').map((c, i) => (
-                  <span key={i} className="salta grid h-20 w-16 place-items-center rounded-[14px] border border-laranja/32 bg-[rgba(9,9,11,0.6)] font-mono text-[38px] font-bold" style={{ boxShadow: 'inset 0 0 24px rgba(255,91,31,0.12)', animationDelay: `${i * 70}ms` }}><CaractereDecifrado c={c} atraso={i * 90} /></span>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button type="button" onClick={copiar} aria-live="polite" className="btn btn-primario !h-[52px] min-w-[190px] !rounded-[13px] !px-6 !text-[15px] !font-extrabold">
+              {/* O código e o botão de copiar lado a lado, à mesma altura. */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div role="img" aria-label={`${l('Código', 'Code')} ${p.codigoGrupo.split('').join(' ')}`} className="flex gap-2 sm:gap-2.5">
+                  {p.codigoGrupo.split('').map((c, i) => (
+                    <span key={i} className="salta grid h-20 w-12 place-items-center rounded-[14px] border border-laranja/32 bg-[rgba(9,9,11,0.6)] font-mono text-[34px] leading-none font-bold sm:w-14 sm:text-[38px]" style={{ boxShadow: 'inset 0 0 24px rgba(255,91,31,0.12)', animationDelay: `${i * 70}ms` }}><CaractereDecifrado c={c} atraso={i * 90} /></span>
+                  ))}
+                </div>
+                <button type="button" onClick={copiar} aria-live="polite" className="btn btn-primario !h-20 min-w-[170px] !rounded-[14px] !px-6 !text-[15px] !font-extrabold">
                   <span key={copiado ? 'ok' : 'copiar'} className="salta inline-flex items-center gap-2">
                     {copiado ? <Check size={18} strokeWidth={3} aria-hidden /> : <Copy size={17} aria-hidden />}{copiado ? l('Copiado', 'Copied') : l('Copiar código', 'Copy code')}
                   </span>

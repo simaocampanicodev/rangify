@@ -203,7 +203,7 @@ const VALOR: Record<Chave, (j: JogadorPartida) => number> = {
 /** Uma barrinha por baixo do número: quanto mais cheia, mais perto do melhor da partida. */
 const calor = (v: number | null | undefined, max: number) => {
   const p = v != null && max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0
-  return { backgroundImage: 'linear-gradient(rgb(255 91 31 / 0.75), rgb(255 91 31 / 0.75))', backgroundSize: `${p}% 2px`, backgroundPosition: 'right calc(100% - 6px)', backgroundRepeat: 'no-repeat' }
+  return { backgroundImage: 'linear-gradient(rgb(255 91 31 / 0.75), rgb(255 91 31 / 0.75))', backgroundSize: `${p}% 2px`, backgroundPosition: 'center calc(100% - 6px)', backgroundRepeat: 'no-repeat' }
 }
 
 /** O que a linha expandida mostra: o agente, o KDA e os pontos explicados, para ver mais do que cabe na tabela. */
@@ -244,7 +244,7 @@ function Detalhe({ j, todos }: { j: JogadorPartida; todos: JogadorPartida[] }) {
 function LinhaEstatisticas({ j, eu, aberta, aoAlternar, maximos, todos, nCols }: {
   j: JogadorPartida; eu: string; aberta: boolean; aoAlternar: () => void; maximos: { acs: number; rs: number }; todos: JogadorPartida[]; nCols: number
 }) {
-  const num = 'px-2 text-right font-mono text-[13px] tabular-nums'
+  const num = 'px-2 text-center align-middle font-mono text-[13px] tabular-nums'
   return (
     <>
       <tr
@@ -272,7 +272,7 @@ function LinhaEstatisticas({ j, eu, aberta, aoAlternar, maximos, todos, nCols }:
         <td className={num}>{pct(j.hsPct)}</td>
         <td className={num}>{j.trades ?? '-'}</td>
         <td className={num}>{j.firstBloods ?? '-'}</td>
-        <td title={j.deltaPontos != null && j.deltaDesempenho != null ? l(`Resultado e rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Desempenho: ${comSinal(j.deltaDesempenho)}`, `Result and rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Performance: ${comSinal(j.deltaDesempenho)}`) : undefined} className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? <NumeroRolante valor={comSinal(j.deltaPontos)} /> : '-'}</td>
+        <td title={j.deltaPontos != null && j.deltaDesempenho != null ? l(`Resultado e rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Desempenho: ${comSinal(j.deltaDesempenho)}`, `Result and rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Performance: ${comSinal(j.deltaDesempenho)}`) : undefined} className={`px-2 text-center align-middle font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? <NumeroRolante valor={comSinal(j.deltaPontos)} /> : '-'}</td>
       </tr>
       {aberta && (
         <tr className="!border-t-0">
@@ -319,10 +319,10 @@ export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
               {COLUNAS.map((c, i) => {
                 const ativa = ordem.chave === c.chave
                 return (
-                  <th key={c.rotulo} scope="col" aria-sort={ativa ? (ordem.dir === -1 ? 'descending' : 'ascending') : 'none'} className={`text-right font-normal ${i === COLUNAS.length - 1 ? 'pr-3' : 'px-2'}`}>
-                    <button type="button" title={c.titulo} onClick={() => ordenar(c.chave)} className={`inline-flex cursor-pointer items-center gap-0.5 rounded bg-transparent p-0 font-[inherit] tracking-[inherit] uppercase hover:text-texto ${ativa ? 'text-pessego' : 'text-inherit'}`}>
+                  <th key={c.rotulo} scope="col" aria-sort={ativa ? (ordem.dir === -1 ? 'descending' : 'ascending') : 'none'} className="px-2 text-center font-normal">
+                    <button type="button" title={c.titulo} onClick={() => ordenar(c.chave)} className={`relative inline-flex cursor-pointer items-center rounded bg-transparent p-0 font-[inherit] tracking-[inherit] uppercase hover:text-texto ${ativa ? 'text-pessego' : 'text-inherit'}`}>
                       {c.rotulo}
-                      <ChevronDown size={10} aria-hidden className={`transition-all duration-300 ${ativa ? `opacity-100 ${ordem.dir === 1 ? 'rotate-180' : ''}` : 'opacity-0'}`} />
+                      <ChevronDown size={10} aria-hidden className={`absolute top-1/2 left-full ml-0.5 -translate-y-1/2 transition-all duration-300 ${ativa ? `opacity-100 ${ordem.dir === 1 ? 'rotate-180' : ''}` : 'opacity-0'}`} />
                     </button>
                   </th>
                 )

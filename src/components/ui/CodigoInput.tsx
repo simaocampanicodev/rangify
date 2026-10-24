@@ -39,7 +39,7 @@ export function CodigoInput({ valor, aoMudar, id, ajudaId, invalido = false }: {
               className={`relative grid h-[72px] min-w-0 flex-1 place-items-center rounded-[14px] border bg-[rgba(9,9,11,0.6)] font-mono text-[34px] font-bold transition-[border-color,box-shadow] duration-200 ${aqui ? 'border-laranja/80' : c ? 'border-laranja/32' : 'border-white/12'} ${invalido && c ? '!border-derrota/50' : ''}`}
               style={{ boxShadow: aqui ? '0 0 0 3px rgba(255,91,31,0.16), inset 0 0 24px rgba(255,91,31,0.12)' : c ? 'inset 0 0 24px rgba(255,91,31,0.1)' : undefined }}
             >
-              {c ? <span key={`${i}${c}`} className="salta">{c}</span> : aqui ? <span className="cursor-pisca h-8 w-[2px] rounded bg-laranja" /> : <span className="text-white/15">·</span>}
+              {c ? <span key={`${i}${c}`} className="salta inline-block">{c}</span> : aqui ? <span className="cursor-pisca h-8 w-[2px] rounded bg-laranja" /> : <span className="text-white/15">·</span>}
             </span>
           )
         })}
