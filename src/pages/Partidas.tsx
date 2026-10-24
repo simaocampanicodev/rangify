@@ -1,8 +1,8 @@
-import { Clock, Flag, Swords, Trash } from 'lucide-react'
+import { Flag, Swords, Trash } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { LinhaPartida } from '@/components/LinhaPartida'
-import { TabelaPartida } from '@/components/match/Resultado'
+import { DetalhePartida } from '@/components/match/DetalhePartida'
 import { BotaoRecarregar } from '@/components/StaffExtras'
 import { Cabecalho, Carregando, Chip, LinhasEsqueleto, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
@@ -11,7 +11,6 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { avisarMudanca, dados, type FilaTipo, type ResumoPartida } from '@/lib/data'
 import { MAPAS } from '@/lib/mapas'
 import { l as tx } from '@/lib/idioma'
-import { dataHora } from '@/lib/tempo'
 
 /** Partidas por página: as mais recentes primeiro, e "Ver mais" traz as seguintes. */
 const POR_PAGINA = 10
@@ -45,8 +44,6 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
       {!partida ? <Carregando /> : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            {partida.terminouEm && <Chip><Clock size={12} aria-hidden />{dataHora(partida.terminouEm)}</Chip>}
-            {partida.simulada && <Chip tom="laranja">{tx('Partida de teste', 'Test match')}</Chip>}
             {!partida.estatisticas && <Chip>{tx('Sem estatísticas da API', 'No API stats')}</Chip>}
             {podeTestar && partida.estado === 'COMPLETED' && (
               <span className="ml-auto"><BotaoRecarregar id={partida.id} simulada={partida.simulada} pequeno aoAcabar={() => p.recarregar()} /></span>
@@ -57,23 +54,7 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
               </button>
             )}
           </div>
-          {/* Os bans numa linha só: a cor diz que equipa baniu cada mapa. */}
-          {partida.bans.length > 0 && (
-            <p className="m-0 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-[12px] leading-relaxed" aria-label={tx('Bans de mapas', 'Map bans')}>
-              <span className="rotulo mr-1">Bans</span>
-              {partida.bans.map((b, i) => (
-                <span key={b.ordem} className={b.equipa === 'A' ? 'text-laranja-claro' : 'text-marfim'} title={tx(`Banido pela Equipa ${b.equipa}`, `Banned by Team ${b.equipa}`)}>
-                  {b.mapa}{i < partida.bans.length - 1 && <span className="text-white/20"> ·</span>}
-                </span>
-              ))}
-              {partida.mapa && <span className="ml-1 font-bold text-pessego">→ {partida.mapa}</span>}
-              <span className="ml-auto flex gap-3 text-[11px] text-mudo">
-                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-laranja-claro" />{tx('Equipa', 'Team')} A</span>
-                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-marfim" />{tx('Equipa', 'Team')} B</span>
-              </span>
-            </p>
-          )}
-          <TabelaPartida p={partida} eu={perfil?.id ?? ''} />
+          <DetalhePartida p={partida} eu={perfil?.id ?? ''} />
         </div>
       )}
     </Modal>

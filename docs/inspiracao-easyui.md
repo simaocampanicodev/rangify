@@ -35,7 +35,7 @@ Estudei os 131 componentes de [easyui.site/components](https://easyui.site/compo
 | [Text Scramble Decoder](https://easyui.site/components/text-scramble-decoder) | O código aparece decifrado, letra a letra | `ui/Decifrar.tsx` |
 | [Morphing Button](https://easyui.site/components/morphing-button) | "Copiar código" muda para "Copiado" com o visto | `Codigo.tsx` |
 | [Stretch Switch](https://easyui.site/components/stretch-switch) | As definições do grupo mostram interruptores só de leitura, ligados ou desligados como têm de ficar | `Codigo.tsx` |
-| [Expandable Data Row](https://easyui.site/components/expandable-data-row) e [Advanced Data Table](https://easyui.site/components/advanced-data-table) | A tabela do fim de jogo ordena ao clicar em qualquer coluna e cada jogador abre a mostrar o agente, o KDA, o impacto e os pontos explicados. Uma barrinha sob o ACS e o RS mostra a distância ao melhor da partida | `TabelaPartida` em `Resultado.tsx` |
+| [Advanced Data Table](https://easyui.site/components/advanced-data-table) | A tabela do fim de jogo e do histórico ordena ao clicar em qualquer coluna, com uma barrinha sob o ACS e o RS e um losango no melhor da equipa. O detalhe da partida tem uma coluna lateral com o placar, os dados, o MVP e os bans (proposta A4 aprovada em desenho) | `DetalhePartida.tsx` |
 | [Payment Receipt Printer](https://easyui.site/components/payment-receipt-printer) | Os pontos da partida saem num recibo que se imprime linha a linha (resultado e rank, Rangify Score e total) | `ui/Recibo.tsx` |
 | [Rocket Party Popper](https://easyui.site/components/rocket-party-popper) | Quem ganha vê umas faíscas laranja, uma só vez por partida | `Festa` em `ui/Recibo.tsx` |
 
