@@ -4,7 +4,6 @@ import { App } from './App'
 import { iniciarExtensao } from './lib/extensao'
 import { useIdioma } from './lib/idioma'
 import { iniciarFundo } from './lib/fundo'
-import { iniciarLuz } from './lib/luz'
 import { desbloquearSom } from './lib/som'
 // As fontes vêm do próprio site (sem pedidos ao Google Fonts). Cada uma só descarrega
 // a parte do alfabeto que a página usa (unicode-range).
@@ -21,8 +20,6 @@ iniciarExtensao()
 // Fundo animado ou parado e painéis mais ou menos opacos, conforme o computador aguenta (ver lib/fundo.ts).
 iniciarFundo()
 
-// A luz do rato nos cartões (ver lib/luz.ts).
-iniciarLuz()
 
 // O browser só deixa tocar o som de "partida encontrada" depois de uma interação.
 for (const evento of ['pointerdown', 'keydown'] as const) {

@@ -182,7 +182,7 @@ export function Dashboard() {
             {ativa && partida ? <PartidaAtiva partida={partida} /> : <CartaoFila tipo={vista} id={`rg-fila-${vista}`} rodape={<span className="flex"><BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda></span>} />}
           </div>
 
-          <Painel aria-labelledby="rg-pts" luz className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
+          <Painel aria-labelledby="rg-pts" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
             <div className="flex items-center justify-between gap-2.5">
               <h2 id="rg-pts" className="eyebrow m-0">{l('OS TEUS PONTOS', 'YOUR POINTS')} · {nomeTabela(vista).toUpperCase()}</h2>
               <span className="font-mono text-[10.5px] text-mudo">{l('TEMPORADA 1', 'SEASON 1')}</span>
@@ -221,7 +221,7 @@ export function Dashboard() {
         <h2 id="rg-atalhos" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Atalhos', 'Shortcuts')}</h2>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
           {atalhos.map((a) => (
-            <Link key={a.para} to={a.para} className="painel luz cartao-hover flex flex-col gap-3.5 !rounded-[14px] p-[18px] text-texto no-underline">
+            <Link key={a.para} to={a.para} className="painel cartao-hover flex flex-col gap-3.5 !rounded-[14px] p-[18px] text-texto no-underline">
               <span className="flex items-start justify-between">
                 <BlocoIcone>{a.icone}</BlocoIcone>
                 <ArrowUpRight size={16} className="text-mudo" aria-hidden />

@@ -410,7 +410,7 @@ export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
   return (
     <section
       aria-labelledby={id}
-      className={`painel luz p-[26px] ${linhas ? '' : 'flex flex-1 flex-col gap-5'} ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}
+      className={`painel p-[26px] ${linhas ? '' : 'flex flex-1 flex-col gap-5'} ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}
       style={linhas ? { display: 'grid', gridTemplateRows: 'subgrid', gridRow: `span ${linhas}`, rowGap: 20 } : undefined}
     >
       {corpo}

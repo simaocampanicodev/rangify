@@ -63,11 +63,10 @@ export function Cabecalho({ migalhas, titulo, descricao, acoes, estavel = false 
   )
 }
 
-/** Com `luz`, o cartão acende à volta do rato (ver .luz em efeitos.css). */
-export function Painel({ children, className = '', as: Tag = 'section', luz = false, ...resto }: {
-  children: ReactNode; className?: string; as?: 'section' | 'div' | 'article'; luz?: boolean
+export function Painel({ children, className = '', as: Tag = 'section', ...resto }: {
+  children: ReactNode; className?: string; as?: 'section' | 'div' | 'article'
 } & React.HTMLAttributes<HTMLElement>) {
-  return <Tag className={`painel ${luz ? 'luz ' : ''}${className}`} {...resto}>{children}</Tag>
+  return <Tag className={`painel ${className}`} {...resto}>{children}</Tag>
 }
 
 export function TituloPainel({ eyebrow, titulo, id, direita }: { eyebrow?: string; titulo?: ReactNode; id?: string; direita?: ReactNode }) {

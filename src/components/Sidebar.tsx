@@ -1,8 +1,8 @@
 import {
   Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
 } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Link, NavLink, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
 import { aoMudarDados, avisarMudanca, dados } from '@/lib/data'
@@ -35,19 +35,17 @@ function lerRecolhido() {
 
 function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean; onClick?: () => void }) {
   const { pathname } = useLocation()
-  const tambem = !!item.tambem && pathname.startsWith(item.tambem)
+  const ativo = !!matchPath({ path: item.para, end: !!item.fim }, pathname) || (!!item.tambem && pathname.startsWith(item.tambem))
   return (
     <NavLink
       to={item.para}
       end={item.fim}
       data-tour={item.tour}
+      data-item
+      data-ativo={ativo ? 'true' : undefined}
       onClick={onClick}
       title={recolhido ? item.texto : undefined}
-      className={({ isActive }) =>
-        `relative flex min-h-11 items-center rounded-[10px] border text-[14.5px] no-underline transition-[padding,background-color,color,border-color] ${ANIM} ${recolhido ? 'px-[20px]' : 'px-3'} ${
-          isActive || tambem ? 'cantos border-white/9 bg-white/5 font-semibold text-texto' : 'border-transparent font-medium text-suave hover:bg-white/[0.045] hover:text-texto'
-        }`
-      }
+      className={`menu-item relative flex min-h-11 items-center rounded-[10px] border border-transparent text-[14.5px] no-underline transition-[padding,color] lg:min-h-10 ${ANIM} ${recolhido ? 'px-[20px]' : 'px-3'} ${ativo ? 'font-semibold text-texto' : 'font-medium text-suave hover:text-texto'}`}
     >
       <span className="relative inline-flex shrink-0 text-laranja">
         {item.icone}
@@ -58,6 +56,99 @@ function ItemNav({ item, recolhido, onClick }: { item: Item; recolhido: boolean;
         {item.extra}
       </Rotulo>
     </NavLink>
+  )
+}
+
+interface Caixa { top: number; left: number; width: number; height: number }
+const caixaDe = (el: HTMLElement): Caixa => ({ top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight })
+const igual = (a: Caixa | null, b: Caixa | null) => (!a || !b ? a === b : a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height)
+
+/**
+ * A lista do menu, com duas pílulas (ideia do Sidebar do EasyUI): uma desliza para o item da página em que estás e outra
+ * segue o rato de item em item. Medem-se os itens e as pílulas ficam por trás do texto.
+ */
+function NavMenu({ grupos, rec, aoPesquisar, aoSair, aoNavegar }: {
+  grupos: { titulo: string; itens: Item[] }[]; rec: boolean; aoPesquisar: () => void; aoSair: () => void; aoNavegar?: () => void
+}) {
+  const nav = useRef<HTMLElement>(null)
+  const { pathname } = useLocation()
+  const [ativa, setAtiva] = useState<Caixa | null>(null)
+  const [sobre, setSobre] = useState<Caixa | null>(null)
+  const [aSobrevoar, setASobrevoar] = useState(false)
+  const [anima, setAnima] = useState(false)
+
+  const medir = useCallback(() => {
+    const el = nav.current?.querySelector<HTMLElement>('[data-ativo="true"]')
+    const c = el ? caixaDe(el) : null
+    setAtiva((v) => (igual(v, c) ? v : c))
+  }, [])
+  useLayoutEffect(() => { medir() }, [medir, pathname, rec, grupos.length])
+  // Se o menu muda de tamanho (recolher, a loja aparecer), a pílula acompanha logo, sem animar à parte.
+  useEffect(() => {
+    const el = nav.current
+    if (!el) return
+    let w = el.offsetWidth
+    let h = el.offsetHeight
+    const ro = new ResizeObserver(() => {
+      if (el.offsetWidth === w && el.offsetHeight === h) return
+      w = el.offsetWidth
+      h = el.offsetHeight
+      setAnima(false)
+      medir()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [medir])
+  useEffect(() => {
+    if (ativa && !anima) { const id = window.setTimeout(() => setAnima(true), 60); return () => window.clearTimeout(id) }
+  }, [ativa, anima])
+
+  const mover = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-item]')
+    if (!el || !nav.current?.contains(el)) { setASobrevoar(false); return }
+    const c = caixaDe(el)
+    setSobre((v) => (igual(v, c) ? v : c))
+    setASobrevoar(true)
+  }
+
+  return (
+    <nav ref={nav} aria-label={l('Navegação principal', 'Main navigation')} onPointerMove={mover} onPointerLeave={() => setASobrevoar(false)} className="menu-nav relative flex flex-col gap-3.5 lg:gap-3">
+      {sobre && <span aria-hidden className="menu-sobre" style={{ ...sobre, opacity: aSobrevoar ? 1 : 0 }} />}
+      {ativa && <span aria-hidden className={`menu-ativa ${anima ? '' : 'menu-quieta'}`} style={ativa} />}
+      {/* A paleta de comandos (Ctrl/Cmd + K): ir a uma página, entrar na fila ou procurar um jogador. */}
+      <button
+        type="button"
+        data-item
+        onClick={aoPesquisar}
+        title={rec ? `${l('Procurar', 'Search')} (${atalhoPaleta()})` : undefined}
+        className={`menu-item relative flex min-h-11 cursor-pointer items-center rounded-[10px] border border-white/8 bg-white/[0.03] text-left text-[14px] font-medium text-suave transition-[padding,color] hover:text-texto lg:min-h-10 ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
+      >
+        <Search size={17} className="shrink-0 text-laranja" aria-hidden />
+        <Rotulo recolhido={rec}>
+          <span className="flex-1 truncate">{l('Procurar', 'Search')}</span>
+          <kbd className="rounded-md border border-white/12 bg-white/5 px-1.5 py-px font-mono text-[10.5px] text-mudo">{atalhoPaleta()}</kbd>
+        </Rotulo>
+      </button>
+      {grupos.map((g) => (
+        <div key={g.titulo} className="menu-grupo flex flex-col gap-1">
+          <div aria-hidden={rec} className={`menu-titulo grid transition-[grid-template-rows,opacity] ${ANIM} ${rec ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}>
+            <div className="min-h-0 overflow-hidden"><span className="block px-3 pb-1 font-mono text-[10.5px] font-semibold tracking-[0.16em] whitespace-nowrap text-mudo">{g.titulo}</span></div>
+          </div>
+          {g.itens.map((i) => <ItemNav key={i.texto} item={i} recolhido={rec} onClick={aoNavegar} />)}
+        </div>
+      ))}
+      <button
+        type="button"
+        data-item
+        onClick={aoSair}
+        title={rec ? l('Terminar sessão', 'Sign out') : undefined}
+        className={`menu-item relative flex min-h-11 cursor-pointer items-center rounded-[10px] border border-transparent bg-transparent text-left text-[14.5px] font-medium text-suave transition-[padding,color] hover:text-texto lg:min-h-10 ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
+      >
+        <LogOut size={18} className="shrink-0 text-laranja" aria-hidden />
+        <Rotulo recolhido={rec}>{l('Terminar sessão', 'Sign out')}</Rotulo>
+      </button>
+    </nav>
   )
 }
 
@@ -114,6 +205,15 @@ export function Sidebar() {
       return !r
     })
   }
+
+  // Ctrl/Cmd + B recolhe e abre o menu (como no Sidebar do EasyUI).
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !(e.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable]')) { e.preventDefault(); alternar() }
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  })
 
   // Terminar sessão pede confirmação: um clique sem querer não deve deixar ninguém de fora.
   const [aSair, setASair] = useState(false)
@@ -178,38 +278,7 @@ export function Sidebar() {
             </button>
           )}
         </div>
-        <nav aria-label={l('Navegação principal', 'Main navigation')} className="flex flex-col gap-[18px]">
-          {/* A paleta de comandos (Ctrl/Cmd + K): ir a uma página, entrar na fila ou procurar um jogador. */}
-          <button
-            type="button"
-            onClick={() => { setAberto(false); abrirPaleta() }}
-            title={rec ? `${l('Procurar', 'Search')} (${atalhoPaleta()})` : undefined}
-            className={`flex min-h-11 cursor-pointer items-center rounded-[10px] border border-white/8 bg-white/[0.03] text-left text-[14px] font-medium text-suave transition-[padding,background-color,color] hover:bg-white/[0.06] hover:text-texto ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
-          >
-            <Search size={17} className="shrink-0 text-laranja" aria-hidden />
-            <Rotulo recolhido={rec}>
-              <span className="flex-1 truncate">{l('Procurar', 'Search')}</span>
-              <kbd className="rounded-md border border-white/12 bg-white/5 px-1.5 py-px font-mono text-[10.5px] text-mudo">{atalhoPaleta()}</kbd>
-            </Rotulo>
-          </button>
-          {grupos.map((g) => (
-            <div key={g.titulo} className="flex flex-col gap-1">
-              <div aria-hidden={rec} className={`grid transition-[grid-template-rows,opacity] ${ANIM} ${rec ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}>
-                <div className="min-h-0 overflow-hidden"><span className="block px-3 pb-1.5 font-mono text-[10.5px] font-semibold tracking-[0.16em] whitespace-nowrap text-mudo">{g.titulo}</span></div>
-              </div>
-              {g.itens.map((i) => <ItemNav key={i.texto} item={i} recolhido={rec} />)}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setASair(true)}
-            title={rec ? l('Terminar sessão', 'Sign out') : undefined}
-            className={`flex min-h-11 cursor-pointer items-center rounded-[10px] border border-transparent bg-transparent text-left text-[14.5px] font-medium text-suave transition-[padding,background-color,color] hover:bg-white/[0.045] hover:text-texto ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
-          >
-            <LogOut size={18} className="shrink-0 text-laranja" aria-hidden />
-            <Rotulo recolhido={rec}>{l('Terminar sessão', 'Sign out')}</Rotulo>
-          </button>
-        </nav>
+        <NavMenu grupos={grupos} rec={rec} aoPesquisar={() => { setAberto(false); abrirPaleta() }} aoSair={() => setASair(true)} />
         {perfil && (
           <Link
             to={perfil.riotId ? caminhoPerfil(perfil.riotId) : '/definicoes'}
@@ -242,13 +311,13 @@ export function Sidebar() {
       </div>
       {aberto && (
         <div className="fixed inset-0 z-50 lg:hidden" onMouseDown={(e) => { if (e.target === e.currentTarget) setAberto(false) }} style={{ background: 'rgba(5,5,7,0.6)' }}>
-          <aside onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setAberto(false) }} className="entra flex h-full w-[min(300px,86vw)] flex-col gap-[22px] overflow-y-auto border-r border-white/6 bg-[rgba(12,12,14,0.97)] px-3.5 pt-5 pb-4">
+          <aside onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setAberto(false) }} className="entra flex h-full w-[min(300px,86vw)] flex-col gap-[22px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-r border-white/6 bg-[rgba(12,12,14,0.97)] px-3.5 pt-5 pb-4">
             {conteudo(true)}
           </aside>
         </div>
       )}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-[22px] overflow-x-hidden overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.8)] px-3 pt-[22px] pb-4 vidro-leve transition-[width] lg:flex ${ANIM} ${recolhido ? 'w-[84px]' : 'w-[248px]'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-4 overflow-x-hidden overflow-y-auto border-r border-white/6 bg-[rgba(10,10,12,0.8)] px-3 pt-[18px] pb-3 vidro-leve [scrollbar-width:none] [&::-webkit-scrollbar]:hidden transition-[width] lg:flex ${ANIM} ${recolhido ? 'w-[84px]' : 'w-[248px]'}`}
       >
         {conteudo(false)}
       </aside>

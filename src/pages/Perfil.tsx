@@ -98,14 +98,12 @@ export function Perfil() {
   const posAberta = s && p.vitorias + p.derrotas > 0 ? l(`#${s.posicao} de ${s.totalJogadores} na tabela`, `#${s.posicao} of ${s.totalJogadores} on the board`) : ''
   const posRanked = s?.posicaoRanked ? l(`#${s.posicaoRanked} de ${s.totalRanked} na tabela`, `#${s.posicaoRanked} of ${s.totalRanked} on the board`) : ''
   const verde = (n: number) => (n >= 0 ? 'text-vitoria' : 'text-derrota')
-  const taxa = s && s.partidas ? l(`${Math.round((s.vitorias / s.partidas) * 100)}% de vitórias`, `${Math.round((s.vitorias / s.partidas) * 100)}% win rate`) : ''
   const registo = filtro === 'aberta' ? [p.vitorias, p.derrotas] : filtro === 'ranked' ? [p.vitoriasRanked, p.derrotasRanked] : [vitoriasTodas, derrotasTodas]
   const tiles: [string, string, string, string, string?][] = [
     ...(filtro !== 'ranked' ? [[comRanked ? l('Pontos · aberta', 'Points · open') : l('Pontos', 'Points'), String(p.pontos), comSinal(ganho) + l(' desde 1000', ' since 1000'), verde(ganho), posAberta] as [string, string, string, string, string]] : []),
     ...(comRanked && filtro !== 'aberta' ? [[l('Pontos · ranked', 'Points · ranked'), String(p.pontosRanked), comSinal(ganhoRanked) + l(' desde 1000', ' since 1000'), verde(ganhoRanked), posRanked] as [string, string, string, string, string]] : []),
-    [l('Registo', 'Record'), `${registo[0]}${l('V', 'W')}·${registo[1]}${l('D', 'L')}`, filtro === 'todas' && comRanked ? l(`${p.vitoriasRanked}V-${p.derrotasRanked}D na ranked`, `${p.vitoriasRanked}W-${p.derrotasRanked}L in ranked`) : taxa, 'text-mudo'],
-    ['KDA', s?.kda != null ? s.kda.toFixed(2) : '-', s?.acs != null ? l(`${Math.round(s.acs)} ACS de média`, `${Math.round(s.acs)} average ACS`) : '', 'text-mudo'],
     ['K/D', s?.kd != null ? s.kd.toFixed(2) : '-', s?.killsMedia != null && s?.mortesMedia != null ? l(`${s.killsMedia.toFixed(1)} kills · ${s.mortesMedia.toFixed(1)} mortes por jogo`, `${s.killsMedia.toFixed(1)} kills · ${s.mortesMedia.toFixed(1)} deaths per game`) : '', 'text-mudo'],
+    ['ACS', s?.acs != null ? String(Math.round(s.acs)) : '-', l('média por partida', 'average per match'), 'text-mudo'],
     ['Rangify Score', s?.rangifyScore != null ? String(Math.round(s.rangifyScore)) : '-', s?.melhorRs != null ? l(`melhor: ${s.melhorRs}`, `best: ${s.melhorRs}`) : l('100 é a média', '100 is average'), 'text-mudo'],
     ['MVP', s ? String(s.mvps) : '-', s ? `${s.firstBloods} first bloods` : '', 'text-mudo'],
   ]
@@ -144,40 +142,43 @@ export function Perfil() {
           <Segmentado rotulo={l('Estatísticas por fila', 'Stats by queue')} valor={filtro} onChange={setFiltro} opcoes={[{ valor: 'todas', texto: l('Todas as filas', 'All queues') }, { valor: 'aberta', texto: l('Aberta', 'Open') }, { valor: 'ranked', texto: 'Ranked' }]} />
         </div>
       )}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-        {tiles.map(([rotulo, valor, sub, cor, sub2]) => (
-          <Painel key={rotulo} as="div" luz className="flex flex-col gap-1.5 !rounded-[14px] p-4">
-            <span className="rotulo">{rotulo}</span>
-            <span className="font-mono text-[26px] leading-none font-semibold tracking-[-0.03em]">{/^-?d+$/.test(valor) ? <NumeroRolante valor={valor} /> : valor}</span>
-            <span className={`text-[12px] ${cor}`}>{sub}</span>
-            {sub2 && <span className="text-[12px] text-mudo">{sub2}</span>}
-          </Painel>
-        ))}
-      </div>
-
-      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <Painel aria-labelledby="rg-perfil-atividade" className="flex min-w-0 flex-col gap-4 p-[22px]">
-          <TituloPainel eyebrow={l('ATIVIDADE', 'ACTIVITY')} titulo={l('Quando joga', 'When they play')} id="rg-perfil-atividade" />
+      <Painel aria-labelledby="rg-perfil-atividade" className="flex min-w-0 flex-col gap-5 p-[22px]">
+        <TituloPainel eyebrow={l('ATIVIDADE', 'ACTIVITY')} titulo={l('Pontos, números e quando joga', 'Points, numbers and when they play')} id="rg-perfil-atividade" />
+        {/* O anel do registo e os números ficam lado a lado e com a mesma altura; o calendário ocupa a largura toda por baixo. */}
+        <div className="flex flex-wrap items-stretch gap-x-6 gap-y-5">
+          <div className="flex w-full shrink-0 flex-col items-center justify-center gap-3 rounded-xl border border-white/7 bg-white/[0.03] px-5 py-4 sm:w-[210px]">
+            <span className="rotulo self-start">{l('Registo', 'Record')}</span>
+            {registo[0] + registo[1] > 0
+              ? (
+                <>
+                  <Donut
+                    rotulo={l('Vitórias e derrotas', 'Wins and losses')}
+                    tamanho={140}
+                    partes={[{ nome: l('Vitórias', 'Wins'), valor: registo[0], cor: '#5fe3d6' }, { nome: l('Derrotas', 'Losses'), valor: registo[1], cor: '#ff7d8f' }]}
+                    centro={<><span className="font-mono text-[28px] leading-none font-semibold tracking-[-0.04em]"><NumeroRolante valor={Math.round((registo[0] / (registo[0] + registo[1])) * 100)} />%</span><span className="text-[11px] text-mudo">{l('de vitórias', 'win rate')}</span></>}
+                  />
+                  <span className="flex gap-4 font-mono text-[12.5px]">
+                    <span className="text-vitoria">{registo[0]} {l('V', 'W')}</span><span className="text-derrota">{registo[1]} {l('D', 'L')}</span>
+                  </span>
+                </>
+              )
+              : <Vazio icone={<Swords size={22} />} titulo={l('Sem partidas', 'No matches')} />}
+          </div>
+          <div className="grid min-w-[min(100%,300px)] flex-1 grid-cols-2 gap-2.5 sm:grid-cols-3 sm:[&>:last-child:nth-child(3n+1)]:col-span-3 sm:[&>:last-child:nth-child(3n+2)]:col-span-2">
+            {tiles.map(([rotulo, valor, sub, cor, sub2]) => (
+              <div key={rotulo} className="flex flex-col gap-1.5 rounded-xl border border-white/7 bg-white/[0.03] p-3.5">
+                <span className="rotulo">{rotulo}</span>
+                <span className="font-mono text-[24px] leading-none font-semibold tracking-[-0.03em]">{/^-?\d+$/.test(valor) ? <NumeroRolante valor={valor} /> : valor}</span>
+                <span className={`text-[12px] ${cor}`}>{sub}</span>
+                {sub2 && <span className="text-[12px] text-mudo">{sub2}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-white/7 pt-5">
           <MapaAtividade datas={(atividade.valor ?? []).map((f) => f.data)} />
-        </Painel>
-        <Painel aria-labelledby="rg-perfil-registo" className="flex flex-col items-center gap-4 p-[22px] lg:min-w-[250px]">
-          <div className="self-start"><TituloPainel eyebrow={l('REGISTO', 'RECORD')} titulo={l('Vitórias e derrotas', 'Wins and losses')} id="rg-perfil-registo" /></div>
-          {registo[0] + registo[1] > 0
-            ? (
-              <>
-                <Donut
-                  rotulo={l('Vitórias e derrotas', 'Wins and losses')}
-                  partes={[{ nome: l('Vitórias', 'Wins'), valor: registo[0], cor: '#5fe3d6' }, { nome: l('Derrotas', 'Losses'), valor: registo[1], cor: '#ff7d8f' }]}
-                  centro={<><span className="font-mono text-[30px] leading-none font-semibold tracking-[-0.04em]"><NumeroRolante valor={Math.round((registo[0] / (registo[0] + registo[1])) * 100)} />%</span><span className="text-[11.5px] text-mudo">{l('de vitórias', 'win rate')}</span></>}
-                />
-                <span className="flex gap-4 font-mono text-[12.5px]">
-                  <span className="text-vitoria">{registo[0]} {l('V', 'W')}</span><span className="text-derrota">{registo[1]} {l('D', 'L')}</span>
-                </span>
-              </>
-            )
-            : <Vazio icone={<Swords size={22} />} titulo={l('Sem partidas', 'No matches')} />}
-        </Painel>
-      </div>
+        </div>
+      </Painel>
 
       <Painel className="p-[22px]">
         {forma.valor && forma.valor.length >= 2
