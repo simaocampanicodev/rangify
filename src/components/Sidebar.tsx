@@ -1,5 +1,5 @@
 import {
-  Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
+  Clock, House, Lightbulb, LogOut, Medal, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, ShoppingBag, Swords, Target, Trophy, User, Users, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -8,6 +8,8 @@ import { useSessao } from '@/contexts/Sessao'
 import { aoMudarDados, avisarMudanca, dados } from '@/lib/data'
 import { caminhoPerfil, nomeJogador } from '@/lib/partida'
 import { Marca } from './Marca'
+import { abrirPaleta, atalhoPaleta } from './Paleta'
+import { NumeroRolante } from './ui/NumeroRolante'
 import { Avatar, Modal } from './ui'
 import { TituloJogador, useClassesCosmeticos } from './Cosmeticos'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -134,7 +136,7 @@ export function Sidebar() {
         { para: '/', texto: l('Painel', 'Dashboard'), icone: <House size={18} />, tour: 'dashboard', fim: true },
         {
           para: '/jogar', texto: l('Jogar', 'Play'), icone: <Swords size={18} />, tour: 'jogar', tambem: '/partida/',
-          extra: ativa ? <Contador vivo>{l('ao vivo', 'live')}</Contador> : fila?.naFila ? <Contador vivo>{fila.contagem}/10</Contador> : null,
+          extra: ativa ? <Contador vivo>{l('ao vivo', 'live')}</Contador> : fila?.naFila ? <Contador vivo><NumeroRolante valor={fila.contagem} contar={false} />/10</Contador> : null,
         },
         { para: '/ranking', texto: l('Tabela', 'Leaderboard'), icone: <Trophy size={18} />, tour: 'ranking' },
         { para: '/partidas', texto: l('Partidas', 'Matches'), icone: <Clock size={18} />, tour: 'partidas' },
@@ -177,6 +179,19 @@ export function Sidebar() {
           )}
         </div>
         <nav aria-label={l('Navegação principal', 'Main navigation')} className="flex flex-col gap-[18px]">
+          {/* A paleta de comandos (Ctrl/Cmd + K): ir a uma página, entrar na fila ou procurar um jogador. */}
+          <button
+            type="button"
+            onClick={() => { setAberto(false); abrirPaleta() }}
+            title={rec ? `${l('Procurar', 'Search')} (${atalhoPaleta()})` : undefined}
+            className={`flex min-h-11 cursor-pointer items-center rounded-[10px] border border-white/8 bg-white/[0.03] text-left text-[14px] font-medium text-suave transition-[padding,background-color,color] hover:bg-white/[0.06] hover:text-texto ${ANIM} ${rec ? 'px-[20px]' : 'px-3'}`}
+          >
+            <Search size={17} className="shrink-0 text-laranja" aria-hidden />
+            <Rotulo recolhido={rec}>
+              <span className="flex-1 truncate">{l('Procurar', 'Search')}</span>
+              <kbd className="rounded-md border border-white/12 bg-white/5 px-1.5 py-px font-mono text-[10.5px] text-mudo">{atalhoPaleta()}</kbd>
+            </Rotulo>
+          </button>
           {grupos.map((g) => (
             <div key={g.titulo} className="flex flex-col gap-1">
               <div aria-hidden={rec} className={`grid transition-[grid-template-rows,opacity] ${ANIM} ${rec ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}>

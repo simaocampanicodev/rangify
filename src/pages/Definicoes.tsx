@@ -4,6 +4,7 @@ import { EditarPerfil } from '@/components/EditarPerfil'
 import { SeletorIdioma } from '@/components/Idioma'
 import { reverTour } from '@/components/Tour'
 import { Cabecalho, Carregando, Painel, RankBadge, Segmentado, TituloPainel } from '@/components/ui'
+import { Interruptor } from '@/components/ui/Interruptor'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
@@ -122,16 +123,7 @@ export function Definicoes() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn btn-fantasma" onClick={() => tocarPartidaEncontrada()} disabled={!som}>{l('Testar som', 'Test sound')}</button>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={som}
-            aria-labelledby="rg-def-som"
-            onClick={() => { ligarSom(!som); setSom(!som) }}
-            className={`relative h-7 w-12 cursor-pointer rounded-full border transition-colors ${som ? 'border-laranja/60 bg-laranja/40' : 'border-white/12 bg-white/6'}`}
-          >
-            <span className={`absolute top-1/2 size-5 -translate-y-1/2 rounded-full transition-all ${som ? 'left-[24px] bg-laranja' : 'left-[3px] bg-mudo'}`} />
-          </button>
+          <Interruptor ligado={som} aria-labelledby="rg-def-som" aoMudar={(v) => { ligarSom(v); setSom(v) }} />
         </div>
         </div>
         <div className={`flex items-center gap-4 border-t border-white/7 pt-4 ${som ? '' : 'opacity-45'}`}>

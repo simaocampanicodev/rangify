@@ -17,6 +17,7 @@ import { tocarPartidaEncontrada } from '@/lib/som'
 import { emFalta } from '@/lib/tempo'
 import { NomeRangify } from '../Marca'
 import { iniciais } from '../ui'
+import { NumeroRolante } from '@/components/ui/NumeroRolante'
 import { Relogio } from './Relogio'
 import { caminhoPartida } from '@/lib/rotas'
 import { l } from '@/lib/idioma'
@@ -93,7 +94,7 @@ export function Confirmar() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="rg-conf-titulo"
-        className="entra relative my-3 flex w-full max-w-[780px] flex-col items-center gap-4 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.96)] p-[clamp(16px,4vw,36px)] text-center sm:my-6 sm:gap-6"
+        className="assenta relative my-3 flex w-full max-w-[780px] flex-col items-center gap-4 rounded-[26px] border border-laranja/32 bg-[rgba(13,13,16,0.96)] p-[clamp(16px,4vw,36px)] text-center sm:my-6 sm:gap-6"
         style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 40px 120px -40px rgba(255,91,31,0.6)' }}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[26px]" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,91,31,0.12), rgba(0,0,0,0) 70%)' }} />
@@ -149,7 +150,7 @@ export function Confirmar() {
           </div>
         ) : (
           <div className="relative flex w-full flex-col items-center gap-3">
-            <button type="button" disabled={aEnviar} onClick={() => responder(true)} className="btn btn-primario h-[60px] w-full max-w-[380px] !rounded-2xl !text-[18px] !font-extrabold tracking-[0.04em]" autoFocus>
+            <button type="button" disabled={aEnviar} onClick={() => responder(true)} className="btn btn-primario btn-neon h-[60px] w-full max-w-[380px] !rounded-2xl !text-[18px] !font-extrabold tracking-[0.04em]" autoFocus>
               {l('ACEITAR', 'ACCEPT')}
             </button>
             <button type="button" disabled={aEnviar} onClick={() => responder(false)} className="btn border-0 bg-transparent text-suave hover:text-texto">
@@ -160,7 +161,7 @@ export function Confirmar() {
 
         <div className="relative hidden w-full grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 border-t border-white/7 pt-[18px] sm:grid">
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Média da sala', 'Lobby average')}</span><span className="text-[14px] font-semibold">{nomeRank(tierMedio(partida.jogadores.map((j) => j.tier)))}</span></div>
-          <div className="flex flex-col gap-1"><span className="rotulo">{l('Aceitaram', 'Accepted')}</span><span className="font-mono text-[14px] font-semibold">{aceites}/10</span></div>
+          <div className="flex flex-col gap-1"><span className="rotulo">{l('Aceitaram', 'Accepted')}</span><span className="font-mono text-[14px] font-semibold"><NumeroRolante valor={aceites} contar={false} />/10</span></div>
           <div className="flex flex-col gap-1"><span className="rotulo">{l('Pontos em jogo', 'Points at stake')}</span><span className="font-mono text-[14px] font-semibold text-pessego">{l('até', 'up to')} +{RESULTADO_MAX + DESEMPENHO_MAX}</span></div>
         </div>
       </section>

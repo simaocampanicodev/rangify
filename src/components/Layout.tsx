@@ -11,6 +11,7 @@ import { relogio } from '@/lib/tempo'
 import { AvisoStaffPopup } from './AvisoStaff'
 import { Fundo } from './Fundo'
 import { Confirmar } from './match/Confirmar'
+import { Paleta } from './Paleta'
 import { Rodape } from './Rodape'
 import { Sidebar } from './Sidebar'
 import { Carregando } from './ui'
@@ -92,6 +93,7 @@ export function Layout() {
         </div>
       </div>
       <Confirmar />
+      <Paleta />
       <AvisoStaffPopup />
       <TourSoQuandoPreciso />
     </div>

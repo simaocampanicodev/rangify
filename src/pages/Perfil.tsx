@@ -7,6 +7,9 @@ import { GraficoForma } from '@/components/GraficoForma'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { FundoBanner, TituloJogador } from '@/components/Cosmeticos'
 import { EmDireto } from '@/components/AoVivo'
+import { Donut } from '@/components/ui/Donut'
+import { MapaAtividade } from '@/components/ui/MapaAtividade'
+import { NumeroRolante } from '@/components/ui/NumeroRolante'
 import { Avatar, Cabecalho, Carregando, Chip, LinkSeta, Modal, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -74,6 +77,8 @@ export function Perfil() {
   const stats = useCarregar(() => (id ? dados.estatisticas(id, fila) : Promise.resolve(null)), [id, filtro], ['partida'], { chave: `estatisticas:${id}:${filtro}` })
   const forma = useCarregar(() => (id ? dados.forma(id, 20, fila) : Promise.resolve([])), [id, filtro], ['partida'], { chave: `forma:${id}:20:${filtro}` })
   const historico = useCarregar(() => (id ? dados.partidas({ minhas: true, perfilId: id, fila, limite: 8 }) : Promise.resolve(null)), [id, filtro], ['partida'], { chave: `partidas:perfil:${id}:${filtro}` })
+  // As datas das partidas para o calendário de atividade (as últimas 100 da fila escolhida).
+  const atividade = useCarregar(() => (id ? dados.forma(id, 100, fila) : Promise.resolve([])), [id, filtro], ['partida'], { chave: `forma:${id}:100:${filtro}` })
   const amigos = useCarregar(() => dados.amigos(), [], ['amigos'], { chave: 'amigos' })
 
   if (!riot && eu?.riotId) return <Navigate to={caminhoPerfil(eu.riotId)} replace />
@@ -141,13 +146,37 @@ export function Perfil() {
       )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
         {tiles.map(([rotulo, valor, sub, cor, sub2]) => (
-          <Painel key={rotulo} as="div" className="flex flex-col gap-1.5 !rounded-[14px] p-4">
+          <Painel key={rotulo} as="div" luz className="flex flex-col gap-1.5 !rounded-[14px] p-4">
             <span className="rotulo">{rotulo}</span>
-            <span className="font-mono text-[26px] leading-none font-semibold tracking-[-0.03em]">{valor}</span>
+            <span className="font-mono text-[26px] leading-none font-semibold tracking-[-0.03em]">{/^-?d+$/.test(valor) ? <NumeroRolante valor={valor} /> : valor}</span>
             <span className={`text-[12px] ${cor}`}>{sub}</span>
             {sub2 && <span className="text-[12px] text-mudo">{sub2}</span>}
           </Painel>
         ))}
+      </div>
+
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <Painel aria-labelledby="rg-perfil-atividade" className="flex min-w-0 flex-col gap-4 p-[22px]">
+          <TituloPainel eyebrow={l('ATIVIDADE', 'ACTIVITY')} titulo={l('Quando joga', 'When they play')} id="rg-perfil-atividade" />
+          <MapaAtividade datas={(atividade.valor ?? []).map((f) => f.data)} />
+        </Painel>
+        <Painel aria-labelledby="rg-perfil-registo" className="flex flex-col items-center gap-4 p-[22px] lg:min-w-[250px]">
+          <div className="self-start"><TituloPainel eyebrow={l('REGISTO', 'RECORD')} titulo={l('Vitórias e derrotas', 'Wins and losses')} id="rg-perfil-registo" /></div>
+          {registo[0] + registo[1] > 0
+            ? (
+              <>
+                <Donut
+                  rotulo={l('Vitórias e derrotas', 'Wins and losses')}
+                  partes={[{ nome: l('Vitórias', 'Wins'), valor: registo[0], cor: '#5fe3d6' }, { nome: l('Derrotas', 'Losses'), valor: registo[1], cor: '#ff7d8f' }]}
+                  centro={<><span className="font-mono text-[30px] leading-none font-semibold tracking-[-0.04em]"><NumeroRolante valor={Math.round((registo[0] / (registo[0] + registo[1])) * 100)} />%</span><span className="text-[11.5px] text-mudo">{l('de vitórias', 'win rate')}</span></>}
+                />
+                <span className="flex gap-4 font-mono text-[12.5px]">
+                  <span className="text-vitoria">{registo[0]} {l('V', 'W')}</span><span className="text-derrota">{registo[1]} {l('D', 'L')}</span>
+                </span>
+              </>
+            )
+            : <Vazio icone={<Swords size={22} />} titulo={l('Sem partidas', 'No matches')} />}
+        </Painel>
       </div>
 
       <Painel className="p-[22px]">

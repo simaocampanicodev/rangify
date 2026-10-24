@@ -26,6 +26,7 @@ Todos os guias do projeto estão aqui. O ponto de partida é o [README](../READM
 | Guia | O que tem |
 | --- | --- |
 | [Desempenho](performance.md) | O que se mediu, o que mudou e o que ficou de fora de propósito |
+| [Inspiração: EasyUI](inspiracao-easyui.md) | Os componentes de easyui.site que serviram de ideia e como ficaram no Rangify |
 
 ## Decisões de desenho
 

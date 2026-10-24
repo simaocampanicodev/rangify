@@ -5,6 +5,7 @@ import { AnelFila, CartaoFila, SeletorFila, nomeTabela } from '@/components/Fila
 import { SeletorIdioma } from '@/components/Idioma'
 import { LinhaPartida } from '@/components/LinhaPartida'
 import { NomeRangify } from '@/components/Marca'
+import { NumeroRolante } from '@/components/ui/NumeroRolante'
 import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, LinhasEsqueleto, LinkSeta, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
@@ -181,13 +182,13 @@ export function Dashboard() {
             {ativa && partida ? <PartidaAtiva partida={partida} /> : <CartaoFila tipo={vista} id={`rg-fila-${vista}`} rodape={<span className="flex"><BotaoAjuda topico="draft">{l('Como funciona o draft', 'How the draft works')}</BotaoAjuda></span>} />}
           </div>
 
-          <Painel aria-labelledby="rg-pts" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
+          <Painel aria-labelledby="rg-pts" luz className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 p-6">
             <div className="flex items-center justify-between gap-2.5">
               <h2 id="rg-pts" className="eyebrow m-0">{l('OS TEUS PONTOS', 'YOUR POINTS')} · {nomeTabela(vista).toUpperCase()}</h2>
               <span className="font-mono text-[10.5px] text-mudo">{l('TEMPORADA 1', 'SEASON 1')}</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[54px] leading-none font-semibold tracking-[-0.05em]">{numeros.pontos}</span>
+              <span className="font-mono text-[54px] leading-none font-semibold tracking-[-0.05em]"><NumeroRolante valor={numeros.pontos} /></span>
               <span className="text-[14px] text-mudo">pts</span>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[13px] text-suave">
@@ -220,7 +221,7 @@ export function Dashboard() {
         <h2 id="rg-atalhos" className="m-0 text-[19px] font-bold tracking-[-0.02em]">{l('Atalhos', 'Shortcuts')}</h2>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
           {atalhos.map((a) => (
-            <Link key={a.para} to={a.para} className="painel cartao-hover flex flex-col gap-3.5 !rounded-[14px] p-[18px] text-texto no-underline">
+            <Link key={a.para} to={a.para} className="painel luz cartao-hover flex flex-col gap-3.5 !rounded-[14px] p-[18px] text-texto no-underline">
               <span className="flex items-start justify-between">
                 <BlocoIcone>{a.icone}</BlocoIcone>
                 <ArrowUpRight size={16} className="text-mudo" aria-hidden />

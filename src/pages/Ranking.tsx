@@ -192,7 +192,7 @@ function PainelClassificacao({ total, etiqueta, ambito, setAmbito, pesquisa, set
       <label className="relative block">
         <span className="so-leitores">{tx('Procurar jogador', 'Search player')}</span>
         <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-        <input className="campo !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder={tx('Procurar por Riot ID', 'Search by Riot ID')} />
+        <input className="campo campo-expande !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder={tx('Procurar por Riot ID', 'Search by Riot ID')} />
       </label>
       {carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : linhas.length ? (
         <div className="-mx-2 overflow-x-auto">

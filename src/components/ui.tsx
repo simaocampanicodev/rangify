@@ -1,5 +1,5 @@
 import { ChevronRight, CircleQuestionMark, LoaderCircle, Star, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { corRank, nomeRank } from '@/lib/ranks'
@@ -63,10 +63,11 @@ export function Cabecalho({ migalhas, titulo, descricao, acoes, estavel = false 
   )
 }
 
-export function Painel({ children, className = '', as: Tag = 'section', ...resto }: {
-  children: ReactNode; className?: string; as?: 'section' | 'div' | 'article'
+/** Com `luz`, o cartão acende à volta do rato (ver .luz em efeitos.css). */
+export function Painel({ children, className = '', as: Tag = 'section', luz = false, ...resto }: {
+  children: ReactNode; className?: string; as?: 'section' | 'div' | 'article'; luz?: boolean
 } & React.HTMLAttributes<HTMLElement>) {
-  return <Tag className={`painel ${className}`} {...resto}>{children}</Tag>
+  return <Tag className={`painel ${luz ? 'luz ' : ''}${className}`} {...resto}>{children}</Tag>
 }
 
 export function TituloPainel({ eyebrow, titulo, id, direita }: { eyebrow?: string; titulo?: ReactNode; id?: string; direita?: ReactNode }) {
@@ -140,11 +141,43 @@ function FotoBase({ nome, url, tamanho, destaque }: { nome: string; url?: string
   )
 }
 
+/**
+ * Os filtros do site. A pílula laranja desliza de uma opção para a outra (ideia do Animated Tabs / Pill Navigation do EasyUI):
+ * mede o botão ativo e anda até lá. Na primeira vez, e quando a largura muda, põe-se logo no sítio sem animar.
+ */
 export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo, pequeno = false }: {
   opcoes: { valor: T; texto: ReactNode }[]; valor: T; onChange: (v: T) => void; rotulo: string; pequeno?: boolean
 }) {
+  const caixa = useRef<HTMLDivElement>(null)
+  const [pilula, setPilula] = useState<{ left: number; width: number } | null>(null)
+  const [anima, setAnima] = useState(false)
+  const indice = opcoes.findIndex((o) => o.valor === valor)
+  const indiceAtual = useRef(indice)
+  indiceAtual.current = indice
+  const medir = useCallback(() => {
+    const botao = caixa.current?.querySelectorAll<HTMLElement>('button')[indiceAtual.current]
+    if (botao) setPilula((p) => (p && p.left === botao.offsetLeft && p.width === botao.offsetWidth ? p : { left: botao.offsetLeft, width: botao.offsetWidth }))
+  }, [])
+  useLayoutEffect(() => { medir() }, [indice, opcoes.length, medir])
+  // Se a largura muda (a fonte chegou, o ecrã rodou), a pílula põe-se logo no sítio sem animar.
+  useEffect(() => {
+    const el = caixa.current
+    if (!el) return
+    let largura = el.offsetWidth
+    const ro = new ResizeObserver(() => {
+      if (el.offsetWidth === largura) return
+      largura = el.offsetWidth
+      setAnima(false)
+      medir()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [medir])
+  // Só anima depois de a primeira posição estar pintada.
+  useEffect(() => { if (pilula && !anima) { const id = window.setTimeout(() => setAnima(true), 50); return () => window.clearTimeout(id) } }, [pilula, anima])
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-xl border border-white/7 bg-white/[0.035] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={caixa} role="group" aria-label={rotulo} className="relative inline-flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-xl border border-white/7 bg-white/[0.035] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {pilula && indice >= 0 && <span aria-hidden className={`pilula ${anima ? '' : 'pilula-quieta'}`} style={{ left: pilula.left, width: pilula.width }} />}
       {opcoes.map((o) => {
         const ativo = o.valor === valor
         return (
@@ -153,7 +186,7 @@ export function Segmentado<T extends string>({ opcoes, valor, onChange, rotulo, 
             type="button"
             aria-pressed={ativo}
             onClick={() => onChange(o.valor)}
-            className={`${pequeno ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13px]'} shrink-0 cursor-pointer whitespace-nowrap rounded-lg border font-semibold transition-colors ${ativo ? 'border-laranja/32 bg-laranja/14 text-pessego-claro' : 'border-transparent bg-transparent text-suave hover:text-texto'}`}
+            className={`${pequeno ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3.5 text-[13px]'} relative shrink-0 cursor-pointer whitespace-nowrap rounded-lg border border-transparent bg-transparent font-semibold transition-colors ${ativo ? 'text-pessego-claro' : 'text-suave hover:text-texto'}`}
           >
             {o.texto}
           </button>
@@ -195,7 +228,7 @@ export function Modal({ aberto, onFechar, titulo, eyebrow, children, largura = 5
         aria-modal="true"
         aria-labelledby={id}
         tabIndex={-1}
-        className="painel entra relative my-6 flex w-full flex-col gap-4 !bg-[rgba(16,16,19,0.96)] p-6 outline-none"
+        className="painel assenta relative my-6 flex w-full flex-col gap-4 !bg-[rgba(16,16,19,0.96)] p-6 outline-none"
         style={{ maxWidth: largura }}
       >
         <div className="flex items-start justify-between gap-4">

@@ -7,6 +7,7 @@ import { Bot, CalendarClock, Dices, ExternalLink, Eye, EyeOff, Lock, Megaphone, 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BotaoSegurar, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
+import { Interruptor as InterruptorBotao } from '@/components/ui/Interruptor'
 import { useAcao } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type DadosNovoTorneio, type MelhorDe, type TorneioDetalhe, type TorneioJogo, type TorneioResumo } from '@/lib/data'
@@ -28,16 +29,7 @@ const emDias = (dias: number, hora = 23, min = 59) => { const d = new Date(Date.
 function Interruptor({ ligado, aoMudar, texto, ajuda, disabled }: { ligado: boolean; aoMudar: (v: boolean) => void; texto: string; ajuda?: string; disabled?: boolean }) {
   return (
     <label className={`flex items-start gap-3 ${disabled ? 'opacity-60' : 'cursor-pointer'}`}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={ligado}
-        disabled={disabled}
-        onClick={() => aoMudar(!ligado)}
-        className={`relative mt-0.5 h-[22px] w-[38px] shrink-0 rounded-full border transition-colors ${ligado ? 'border-laranja bg-laranja' : 'border-white/18 bg-white/10'}`}
-      >
-        <span aria-hidden className={`absolute top-[2px] size-4 rounded-full bg-white transition-[left] ${ligado ? 'left-[18px]' : 'left-[2px]'}`} />
-      </button>
+      <span className="mt-0.5"><InterruptorBotao ligado={ligado} disabled={disabled} aoMudar={aoMudar} aria-label={texto} /></span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[13.5px] font-semibold">{texto}</span>
         {ajuda && <span className="text-[12px] leading-normal text-mudo">{ajuda}</span>}

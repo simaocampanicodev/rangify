@@ -1,5 +1,6 @@
 import { ArrowRight, Ban, ChevronsUp, Lock, LoaderCircle, LogOut, RefreshCw, Timer, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { NumeroRolante } from '@/components/ui/NumeroRolante'
 import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -122,7 +123,7 @@ export function BotaoFila({ tipo = 'aberta', grande = false }: { tipo?: FilaTipo
     )
   }
   return (
-    <button type="button" className={`btn btn-primario ${tamanho}`} disabled={ocupado || castigo > 0} onClick={alternar}>
+    <button type="button" className={`btn btn-primario ${grande ? 'btn-neon' : ''} ${tamanho}`} disabled={ocupado || castigo > 0} onClick={alternar}>
       {castigo > 0
         ? <><Timer size={16} aria-hidden />{relogio(castigo)}</>
         : <>{tipo === 'ranked' ? l('Entrar na fila ranked', 'Join the ranked queue') : l('Entrar na fila aberta', 'Join the open queue')}<ArrowRight size={16} aria-hidden /></>}
@@ -199,7 +200,7 @@ export function AnelFila({ tamanho = 200, contagem, naFila, legenda, modo = 'liv
           ? <Lock size={Math.round(tamanho * 0.15)} className="text-mudo" aria-hidden />
           : (
             <span className={`font-mono leading-none font-semibold tracking-[-0.05em] ${modo === 'ocupada' ? 'text-mudo' : ''}`} style={{ fontSize: tamanho * 0.22 }}>
-              {contagem}<span className="text-mudo" style={{ fontSize: tamanho * 0.095 }}>/10</span>
+              <NumeroRolante valor={contagem} contar={false} /><span className="text-mudo" style={{ fontSize: tamanho * 0.095 }}>/10</span>
             </span>
           )}
         <span className={`font-mono text-[10.5px] tracking-[0.1em] ${naFila ? 'respira text-pessego' : 'text-mudo'}`}>{legenda}</span>
@@ -409,7 +410,7 @@ export function CartaoFila({ tipo, rodape, id, alinhada = false }: {
   return (
     <section
       aria-labelledby={id}
-      className={`painel p-[26px] ${linhas ? '' : 'flex flex-1 flex-col gap-5'} ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}
+      className={`painel luz p-[26px] ${linhas ? '' : 'flex flex-1 flex-col gap-5'} ${v.naFila ? '!border-laranja/50 shadow-[0_24px_70px_-34px_rgba(255,91,31,0.55)]' : ''}`}
       style={linhas ? { display: 'grid', gridTemplateRows: 'subgrid', gridRow: `span ${linhas}`, rowGap: 20 } : undefined}
     >
       {corpo}

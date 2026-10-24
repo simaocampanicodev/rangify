@@ -1,4 +1,4 @@
-import { Ban, Check, ClipboardPaste, Crown, Flag, Hash, Radio, Swords, Trophy, Users, Volume2 } from 'lucide-react'
+import { Ban, ClipboardPaste, Crown, Flag, Hash, Radio, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { FaixaAoVivo } from '@/components/AoVivo'
@@ -119,9 +119,14 @@ function Progresso({ p }: { p: Partida }) {
           const agora = i === atual && p.estado !== 'COMPLETED'
           return (
             <li key={f.nome} aria-current={agora ? 'step' : undefined} className="flex items-center gap-1.5">
-              {i > 0 && <span aria-hidden className={`h-px w-4 ${feita || agora ? 'bg-laranja/60' : 'bg-white/10'}`} />}
-              <span className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-semibold ${agora ? 'border-laranja/60 bg-laranja/15 text-pessego-claro' : feita ? 'border-transparent text-suave' : 'border-transparent text-mudo'}`}>
-                {feita && <Check size={12} className="text-laranja" aria-hidden />}
+              {/* O fio entre fases enche-se e o visto desenha-se quando a fase fica feita (ideia do Stepper do EasyUI). */}
+              {i > 0 && <span aria-hidden className="fio-fase" data-cheio={feita || agora ? 'true' : 'false'}><span /></span>}
+              <span className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-semibold transition-colors duration-500 ${agora ? 'fase-agora border-laranja/60 bg-laranja/15 text-pessego-claro' : feita ? 'border-transparent text-suave' : 'border-transparent text-mudo'}`}>
+                {feita && (
+                  <svg className="visto-desenha text-laranja" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2.2 6.4 4.9 9 9.8 3.2" />
+                  </svg>
+                )}
                 {f.nome}
               </span>
             </li>

@@ -53,7 +53,10 @@ export function Colapsavel({ titulo, eyebrow, resumo, aberto: inicial = false, m
         <ChevronDown size={18} aria-hidden className={`shrink-0 text-mudo transition-transform ${aberto ? 'rotate-180' : ''}`} />
       </button>
       {(aberto || (manter && ja)) && (
-        <div hidden={!aberto} className="flex flex-col gap-3 border-t border-white/7 px-4 pt-4 pb-4">{children}</div>
+        // Abre a desenrolar (ideia do Unfold Accordion do EasyUI); o conteúdo só se desenha depois de aberto, como antes.
+        <div hidden={!aberto} className="desdobra">
+          <div className="flex flex-col gap-3 border-t border-white/7 px-4 pt-4 pb-4">{children}</div>
+        </div>
       )}
     </section>
   )

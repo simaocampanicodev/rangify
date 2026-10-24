@@ -16,22 +16,29 @@ export function ProvedorAvisos({ children }: { children: ReactNode }) {
     const id = Date.now() + Math.random()
     // Os erros vêm do servidor em português; em inglês traduzem-se aqui.
     setLista((v) => [...v.slice(-3), { id, texto: tipo === 'erro' ? traduzirErro(texto) : texto, tipo }])
-    window.setTimeout(() => setLista((v) => v.filter((a) => a.id !== id)), tipo === 'erro' ? 6000 : 3500)
   }, [])
+  const fechar = useCallback((id: number) => setLista((v) => v.filter((a) => a.id !== id)), [])
 
   return (
     <Contexto.Provider value={avisar}>
       {children}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-4 top-3 z-[80] flex flex-col gap-2 sm:inset-x-auto sm:top-auto sm:right-4 sm:bottom-4 sm:w-[380px]">
         {lista.map((a) => (
-          <div key={a.id} role={a.tipo === 'erro' ? 'alert' : 'status'} className="painel entra pointer-events-auto flex items-start gap-3 !rounded-xl px-4 py-3 text-[13.5px] shadow-2xl">
+          <div key={a.id} role={a.tipo === 'erro' ? 'alert' : 'status'} className="painel toast assenta pointer-events-auto relative flex items-start gap-3 overflow-hidden !rounded-xl px-4 py-3 text-[13.5px] shadow-2xl">
             {a.tipo === 'erro'
               ? <CircleAlert size={18} className="mt-px shrink-0 text-derrota" aria-hidden />
               : <CircleCheck size={18} className="mt-px shrink-0 text-laranja" aria-hidden />}
             <span className="flex-1 leading-snug text-marfim">{a.texto}</span>
-            <button type="button" aria-label={l('Fechar aviso', 'Close notice')} onClick={() => setLista((v) => v.filter((x) => x.id !== a.id))} className="-m-1 grid size-7 place-items-center rounded-md text-mudo hover:text-texto">
+            <button type="button" aria-label={l('Fechar aviso', 'Close notice')} onClick={() => fechar(a.id)} className="-m-1 grid size-7 place-items-center rounded-md text-mudo hover:text-texto">
               <X size={15} aria-hidden />
             </button>
+            {/* O tempo que falta: a barra encolhe, pára com o rato por cima e, ao chegar ao fim, fecha o aviso (ideia do Undo/Velocity Toast do EasyUI). */}
+            <span
+              aria-hidden
+              className={`toast-barra absolute inset-x-0 bottom-0 h-[2px] ${a.tipo === 'erro' ? 'bg-derrota/80' : 'bg-laranja/80'}`}
+              style={{ ['--dur' as string]: a.tipo === 'erro' ? '6s' : '3.5s' }}
+              onAnimationEnd={() => fechar(a.id)}
+            />
           </div>
         ))}
       </div>
