@@ -1,3 +1,5 @@
+import { NumeroRolante } from '../ui/NumeroRolante'
+
 /** Anel de contagem decrescente, como no protótipo do fluxo da partida. */
 export function Relogio({ restante, total, tamanho = 92, espessura = 6, cor = '#ff5b1f', texto, legenda }: {
   restante: number; total: number; tamanho?: number; espessura?: number; cor?: string; texto?: string; legenda?: string
@@ -20,7 +22,7 @@ export function Relogio({ restante, total, tamanho = 92, espessura = 6, cor = '#
         />
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className={`font-mono leading-none font-semibold tracking-[-0.05em] ${urgente ? 'text-derrota' : ''}`} style={{ fontSize: tamanho * 0.29 }}>{texto ?? segundos}</span>
+        <span className={`font-mono leading-none font-semibold tracking-[-0.05em] ${urgente ? 'text-derrota' : ''}`} style={{ fontSize: tamanho * 0.29 }}>{texto ?? <NumeroRolante valor={segundos} contar={false} />}</span>
         {legenda && <span className="text-[12px] text-mudo">{legenda}</span>}
       </span>
     </div>

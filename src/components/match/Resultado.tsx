@@ -1,4 +1,4 @@
-import { CircleCheck, Hourglass, LoaderCircle, Scale, Send, Trophy } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, ChevronRight, CircleCheck, Hourglass, LoaderCircle, Scale, Send, Trophy } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAcao } from '@/contexts/Avisos'
@@ -11,6 +11,8 @@ import { calcularPontos, comSinal } from '@/lib/pontos'
 import { nomeRank, tierMedio } from '@/lib/ranks'
 import { emFalta, relogio } from '@/lib/tempo'
 import { Chip, IconeAgente, SeloMvp } from '../ui'
+import { NumeroRolante } from '../ui/NumeroRolante'
+import { Festa, ReciboPontos } from '../ui/Recibo'
 import { Iniciais } from './comum'
 import { l } from '@/lib/idioma'
 
@@ -173,46 +175,129 @@ function Submeter({ p, eu }: { p: Partida; eu: string }) {
 
 const pct = (v: number | null | undefined) => (v != null ? `${v}%` : '-')
 
-/** As colunas da tabela da partida, com a explicação de cada uma ao passar o rato. */
-const colunas = (): { rotulo: string; titulo: string; largura: number }[] => [
-  { rotulo: 'RS', titulo: l('Rangify Score: ACS, KDA, KAST e trades comparados com a média desta partida (100 é a média). Dá de -6 a +6 pontos.', 'Rangify Score: ACS, KDA, KAST and trades compared with this match average (100 is average). Worth -6 to +6 points.'), largura: 52 },
-  { rotulo: 'K/D/A', titulo: l('Kills, mortes e assistências', 'Kills, deaths and assists'), largura: 92 },
-  { rotulo: 'ACS', titulo: l('Average Combat Score: pontuação de combate por ronda', 'Average Combat Score per round'), largura: 54 },
-  { rotulo: 'KAST', titulo: l('Rondas com kill, assistência, sobrevivência ou troca', 'Rounds with a kill, assist, survival or trade'), largura: 58 },
-  { rotulo: 'HS%', titulo: l('Percentagem de tiros na cabeça', 'Headshot percentage'), largura: 54 },
-  { rotulo: 'Trades', titulo: l('Kills de troca: mataste quem tinha matado um colega há menos de 5 s', 'Trade kills: you killed whoever killed a teammate less than 5 s before'), largura: 58 },
-  { rotulo: 'FB', titulo: l('First bloods: a primeira kill da ronda', 'First bloods: the first kill of the round'), largura: 42 },
-  { rotulo: l('Pontos', 'Points'), titulo: l('Pontos Rangify ganhos ou perdidos', 'Rangify points won or lost'), largura: 64 },
+type Chave = 'rs' | 'kda' | 'acs' | 'kast' | 'hs' | 'trades' | 'fb' | 'pontos'
+
+/** As colunas da tabela da partida, com a explicação de cada uma ao passar o rato. Cada uma ordena a tabela ao clicar no título. */
+const colunas = (): { chave: Chave; rotulo: string; titulo: string; largura: number }[] => [
+  { chave: 'rs', rotulo: 'RS', titulo: l('Rangify Score: ACS, KDA, KAST e trades comparados com a média desta partida (100 é a média). Dá de -6 a +6 pontos.', 'Rangify Score: ACS, KDA, KAST and trades compared with this match average (100 is average). Worth -6 to +6 points.'), largura: 48 },
+  { chave: 'kda', rotulo: 'K/D/A', titulo: l('Kills, mortes e assistências (ordena pelas kills)', 'Kills, deaths and assists (sorts by kills)'), largura: 92 },
+  { chave: 'acs', rotulo: 'ACS', titulo: l('Average Combat Score: pontuação de combate por ronda', 'Average Combat Score per round'), largura: 54 },
+  { chave: 'kast', rotulo: 'KAST', titulo: l('Rondas com kill, assistência, sobrevivência ou troca', 'Rounds with a kill, assist, survival or trade'), largura: 58 },
+  { chave: 'hs', rotulo: 'HS%', titulo: l('Percentagem de tiros na cabeça', 'Headshot percentage'), largura: 54 },
+  { chave: 'trades', rotulo: 'Trades', titulo: l('Kills de troca: mataste quem tinha matado um colega há menos de 5 s', 'Trade kills: you killed whoever killed a teammate less than 5 s before'), largura: 58 },
+  { chave: 'fb', rotulo: 'FB', titulo: l('First bloods: a primeira kill da ronda', 'First bloods: the first kill of the round'), largura: 42 },
+  { chave: 'pontos', rotulo: l('Pontos', 'Points'), titulo: l('Pontos Rangify ganhos ou perdidos', 'Rangify points won or lost'), largura: 64 },
 ]
 
-function LinhaEstatisticas({ j, eu }: { j: JogadorPartida; eu: string }) {
-  const num = 'px-2 text-right font-mono text-[13px] tabular-nums'
+const VALOR: Record<Chave, (j: JogadorPartida) => number> = {
+  rs: (j) => j.rangifyScore ?? -1,
+  kda: (j) => j.kills ?? -1,
+  acs: (j) => j.acs ?? -1,
+  kast: (j) => j.kastPct ?? -1,
+  hs: (j) => j.hsPct ?? -1,
+  trades: (j) => j.trades ?? -1,
+  fb: (j) => j.firstBloods ?? -1,
+  pontos: (j) => j.deltaPontos ?? -999,
+}
+
+/** Uma barrinha por baixo do número: quanto mais cheia, mais perto do melhor da partida. */
+const calor = (v: number | null | undefined, max: number) => {
+  const p = v != null && max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0
+  return { backgroundImage: 'linear-gradient(rgb(255 91 31 / 0.75), rgb(255 91 31 / 0.75))', backgroundSize: `${p}% 2px`, backgroundPosition: 'right calc(100% - 6px)', backgroundRepeat: 'no-repeat' }
+}
+
+/** O que a linha expandida mostra: o agente, o KDA e os pontos explicados, para ver mais do que cabe na tabela. */
+function Detalhe({ j, todos }: { j: JogadorPartida; todos: JogadorPartida[] }) {
+  const kda = j.kills != null && j.assists != null && j.deaths != null ? ((j.kills + j.assists) / Math.max(1, j.deaths)).toFixed(2) : '-'
+  const lugarAcs = j.acs != null ? 1 + todos.filter((x) => (x.acs ?? -1) > j.acs!).length : null
+  const celula = 'flex min-w-0 flex-1 basis-[150px] flex-col gap-1 rounded-xl border border-white/7 bg-white/[0.025] p-3'
   return (
-    <tr className={j.perfilId === eu ? 'bg-laranja/8' : ''}>
-      <td className="py-2 pr-2 pl-3">
-        <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
-          <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} perfilId={j.perfilId} />
-          <IconeAgente nome={j.agente} tamanho={24} />
-          <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
-          {j.capitao && <span className="font-mono text-[11px] font-bold text-laranja">(C)</span>}
-          {j.mvp && <SeloMvp tamanho={20} perfilId={j.perfilId} />}
-        </Link>
-      </td>
-      <td className={`${num} font-semibold ${(j.rangifyScore ?? 0) >= 100 ? 'text-pessego' : 'text-suave'}`}>{j.rangifyScore ?? '-'}</td>
-      <td className={num}>{j.kills ?? '-'}/{j.deaths ?? '-'}/{j.assists ?? '-'}</td>
-      <td className={num}>{j.acs ?? '-'}</td>
-      <td className={num}>{pct(j.kastPct)}</td>
-      <td className={num}>{pct(j.hsPct)}</td>
-      <td className={num}>{j.trades ?? '-'}</td>
-      <td className={num}>{j.firstBloods ?? '-'}</td>
-      <td title={j.deltaPontos != null && j.deltaDesempenho != null ? l(`Resultado e rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Desempenho: ${comSinal(j.deltaDesempenho)}`, `Result and rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Performance: ${comSinal(j.deltaDesempenho)}`) : undefined} className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? comSinal(j.deltaPontos) : '-'}</td>
-    </tr>
+    <div className="flex flex-wrap items-stretch gap-2.5 px-3 pt-1 pb-3.5">
+      <div className={celula}>
+        <span className="rotulo">{l('Agente', 'Agent')}</span>
+        <span className="flex items-center gap-2.5 text-[14px] font-bold"><IconeAgente nome={j.agente} tamanho={36} />{j.agente ?? '-'}</span>
+      </div>
+      <div className={celula}>
+        <span className="rotulo">{l('Combate', 'Combat')}</span>
+        <span className="font-mono text-[15px] font-semibold">{j.kills ?? '-'} / {j.deaths ?? '-'} / {j.assists ?? '-'}</span>
+        <span className="font-mono text-[11.5px] text-mudo">KDA {kda}{lugarAcs ? ` · ACS ${l(`#${lugarAcs} da partida`, `#${lugarAcs} of the match`)}` : ''}</span>
+      </div>
+      <div className={celula}>
+        <span className="rotulo">{l('Impacto', 'Impact')}</span>
+        <span className="font-mono text-[12.5px] text-suave">KAST {pct(j.kastPct)} · HS {pct(j.hsPct)}</span>
+        <span className="font-mono text-[12.5px] text-suave">{j.trades ?? '-'} trades · {j.firstBloods ?? '-'} first bloods</span>
+      </div>
+      <div className={celula}>
+        <span className="rotulo">{l('Pontos', 'Points')}</span>
+        {j.deltaPontos != null ? (
+          <>
+            <span className={`font-mono text-[15px] font-semibold ${j.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(j.deltaPontos)}</span>
+            {j.deltaDesempenho != null && <span className="font-mono text-[11.5px] text-mudo">{comSinal(j.deltaPontos - j.deltaDesempenho)} {l('resultado e rank', 'result and rank')} · {comSinal(j.deltaDesempenho)} RS {j.rangifyScore ?? '-'}</span>}
+          </>
+        ) : <span className="font-mono text-[15px] text-mudo">-</span>}
+      </div>
+      <Link to={caminhoPerfil(j.riotId)} className="btn btn-fantasma !min-h-10 self-center !px-3 !text-[13px]">{l('Ver perfil', 'View profile')}<ArrowUpRight size={14} className="text-laranja" aria-hidden /></Link>
+    </div>
   )
 }
 
-/** As duas equipas com as mesmas larguras de coluna, para os números ficarem alinhados de uma tabela para a outra. */
+function LinhaEstatisticas({ j, eu, aberta, aoAlternar, maximos, todos, nCols }: {
+  j: JogadorPartida; eu: string; aberta: boolean; aoAlternar: () => void; maximos: { acs: number; rs: number }; todos: JogadorPartida[]; nCols: number
+}) {
+  const num = 'px-2 text-right font-mono text-[13px] tabular-nums'
+  return (
+    <>
+      <tr
+        className={`cursor-pointer transition-colors hover:bg-white/[0.03] ${j.perfilId === eu ? 'bg-laranja/8' : ''} ${aberta ? '!bg-white/[0.035]' : ''}`}
+        onClick={(e) => { if (!(e.target as HTMLElement).closest('a, button')) aoAlternar() }}
+      >
+        <td className="py-2 pr-2 pl-1.5">
+          <span className="flex min-w-0 items-center gap-1">
+            <button type="button" onClick={aoAlternar} aria-expanded={aberta} aria-label={l(`Detalhes de ${nomeJogador(j)}`, `Details for ${nomeJogador(j)}`)} className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md bg-transparent text-mudo hover:text-texto">
+              <ChevronRight size={15} aria-hidden className={`transition-transform duration-300 ${aberta ? 'rotate-90 text-laranja' : ''}`} />
+            </button>
+            <Link to={caminhoPerfil(j.riotId)} className="flex min-w-0 items-center gap-2.5 text-texto no-underline hover:text-pessego">
+              <Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={28} url={j.avatarUrl} perfilId={j.perfilId} />
+              <IconeAgente nome={j.agente} tamanho={24} />
+              <span className="truncate text-[13.5px] font-semibold">{nomeJogador(j)}</span>
+              {j.capitao && <span className="font-mono text-[11px] font-bold text-laranja">(C)</span>}
+              {j.mvp && <SeloMvp tamanho={20} perfilId={j.perfilId} />}
+            </Link>
+          </span>
+        </td>
+        <td style={calor(j.rangifyScore, maximos.rs)} className={`${num} font-semibold ${(j.rangifyScore ?? 0) >= 100 ? 'text-pessego' : 'text-suave'}`}>{j.rangifyScore ?? '-'}</td>
+        <td className={num}>{j.kills ?? '-'}/{j.deaths ?? '-'}/{j.assists ?? '-'}</td>
+        <td style={calor(j.acs, maximos.acs)} className={num}>{j.acs ?? '-'}</td>
+        <td className={num}>{pct(j.kastPct)}</td>
+        <td className={num}>{pct(j.hsPct)}</td>
+        <td className={num}>{j.trades ?? '-'}</td>
+        <td className={num}>{j.firstBloods ?? '-'}</td>
+        <td title={j.deltaPontos != null && j.deltaDesempenho != null ? l(`Resultado e rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Desempenho: ${comSinal(j.deltaDesempenho)}`, `Result and rank: ${comSinal(j.deltaPontos - j.deltaDesempenho)} · Performance: ${comSinal(j.deltaDesempenho)}`) : undefined} className={`pr-3 pl-2 text-right font-mono text-[13.5px] font-bold tabular-nums ${(j.deltaPontos ?? 0) > 0 ? 'text-vitoria' : 'text-derrota'}`}>{j.deltaPontos != null ? <NumeroRolante valor={comSinal(j.deltaPontos)} /> : '-'}</td>
+      </tr>
+      {aberta && (
+        <tr className="!border-t-0">
+          <td colSpan={nCols} className="p-0">
+            <div className="desdobra"><div><Detalhe j={j} todos={todos} /></div></div>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+/**
+ * As duas equipas com as mesmas larguras de coluna, para os números ficarem alinhados de uma tabela para a outra.
+ * Cada título ordena (ideia do Advanced Data Table do EasyUI) e cada linha abre a mostrar mais (ideia do Expandable Data Row).
+ */
 export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
   const COLUNAS = colunas()
+  const [ordem, setOrdem] = useState<{ chave: Chave; dir: 1 | -1 }>({ chave: 'rs', dir: -1 })
+  const [abertas, setAbertas] = useState<Set<string>>(() => new Set())
+  const jogadores = p.jogadores.filter((j) => j.equipa)
+  const maximos = { acs: Math.max(0, ...jogadores.map((j) => j.acs ?? 0)), rs: Math.max(0, ...jogadores.map((j) => j.rangifyScore ?? 0)) }
+  const ordenar = (chave: Chave) => setOrdem((o) => (o.chave === chave ? { chave, dir: o.dir === -1 ? 1 : -1 } : { chave, dir: -1 }))
+  const alternar = (id: string) => setAbertas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const ordenados = (eq: 'A' | 'B') => [...equipa(p, eq)].sort((x, y) => ordem.dir * (VALOR[ordem.chave](x) - VALOR[ordem.chave](y)) || (y.acs ?? 0) - (x.acs ?? 0))
   return (
     <div className="flex flex-col gap-4 overflow-x-auto">
       {(['A', 'B'] as const).map((eq) => (
@@ -225,19 +310,27 @@ export function TabelaPartida({ p, eu }: { p: Partida; eu: string }) {
             {l('EQUIPA', 'TEAM')} {eq} · {p.resultadoA != null ? (eq === 'A' ? p.resultadoA : p.resultadoB) : '-'} {l('RONDAS', 'ROUNDS')} {p.vencedor === eq ? `· ${l('VITÓRIA', 'WIN')} ` : ''}
             <span className="font-medium text-mudo">· {l('MÉDIA', 'AVERAGE')} {nomeRank(tierMedio(equipa(p, eq).map((j) => j.tier))).toUpperCase()}</span>
             {ladoInicial(p, eq) && (
-              <span className="font-medium text-mudo"> · {ladoInicial(p, eq) === 'ataque' ? l('COMEÇOU A ATACAR', 'STARTED ON ATTACK') : l('COMEÇOU A DEFENDER', 'STARTED ON DEFENCE')}{p.lado?.equipa === eq && <span className="ml-1.5 rounded-[5px] border border-laranja/40 bg-laranja/12 px-1.5 py-px text-pessego">{l('ESCOLHEU O LADO', 'PICKED THE SIDE')}</span>}</span>
+              <span className="font-medium text-mudo"> · {ladoInicial(p, eq) === 'ataque' ? l('COMEÇOU A ATACAR', 'STARTED ON ATTACK') : l('COMEÇOU A DEFENDER', 'STARTED ON DEFENCE')}{p.lado?.equipa === eq && <span className="ml-1.5 rounded-[5px] border border-laranja/35 px-1.5 py-px text-pessego">{l('ESCOLHA', 'PICK')}</span>}</span>
             )}
           </caption>
           <thead>
             <tr className="rotulo text-left">
               <th scope="col" className="py-1.5 pl-3 font-normal">{l('Jogador', 'Player')}</th>
-              {COLUNAS.map((c, i) => (
-                <th key={c.rotulo} scope="col" title={c.titulo} className={`cursor-help text-right font-normal ${i === COLUNAS.length - 1 ? 'pr-3' : 'px-2'}`}>{c.rotulo}</th>
-              ))}
+              {COLUNAS.map((c, i) => {
+                const ativa = ordem.chave === c.chave
+                return (
+                  <th key={c.rotulo} scope="col" aria-sort={ativa ? (ordem.dir === -1 ? 'descending' : 'ascending') : 'none'} className={`text-right font-normal ${i === COLUNAS.length - 1 ? 'pr-3' : 'px-2'}`}>
+                    <button type="button" title={c.titulo} onClick={() => ordenar(c.chave)} className={`inline-flex cursor-pointer items-center gap-0.5 rounded bg-transparent p-0 font-[inherit] tracking-[inherit] uppercase hover:text-texto ${ativa ? 'text-pessego' : 'text-inherit'}`}>
+                      {c.rotulo}
+                      <ChevronDown size={10} aria-hidden className={`transition-all duration-300 ${ativa ? `opacity-100 ${ordem.dir === 1 ? 'rotate-180' : ''}` : 'opacity-0'}`} />
+                    </button>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="[&>tr]:border-t [&>tr]:border-white/6">
-            {[...equipa(p, eq)].sort((x, y) => (y.rangifyScore ?? 0) - (x.rangifyScore ?? 0) || (y.acs ?? 0) - (x.acs ?? 0)).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} />)}
+            {ordenados(eq).map((j) => <LinhaEstatisticas key={j.perfilId} j={j} eu={eu} aberta={abertas.has(j.perfilId)} aoAlternar={() => alternar(j.perfilId)} maximos={maximos} todos={jogadores} nCols={COLUNAS.length + 1} />)}
           </tbody>
         </table>
       ))}
@@ -264,14 +357,19 @@ export function Resultado({ p, eu }: { p: Partida; eu: string }) {
           titulo={venci ? `${l('Vitória', 'Win')}, ${placar}` : `${l('Derrota', 'Loss')}, ${placar}`}
           texto={p.simulada ? l('Partida de teste: os pontos e as estatísticas contam. Remove-a para voltar tudo atrás.', 'Test match: points and stats count. Remove it to undo everything.') : p.fila === 'ranked' ? l('Resultado confirmado. Os pontos já estão na Tabela Ranked.', 'Result confirmed. The points are already on the Ranked leaderboard.') : l('Resultado confirmado. Os pontos já estão na tabela.', 'Result confirmed. The points are already on the leaderboard.')}
           direita={minha?.deltaPontos != null && (
-            <div className="flex flex-col items-end gap-1 rounded-xl border border-white/12 bg-[rgba(9,9,11,0.6)] px-5 py-3">
-              <span className="rotulo">{l('Os teus pontos', 'Your points')}{p.fila === 'ranked' ? ' · RANKED' : ''}</span>
-              <span className={`font-mono text-[34px] leading-none font-semibold ${minha.deltaPontos > 0 ? 'text-vitoria' : 'text-derrota'}`}>{comSinal(minha.deltaPontos)}</span>
-              {minha.deltaDesempenho != null && (
-                <span className="font-mono text-[11.5px] text-mudo">
-                  {comSinal(minha.deltaPontos - minha.deltaDesempenho)} {l('resultado e rank', 'result and rank')} · <span className={minha.deltaDesempenho >= 0 ? 'text-pessego' : 'text-derrota'}>{comSinal(minha.deltaDesempenho)}</span> RS {minha.rangifyScore}
-                </span>
-              )}
+            <div className="relative">
+              <ReciboPontos
+                codigo={p.codigo}
+                fila={p.fila === 'ranked' ? 'RANKED' : l('ABERTA', 'OPEN')}
+                total={minha.deltaPontos}
+                linhas={minha.deltaDesempenho != null
+                  ? [
+                    { rotulo: l('Resultado e rank', 'Result and rank'), valor: minha.deltaPontos - minha.deltaDesempenho },
+                    { rotulo: `Rangify Score ${minha.rangifyScore ?? '-'}`, valor: minha.deltaDesempenho },
+                  ]
+                  : [{ rotulo: l('Resultado e rank', 'Result and rank'), valor: minha.deltaPontos }]}
+              />
+              {venci && <Festa chave={p.id} />}
             </div>
           )}
         />

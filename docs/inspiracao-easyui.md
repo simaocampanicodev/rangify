@@ -23,6 +23,22 @@ Estudei os 131 componentes de [easyui.site/components](https://easyui.site/compo
 | [Expandable Search](https://easyui.site/components/expandable-search) | A pesquisa da Tabela alarga quando lhe pegas | `.campo-expande` |
 | [Glitch Text](https://easyui.site/components/glitch-text) e [Not Found](https://easyui.site/components/not-found) | O 404 falha de vez em quando, só em laranja e branco | `NaoEncontrado.tsx` |
 
+## Na partida: picks, bans, código e fim de jogo
+
+| Componente do EasyUI | O que ficou no Rangify | Onde |
+| --- | --- | --- |
+| [Stepper](https://easyui.site/components/stepper) e [Avatar Stack](https://easyui.site/components/avatar-stack) | A ordem do draft é um stepper: cada escolha mostra a cara de quem foi escolhido, o fio enche-se até à vez atual e o passo atual pulsa. Nos bans, o mesmo fio liga os passos. As caras de quem sugeriu um mapa sobem ao passar o rato, cada uma com o nome | `Draft.tsx`, `Mapas.tsx` |
+| [Focus Mode](https://easyui.site/components/focus-mode) | No draft, com o rato num jogador (se for a tua vez), os outros escurecem um pouco | `.foco-grupo` |
+| [Animated Number Morph](https://easyui.site/components/animated-number) | Os segundos do relógio dos picks e bans e o bloqueio de 15 minutos do código rolam | `Relogio.tsx`, `Codigo.tsx` |
+| [Glitch Text](https://easyui.site/components/glitch-text) | O mapa que acabou de ser banido falha e cai para cinzento | `.ban-novo` |
+| [OTP Input](https://easyui.site/components/otp-input) | O código do grupo é preenchido em seis caixas, com cursor, salto a cada letra e o colar a funcionar. Por baixo é um só campo de texto | `ui/CodigoInput.tsx` |
+| [Text Scramble Decoder](https://easyui.site/components/text-scramble-decoder) | O código aparece decifrado, letra a letra | `ui/Decifrar.tsx` |
+| [Morphing Button](https://easyui.site/components/morphing-button) | "Copiar código" muda para "Copiado" com o visto | `Codigo.tsx` |
+| [Stretch Switch](https://easyui.site/components/stretch-switch) | As definições do grupo mostram interruptores só de leitura, ligados ou desligados como têm de ficar | `Codigo.tsx` |
+| [Expandable Data Row](https://easyui.site/components/expandable-data-row) e [Advanced Data Table](https://easyui.site/components/advanced-data-table) | A tabela do fim de jogo ordena ao clicar em qualquer coluna e cada jogador abre a mostrar o agente, o KDA, o impacto e os pontos explicados. Uma barrinha sob o ACS e o RS mostra a distância ao melhor da partida | `TabelaPartida` em `Resultado.tsx` |
+| [Payment Receipt Printer](https://easyui.site/components/payment-receipt-printer) | Os pontos da partida saem num recibo que se imprime linha a linha (resultado e rank, Rangify Score e total) | `ui/Recibo.tsx` |
+| [Rocket Party Popper](https://easyui.site/components/rocket-party-popper) | Quem ganha vê umas faíscas laranja, uma só vez por partida | `Festa` em `ui/Recibo.tsx` |
+
 ## Só inspiração (já tínhamos algo parecido)
 
 | Componente do EasyUI | O que já existia e como mudou |

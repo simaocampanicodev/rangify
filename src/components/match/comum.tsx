@@ -46,7 +46,7 @@ function IniciaisBase({ nome, equipa, tamanho, url }: { nome: string; equipa: 'A
 }
 
 /** Lista de uma equipa, com lugares vazios a tracejado. */
-export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jogadores: JogadorPartida[]; eu?: string; rotulo?: string }) {
+export function ColunaEquipa({ eq, jogadores, eu, rotulo, destacar }: { eq: 'A' | 'B'; jogadores: JogadorPartida[]; eu?: string; rotulo?: string; destacar?: number }) {
   const vazios = Math.max(0, 5 - jogadores.length)
   return (
     <section aria-label={`${l('Equipa', 'Team')} ${eq}`} className="painel flex min-w-0 flex-1 basis-[240px] flex-col gap-2 p-4">
@@ -57,7 +57,7 @@ export function ColunaEquipa({ eq, jogadores, eu, rotulo }: { eq: 'A' | 'B'; jog
       {jogadores.map((j) => (
         <div
           key={j.perfilId}
-          className={`entra flex min-h-[54px] items-center gap-2.5 rounded-xl border px-2.5 ${j.perfilId === eu ? 'border-laranja/40 bg-laranja/8' : 'border-white/7 bg-white/[0.025]'}`}
+          className={`entra flex min-h-[54px] items-center gap-2.5 rounded-xl border px-2.5 ${j.perfilId === eu ? 'border-laranja/40 bg-laranja/8' : 'border-white/7 bg-white/[0.025]'} ${destacar && j.ordemEscolha === destacar ? 'jogador-novo' : ''}`}
         >
           <Iniciais nome={nomeJogador(j)} equipa={eq} url={j.avatarUrl} perfilId={j.perfilId} />
           <span className="flex min-w-0 flex-1 flex-col gap-px">

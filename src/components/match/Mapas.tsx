@@ -19,7 +19,7 @@ function Sugeridos({ quem }: { quem: JogadorPartida[] }) {
   if (!quem.length) return null
   return (
     <span className="absolute top-3 right-3 z-[2] inline-flex items-center gap-1 rounded-full border border-laranja/50 bg-[rgba(9,9,11,0.78)] py-0.5 pr-2 pl-0.5" title={quem.map(nomeJogador).join(', ')}>
-      <span className="flex -space-x-1.5">{quem.slice(0, 3).map((j) => <Iniciais key={j.perfilId} nome={nomeJogador(j)} equipa={j.equipa} tamanho={20} url={j.avatarUrl} />)}</span>
+      <span className="pilha flex -space-x-1.5">{quem.slice(0, 3).map((j) => <span key={j.perfilId} title={nomeJogador(j)}><Iniciais nome={nomeJogador(j)} equipa={j.equipa} tamanho={20} url={j.avatarUrl} /></span>)}</span>
       <span className="font-mono text-[10.5px] font-bold text-pessego">{quem.length}</span>
       <span className="so-leitores">{l(`${quem.length} sugestões`, `${quem.length} suggestions`)}</span>
     </span>
@@ -100,7 +100,8 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
             const mapa = b ? MAPAS.find((m) => m.nome === b.mapa) : ehDecisivo ? decisivo : null
             const atual = i === n && !ladoAgora
             return (
-              <div key={i} role="listitem" className="flex w-[58px] flex-col items-center gap-1.5">
+              <div key={i} role="listitem" className="flex items-start">
+              <div className="flex w-[58px] flex-col items-center gap-1.5">
                 <span
                   className="mapa relative grid h-[38px] w-[58px] place-items-center overflow-hidden rounded-[8px] border font-mono text-[11px] font-bold"
                   style={{
@@ -115,6 +116,8 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
                 <span className={`max-w-full truncate font-mono text-[9px] tracking-[0.06em] ${atual || (ehDecisivo && mapa) ? 'text-pessego' : 'text-mudo'}`}>
                   {ehDecisivo ? (mapa ? mapa.nome.toUpperCase() : l('DECISIVO', 'DECIDER')) : mapa ? mapa.nome.toUpperCase() : `BAN ${i + 1}`}
                 </span>
+              </div>
+              <span aria-hidden className="ordem-fio mt-[18px] ml-1.5 w-3 flex-none" data-cheio={i < n || ladoAgora ? 'true' : 'false'}><span /></span>
               </div>
             )
           })}
@@ -163,7 +166,7 @@ export function Mapas({ p, eu }: { p: Partida; eu: string }) {
             const ban = p.bans.find((b) => b.mapa === m.nome)
             const ehDecisivo = !!p.mapa && p.mapa === m.nome
             const livre = !ban && !ehDecisivo
-            const classe = ehDecisivo ? 'ban-decisivo' : ban ? 'ban-banido' : 'ban-livre'
+            const classe = ehDecisivo ? 'ban-decisivo' : ban ? `ban-banido ${ban.mapa === p.bans[p.bans.length - 1]?.mapa ? 'ban-novo' : ''}` : 'ban-livre'
             const quem = livre ? sugeridoPor(m.nome) : []
             return (
               <div key={m.nome} className={`ban-cartao ${classe}`}>

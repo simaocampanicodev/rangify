@@ -1,4 +1,4 @@
-import { Bot, Crown, UserPlus } from 'lucide-react'
+import { Bot, Crown, LoaderCircle, UserPlus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAcao } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
@@ -87,33 +87,41 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
             <h1 className="m-0 text-[24px] leading-[1.1] font-extrabold tracking-[-0.03em]">
               {souEu ? l('É a tua vez de escolher', 'It is your pick') : l(`${capVez ? nomeJogador(capVez) : 'O capitão'} está a escolher`, `${capVez ? nomeJogador(capVez) : 'The captain'} is picking`)}
             </h1>
-            <div role="img" aria-label={l(`Ordem do draft, escolha ${n + 1} de 8`, `Draft order, pick ${n + 1} of 8`)} className="flex flex-wrap gap-[5px]">
+            {/* O stepper do draft (ideia do Stepper do EasyUI): quem já foi escolhido mostra a cara, o fio enche-se até à vez atual. */}
+            <ol aria-label={l(`Ordem do draft, escolha ${n + 1} de 8`, `Draft order, pick ${n + 1} of 8`)} className="m-0 flex max-w-[520px] list-none items-center gap-1 p-0">
               {Array.from({ length: 8 }, (_, i) => {
                 const e = equipaDaEscolha(i)
                 const feita = i < n
                 const atual = i === n
+                const escolhido = feita ? p.jogadores.find((j) => j.ordemEscolha === i + 1) : undefined
                 return (
-                  <span
-                    key={i}
-                    className="grid size-[34px] place-items-center rounded-[9px] border font-mono text-[10.5px] font-bold"
-                    style={{
-                      background: feita ? (e === 'A' ? 'rgba(255,91,31,0.22)' : 'rgba(255,255,255,0.1)') : atual ? 'rgba(255,91,31,0.12)' : 'transparent',
-                      borderColor: atual ? '#ff5b1f' : feita ? 'transparent' : 'rgba(255,255,255,0.1)',
-                      color: feita ? (e === 'A' ? '#ffb592' : '#e6e1da') : atual ? '#ffd2bd' : '#8a857e',
-                    }}
-                  >
-                    {e}{i + 1}
-                  </span>
+                  <li key={i} className="flex min-w-0 flex-1 items-center gap-1 last:flex-none">
+                    <span
+                      title={escolhido ? `${e}${i + 1} · ${nomeJogador(escolhido)}` : `${e}${i + 1}`}
+                      className={`relative grid size-8 shrink-0 place-items-center rounded-[9px] border font-mono text-[10.5px] font-bold transition-colors duration-500 sm:size-9 ${atual ? 'fase-agora' : ''}`}
+                      style={{
+                        background: feita ? 'transparent' : atual ? 'rgba(255,91,31,0.14)' : 'transparent',
+                        borderColor: atual ? '#ff5b1f' : feita ? (e === 'A' ? 'rgba(255,91,31,0.55)' : 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.1)',
+                        borderStyle: feita || atual ? 'solid' : 'dashed',
+                        color: atual ? '#ffd2bd' : '#8a857e',
+                      }}
+                    >
+                      {escolhido
+                        ? <span className="assenta"><Iniciais nome={nomeJogador(escolhido)} equipa={e} tamanho={26} url={escolhido.avatarUrl} perfilId={escolhido.perfilId} /></span>
+                        : <>{e}{i + 1}</>}
+                    </span>
+                    {i < 7 && <span aria-hidden className="ordem-fio" data-cheio={i < n ? 'true' : 'false'}><span /></span>}
+                  </li>
                 )
               })}
-            </div>
+            </ol>
           </div>
         </div>
         <CartaoCapitao p={p} eq="B" vez={vez === 'B'} />
       </section>
 
       <div className="flex flex-wrap items-stretch gap-3.5">
-        <ColunaEquipa eq="A" jogadores={equipa(p, 'A')} eu={eu} />
+        <ColunaEquipa eq="A" jogadores={equipa(p, 'A')} eu={eu} destacar={n} />
         <section aria-labelledby="rg-draft-livres" className="order-first flex min-w-0 flex-[2.6_1_520px] flex-col gap-3 md:order-none">
           <div className="flex flex-wrap items-baseline justify-between gap-2.5">
             <h2 id="rg-draft-livres" className="eyebrow m-0">{l('JOGADORES DISPONÍVEIS', 'AVAILABLE PLAYERS')} · {livres.length}</h2>
@@ -121,7 +129,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
               {souEu ? l('Escolhe um jogador. Se o tempo acabar, entra o rank oficial mais alto.', 'Pick a player. If time runs out, the highest official rank goes in.') : l('Acompanha o draft em direto.', 'Follow the draft live.')}
             </span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+          <div className="foco-grupo grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
             {livres.map((j) => {
               const s = stats[j.perfilId]
               const cor = corRank(j.tier)
@@ -133,7 +141,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                   disabled={!souEu || !!aEscolher}
                   onClick={() => escolher(j.perfilId)}
                   aria-label={`${l('Escolher', 'Pick')} ${nomeJogador(j)}, ${nomeRank(j.tier)}`}
-                  className={`group relative flex flex-col gap-2.5 rounded-2xl border bg-[rgba(16,16,19,0.88)] p-3 text-left sm:gap-3 sm:p-3.5 text-texto transition-[border-color,transform] duration-200 ${souEu ? 'cursor-pointer border-white/10 hover:-translate-y-0.5 hover:border-laranja/60' : 'cursor-default border-white/8'} disabled:opacity-100 ${cz.cartao}`}
+                  className={`foco-item group relative flex flex-col gap-2.5 rounded-2xl border bg-[rgba(16,16,19,0.88)] p-3 text-left sm:gap-3 sm:p-3.5 text-texto transition-[border-color,transform] duration-200 ${souEu ? 'cursor-pointer border-white/10 hover:-translate-y-0.5 hover:border-laranja/60' : 'cursor-default border-white/8'} disabled:opacity-100 ${cz.cartao}`}
                 >
                   <span className="flex items-center gap-[11px]">
                     <Iniciais nome={nomeJogador(j)} equipa={null} tamanho={46} url={j.avatarUrl} perfilId={j.perfilId} />
@@ -175,7 +183,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
                   </span>
                   {souEu && (
                     <span className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-laranja/32 bg-laranja/12 text-[13px] font-bold text-pessego-claro transition-colors group-hover:bg-laranja group-hover:text-escuro-laranja">
-                      <UserPlus size={15} aria-hidden />{aEscolher === j.perfilId ? l('A escolher…', 'Picking…') : l(`Escolher para a Equipa ${vez}`, `Pick for Team ${vez}`)}
+                      {aEscolher === j.perfilId ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : <UserPlus size={15} aria-hidden />}{aEscolher === j.perfilId ? l('A escolher…', 'Picking…') : l(`Escolher para a Equipa ${vez}`, `Pick for Team ${vez}`)}
                     </span>
                   )}
                 </button>
@@ -184,7 +192,7 @@ export function Draft({ p, eu }: { p: Partida; eu: string }) {
             })}
           </div>
         </section>
-        <ColunaEquipa eq="B" jogadores={equipa(p, 'B')} eu={eu} />
+        <ColunaEquipa eq="B" jogadores={equipa(p, 'B')} eu={eu} destacar={n} />
       </div>
     </div>
   )

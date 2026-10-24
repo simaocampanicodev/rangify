@@ -1,5 +1,5 @@
-import { ClipboardPaste, Copy, Lock, Settings2, Timer, UserX } from 'lucide-react'
-import { useState } from 'react'
+import { Check, ClipboardPaste, Copy, Lock, Settings2, Timer, UserX } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { usePartida } from '@/contexts/Partida'
 import { useAgora } from '@/hooks/useAgora'
@@ -9,6 +9,9 @@ import { capitao, equipa, ladoInicial, nomeJogador } from '@/lib/partida'
 import { DESEMPENHO_MAX, emJogo } from '@/lib/pontos'
 import { MINUTOS_BLOQUEIO, PADRAO_CODIGO, limparCodigo } from '@/lib/regras'
 import { emFalta, relogio } from '@/lib/tempo'
+import { CodigoInput } from '../ui/CodigoInput'
+import { CaractereDecifrado } from '../ui/Decifrar'
+import { NumeroRolante } from '../ui/NumeroRolante'
 import { ColunaEquipa } from './comum'
 import { l } from '@/lib/idioma'
 
@@ -34,8 +37,9 @@ function DefinicoesLobby() {
               <span className="font-mono text-[12.5px] font-semibold text-texto">{d.en}</span>
               <span className="text-[11.5px] text-mudo">{l(d.pt, d.en)}</span>
             </span>
-            <span className={`inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 font-mono text-[11px] font-bold ${d.ligado ? 'border-laranja/40 bg-laranja/14 text-pessego-claro' : 'border-white/12 bg-white/[0.04] text-suave'}`}>
-              {d.ligado ? l('LIGADO', 'ON') : l('DESLIGADO', 'OFF')}
+            <span className="flex shrink-0 items-center gap-2.5">
+              <span className={`font-mono text-[10.5px] font-bold tracking-[0.08em] ${d.ligado ? 'text-pessego-claro' : 'text-mudo'}`}>{d.ligado ? l('LIGADO', 'ON') : l('DESLIGADO', 'OFF')}</span>
+              <span aria-hidden aria-checked={d.ligado} className="interruptor pointer-events-none"><span /></span>
             </span>
           </li>
         ))}
@@ -87,6 +91,12 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
   const agora = useAgora(500)
   const [codigo, setCodigo] = useState('')
   const [aGuardar, setAGuardar] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+  useEffect(() => {
+    if (!copiado) return
+    const t = window.setTimeout(() => setCopiado(false), 1800)
+    return () => window.clearTimeout(t)
+  }, [copiado])
   const capA = capitao(p, 'A')
   const capB = capitao(p, 'B')
   // Qualquer um dos dois capitães partilha o código: o primeiro a guardar vale, para a partida não cair se um se esquecer.
@@ -113,7 +123,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
   const copiar = async () => {
     try {
       await navigator.clipboard.writeText(p.codigoGrupo ?? '')
-      avisar(l('Código copiado.', 'Code copied.'))
+      setCopiado(true)
     } catch {
       avisar(l('Não foi possível copiar. Seleciona o código à mão.', 'Could not copy. Select the code manually.'), 'erro')
     }
@@ -169,22 +179,27 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               </div>
               <div role="img" aria-label={`${l('Código', 'Code')} ${p.codigoGrupo.split('').join(' ')}`} className="flex flex-wrap gap-2.5">
                 {p.codigoGrupo.split('').map((c, i) => (
-                  <span key={i} className="grid h-20 w-16 place-items-center rounded-[14px] border border-laranja/32 bg-[rgba(9,9,11,0.6)] font-mono text-[38px] font-bold" style={{ boxShadow: 'inset 0 0 24px rgba(255,91,31,0.12)' }}>{c}</span>
+                  <span key={i} className="salta grid h-20 w-16 place-items-center rounded-[14px] border border-laranja/32 bg-[rgba(9,9,11,0.6)] font-mono text-[38px] font-bold" style={{ boxShadow: 'inset 0 0 24px rgba(255,91,31,0.12)', animationDelay: `${i * 70}ms` }}><CaractereDecifrado c={c} atraso={i * 90} /></span>
                 ))}
               </div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <button type="button" onClick={copiar} className="btn btn-primario !h-[52px] !rounded-[13px] !px-6 !text-[15px] !font-extrabold"><Copy size={17} aria-hidden />{l('Copiar código', 'Copy code')}</button>
+                <button type="button" onClick={copiar} aria-live="polite" className="btn btn-primario !h-[52px] min-w-[190px] !rounded-[13px] !px-6 !text-[15px] !font-extrabold">
+                  <span key={copiado ? 'ok' : 'copiar'} className="salta inline-flex items-center gap-2">
+                    {copiado ? <Check size={18} strokeWidth={3} aria-hidden /> : <Copy size={17} aria-hidden />}{copiado ? l('Copiado', 'Copied') : l('Copiar código', 'Copy code')}
+                  </span>
+                </button>
               </div>
               <p className="m-0 text-[13.5px] leading-[1.55] text-suave">{l('No Valorant:', 'In Valorant:')} <b className="text-texto">{l('Jogar', 'Play')}</b>, <b className="text-texto">{l('Personalizado', 'Custom')}</b>, <b className="text-texto">{l('Entrar com código', 'Join with code')}</b>. {l('Cola o código e espera pelo resto da sala.', 'Paste the code and wait for the rest of the lobby.')}</p>
               <DefinicoesLobby />
               {emCurso && (
-                <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                <div className="relative flex flex-wrap items-center gap-3.5 overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                  <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-white/6"><span className="block h-full bg-laranja/70 transition-[width] duration-1000 ease-linear" style={{ width: `${Math.max(0, Math.min(100, (1 - bloqueio / (MINUTOS_BLOQUEIO * 60)) * 100))}%` }} /></span>
                   <span className="grid size-11 place-items-center rounded-xl border border-laranja/32 bg-laranja/12 text-laranja"><Lock size={19} aria-hidden /></span>
                   <span className="flex min-w-0 flex-1 basis-[160px] flex-col gap-0.5">
                     <span className="text-[14px] font-bold">{l('Resultado bloqueado', 'Result locked')}</span>
                     <span className="text-[12.5px] text-mudo">{l('Abre automaticamente quando o tempo acabar.', 'Opens automatically when the timer ends.')}</span>
                   </span>
-                  <span className="flex items-center gap-2 font-mono text-[26px] font-semibold"><Timer size={20} className="text-laranja" aria-hidden />{relogio(bloqueio)}</span>
+                  <span className="flex items-center gap-2 font-mono text-[26px] font-semibold"><Timer size={20} className="text-laranja" aria-hidden /><NumeroRolante valor={relogio(bloqueio)} contar={false} /></span>
                 </div>
               )}
             </>
@@ -206,17 +221,7 @@ export function Codigo({ p, eu }: { p: Partida; eu: string }) {
               <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); if (valido) guardar() }}>
                 <label htmlFor="rg-codigo" className="text-[13px] font-semibold text-[#d0cbc4]">{l('Código do grupo', 'Party code')}</label>
                 <div className="flex flex-wrap items-stretch gap-2.5">
-                  <input
-                    id="rg-codigo"
-                    value={codigo}
-                    onChange={(e) => setCodigo(limparCodigo(e.target.value))}
-                    autoComplete="off"
-                    spellCheck={false}
-                    maxLength={6}
-                    placeholder="ABC123"
-                    aria-describedby="rg-codigo-ajuda"
-                    className="h-[72px] min-w-0 flex-[1_1_260px] rounded-[14px] border border-white/12 bg-[rgba(9,9,11,0.6)] px-[22px] font-mono text-[34px] font-bold tracking-[0.3em] text-texto uppercase placeholder:text-white/15 focus:border-laranja/75 focus:outline-none"
-                  />
+                  <CodigoInput id="rg-codigo" valor={codigo} aoMudar={setCodigo} ajudaId="rg-codigo-ajuda" invalido={!!codigo && codigo.length === 6 && !valido} />
                   <button type="button" onClick={colar} className="btn btn-fantasma !h-[72px] !rounded-[14px]"><ClipboardPaste size={17} className="text-laranja" aria-hidden />{l('Colar', 'Paste')}</button>
                 </div>
                 <span id="rg-codigo-ajuda" role="status" className={`text-[13px] ${codigo && !valido ? 'text-derrota' : valido ? 'text-pessego' : 'text-mudo'}`}>
