@@ -1,6 +1,7 @@
 // A mensagem dos avisos do Rangify no Discord: o que a staff escreve entra num embed com o padrão de sempre
 // (barra laranja à esquerda, "Rangify Hub" com o ícone no topo e, no fim, o aviso de que o hub não é afiliado com a
-// Riot). Sem imports, para se poder testar fora do Deno (scripts/testar-anuncio.mjs).
+// Riot). Só importa texto.ts, que não depende do Deno, para se poder testar fora dele (scripts/testar-anuncio.mjs).
+import { limparTexto } from './texto.ts'
 
 const ICONE = 'https://cdn.discordapp.com/emojis/1559320107606614087.png'
 const LARANJA = 0xff5b1f
@@ -14,6 +15,13 @@ export const MAX_MENSAGEM = 4000
 export type Avisar = 'nao' | 'everyone' | 'here'
 
 export interface Anuncio { titulo?: string; mensagem?: string; imagem?: string; avisar?: Avisar }
+
+/** O corpo do pedido, que pode trazer qualquer coisa: só ficam textos limpos (o resto vira vazio) e o aviso como veio, para o validar. */
+export function limparAnuncio(bruto: unknown): Anuncio {
+  const o = (typeof bruto === 'object' && bruto !== null ? bruto : {}) as Record<string, unknown>
+  const t = (v: unknown) => (typeof v === 'string' ? limparTexto(v) : '')
+  return { titulo: t(o.titulo), mensagem: t(o.mensagem), imagem: t(o.imagem), avisar: typeof o.avisar === 'string' ? o.avisar as Avisar : undefined }
+}
 
 /** Os erros de um aviso (em português, para o site os mostrar tal e qual); null se estiver tudo certo. */
 export function validarAnuncio(a: Anuncio): string | null {

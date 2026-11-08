@@ -2,14 +2,14 @@ import {
   Activity, ArrowLeftRight, Award, CircleCheck, Crosshair, Crown, Flame, Gamepad2, Handshake, Map as IconeMapa, Shuffle, Skull, Star, Target, TrendingUp, Trophy, Zap,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { FaixaExperiencia, FaixaExperienciaEsqueleto } from '@/components/Experiencia'
+import { FaixaExperiencia, FaixaExperienciaEsqueleto } from '@/components/perfil/Experiencia'
 import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel, TituloPainel } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type Missao, type TipoMissao } from '@/lib/data'
-import { formatarXp } from '@/lib/experiencia'
-import { traduzirMissao } from '@/lib/missoes'
+import { formatarXp } from '@/lib/jogo/experiencia'
+import { traduzirMissao } from '@/lib/jogo/missoes'
 import { duracaoAte, fimDaSemana, fimDoDia } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
 
@@ -63,8 +63,7 @@ function Seccao({ id, eyebrow, titulo, renova, lista }: { id: string; eyebrow: s
 
 export function Missoes() {
   const acao = useAcao()
-  const { perfil } = useSessao()
-  const podeSortear = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
+  const { podeTestar: podeSortear } = useSessao()
   const missoes = useCarregar(() => dados.missoes(), [], ['partida', 'staff'], { chave: 'missoes' })
   const exp = useCarregar(() => dados.experiencia(), [], ['partida', 'staff'], { chave: 'experiencia' })
   const [aSortear, setASortear] = useState(false)

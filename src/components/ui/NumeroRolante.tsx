@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/**
- * Números que rolam (ideia do Animated Number Morph e do Badge do EasyUI): cada algarismo é uma coluna de 0 a 9 que desliza
- * até ao valor certo, por isso 1004 → 1019 só mexe nas colunas que mudaram. Ao montar começa em zero e conta até ao valor.
- * Aceita texto com sinal ou sufixo ("+12", "14:21"): só os algarismos rolam, o resto é texto normal, por isso o sinal e os
- * dois pontos ficam alinhados com os algarismos. O valor real fica num texto escondido para os leitores de ecrã.
- */
+/** Números que rolam: cada algarismo é uma coluna de 0 a 9 e só mexem os que mudaram. Aceita sinal e sufixo ("+12", "14:21"); o valor real fica num texto escondido para os leitores de ecrã. */
 export function NumeroRolante({ valor, className = '', contar = true }: { valor: number | string; className?: string; contar?: boolean }) {
   const texto = String(valor)
   // Na primeira vez mostra zeros e, passado um instante, passa ao valor: a transição faz a contagem.

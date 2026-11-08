@@ -8,11 +8,7 @@ const QUADRADO = 22
 const ESPACO = 4
 const COLUNA_DIAS = 26
 
-/**
- * O calendário de atividade (ideia do Activity Heatmap do EasyUI): uma coluna por semana, uma linha por dia, e cada
- * quadrado acende em laranja conforme as partidas desse dia. `datas` são as datas (ISO) das partidas jogadas.
- * O número de semanas acompanha a largura disponível, por isso o calendário ocupa sempre a largura toda do painel.
- */
+/** O calendário de atividade: uma coluna por semana e uma linha por dia; `datas` são as datas (ISO) das partidas jogadas. As semanas acompanham a largura do painel. */
 export function MapaAtividade({ datas }: { datas: string[] }) {
   const caixa = useRef<HTMLDivElement>(null)
   const [largura, setLargura] = useState(640)

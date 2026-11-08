@@ -1,10 +1,10 @@
 import { Check, Eye, FlaskConical, ImagePlay, Lock, RotateCcw, ShoppingBag, Sparkles, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { BannerPerfil, DecoracaoAvatar, FundoBanner, DecoracaoMvp, ExtraLinha, TituloJogador, useClassesCosmeticos } from '@/components/Cosmeticos'
-import { NomeRangify, Simbolo } from '@/components/Marca'
+import { BannerPerfil, DecoracaoAvatar, FundoBanner, DecoracaoMvp, ExtraLinha, TituloJogador, useClassesCosmeticos } from '@/components/ui/Cosmeticos'
+import { NomeRangify, Simbolo } from '@/components/ui/Marca'
 import { Avatar, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, SeloMvp, Segmentado, TituloPainel, Vazio } from '@/components/ui'
-import { useAcao } from '@/contexts/Avisos'
+import { useAcao, useAcaoOcupada } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useAgora } from '@/hooks/useAgora'
 import { useCarregar } from '@/hooks/useCarregar'
@@ -13,8 +13,9 @@ import { l } from '@/lib/idioma'
 import {
   CATEGORIAS_LOJA, COINS_POR_DIARIA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, COR_RARIDADE, ITEM_POR_ID, ITENS_LOJA, NOME_RARIDADE,
   formatarCoins, gifValida, type CategoriaLoja, type Cosmeticos, type ItemLoja,
-} from '@/lib/loja'
-import { nomeJogador, tagJogador } from '@/lib/partida'
+} from '@/lib/personalizacao/loja'
+import { nomeJogador, tagJogador } from '@/lib/jogo/partida'
+import { LIMITES } from '@/lib/entradas'
 
 const lg = (par: [string, string]) => l(par[0], par[1])
 
@@ -33,7 +34,6 @@ function useRevelados(perfilId: string, dia: string) {
     const r = [...new Set([...atual, ...novos])]
     try {
       localStorage.setItem(chave, JSON.stringify(r))
-      // Os dias anteriores já não interessam.
       for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith(prefixo) && k !== chave) localStorage.removeItem(k) }
     } catch { /* sem localStorage: fica só nesta visita */ }
     return r
@@ -46,7 +46,6 @@ const BRILHO_RARIDADE: Record<ItemLoja['raridade'], string> = {
   epico: 'border-laranja/55 shadow-[0_0_34px_-10px_rgba(255,91,31,0.75)]', lendario: 'border-ouro/60 shadow-[0_0_40px_-8px_rgba(242,193,78,0.7)]',
 }
 
-/** Uma carta da loja de hoje: virada para baixo até clicares nela. */
 function Carta({ item, revelada, onRevelar, rotulo, children }: { item: ItemLoja; revelada: boolean; onRevelar: () => void; rotulo: string; children: ReactNode }) {
   return (
     <div className="rg-carta">
@@ -70,8 +69,7 @@ function Carta({ item, revelada, onRevelar, rotulo, children }: { item: ItemLoja
 }
 const nomeCategoria = (c: CategoriaLoja) => lg(CATEGORIAS_LOJA.find((x) => x.id === c)!.uma)
 
-/** A moeda do Rangify: o símbolo do "R" dentro de um círculo laranja. */
-export function Moeda({ tamanho = 16 }: { tamanho?: number }) {
+function Moeda({ tamanho = 16 }: { tamanho?: number }) {
   return (
     <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" aria-hidden className="shrink-0">
       <circle cx="12" cy="12" r="11" fill="#ff5b1f" />
@@ -90,7 +88,6 @@ function relogioAte(alvo: string, agora: number) {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`
 }
 
-/** O que se vê: o que está equipado, com o item que estás a experimentar por cima. */
 function cosmeticosVistos(loja: LojaAberta, ver: ItemLoja | null): Cosmeticos {
   const base: Cosmeticos = { ...loja.equipados }
   if (base.gif) base.gif = loja.avatarGif ?? 'gif'
@@ -98,7 +95,6 @@ function cosmeticosVistos(loja: LojaAberta, ver: ItemLoja | null): Cosmeticos {
   return { ...base, [ver.categoria]: ver.categoria === 'gif' ? loja.avatarGif ?? 'gif' : ver.id }
 }
 
-// ------------------------------------------------------------ a montra de cada item
 
 function FotoNyx({ perfil, tamanho, cos }: { perfil: Perfil; tamanho: number; cos: Cosmeticos }) {
   return (
@@ -112,7 +108,6 @@ function Nome({ perfil, tamanho = 14 }: { perfil: Perfil; tamanho?: number }) {
   return <span className="cz-nome truncate font-bold" style={{ fontSize: tamanho }}>{nomeJogador(perfil)}</span>
 }
 
-/** O item a ser usado, como aparece no site (o mesmo CSS das decorações a sério). */
 function Montra({ item, perfil }: { item: ItemLoja; perfil: Perfil }) {
   const cos: Cosmeticos = { [item.categoria]: item.categoria === 'gif' ? 'gif' : item.id }
   const cz = useClassesCosmeticos(null, cos)
@@ -168,17 +163,14 @@ function Montra({ item, perfil }: { item: ItemLoja; perfil: Perfil }) {
   }
 }
 
-// ------------------------------------------------------------ cartão de um item à venda
 
 function CartaoItem({ item, loja, perfil, vendo, onVer, etiqueta, grande = false }: {
   item: ItemLoja; loja: LojaAberta; perfil: Perfil; vendo: boolean; onVer: () => void; etiqueta?: ReactNode; grande?: boolean
 }) {
-  const acao = useAcao()
-  const [aFazer, setAFazer] = useState(false)
+  const { ocupado: aFazer, correr: fazer } = useAcaoOcupada()
   const tem = loja.inventario.includes(item.id)
   const equipado = loja.equipados[item.categoria] === item.id
   const falta = item.preco - loja.moedas
-  const fazer = async (f: () => Promise<unknown>, ok?: string) => { setAFazer(true); await acao(f, ok); setAFazer(false) }
 
   let botao: ReactNode
   if (equipado) {
@@ -234,7 +226,6 @@ function CartaoItem({ item, loja, perfil, vendo, onVer, etiqueta, grande = false
   )
 }
 
-// ------------------------------------------------------------ página
 
 export function Loja() {
   const { perfil } = useSessao()
@@ -265,7 +256,6 @@ export function Loja() {
     return <CartaoItem key={id} item={item} loja={loja} perfil={perfil} vendo={verId === id} onVer={() => alternar(item.id)} etiqueta={etiqueta} grande={grande} />
   }
   const catalogo = ITENS_LOJA.filter((i) => filtro === 'tudo' || i.categoria === filtro)
-  // As cartas de hoje (o destaque, os semanais e os diários) viram-se uma a uma.
   const deHoje = [loja.hoje.destaque, ...loja.hoje.semanais, ...loja.hoje.diarios].filter((x): x is string => !!x && !!ITEM_POR_ID[x])
   const porRevelar = deHoje.filter((id) => !revelados.has(id))
   const carta = (id: string | null, etiqueta: ReactNode, rotulo: string, grande = false) => {
@@ -386,7 +376,6 @@ export function Loja() {
   )
 }
 
-// ------------------------------------------------------------ pré-visualização
 
 function PreVisualizacao({ perfil, cos, ver, repor }: { perfil: Perfil; cos: Cosmeticos; ver: ItemLoja | null; repor: () => void }) {
   const cz = useClassesCosmeticos(null, cos)
@@ -460,7 +449,6 @@ function PreVisualizacao({ perfil, cos, ver, repor }: { perfil: Perfil; cos: Cos
   )
 }
 
-// ------------------------------------------------------------ inventário
 
 function Inventario({ loja, perfil }: { loja: LojaAberta; perfil: Perfil }) {
   const acao = useAcao()
@@ -509,7 +497,7 @@ function Inventario({ loja, perfil }: { loja: LojaAberta; perfil: Perfil }) {
           <label htmlFor="rg-gif-link" className="flex items-center gap-2 text-[14px] font-semibold"><ImagePlay size={16} className="text-laranja" aria-hidden />{l('Link da tua GIF de perfil', 'Link to your profile GIF')}</label>
           <div className="flex flex-wrap items-center gap-2">
             <FotoNyx perfil={perfil} tamanho={44} cos={gifValida(gif) ? { gif } : {}} />
-            <input id="rg-gif-link" className="campo min-w-0 flex-[1_1_260px] font-mono !text-[13px]" value={gif} onChange={(e) => setGif(e.target.value)} placeholder="https://media.tenor.com/…/gif.gif" inputMode="url" />
+            <input maxLength={LIMITES.link} id="rg-gif-link" className="campo min-w-0 flex-[1_1_260px] font-mono !text-[13px]" value={gif} onChange={(e) => setGif(e.target.value)} placeholder="https://media.tenor.com/…/gif.gif" inputMode="url" />
             <button type="submit" className="btn btn-primario" disabled={!!gif.trim() && !gifValida(gif)}>{l('Guardar', 'Save')}</button>
             {loja.avatarGif && <button type="button" className="btn btn-fantasma" onClick={() => { setGif(''); acao(() => dados.definirAvatarGif(null)) }}>{l('Tirar a GIF', 'Remove GIF')}</button>}
           </div>
@@ -520,7 +508,6 @@ function Inventario({ loja, perfil }: { loja: LojaAberta; perfil: Perfil }) {
   )
 }
 
-// ------------------------------------------------------------ modo de teste (Owner e Dev)
 
 function PainelTeste({ loja }: { loja: LojaAberta }) {
   const acao = useAcao()

@@ -3,18 +3,17 @@
 // Quem manda entrar ou não na fila ranked é a base de dados (entrar_fila): o cargo só serve para ver o canal.
 import { admin, idDiscord } from './comum.ts'
 import { CARGO_RANKED } from './discord-ping.ts'
+import { API, autorizacaoBot, dormir } from './discord.ts'
 
-const API = 'https://discord.com/api/v10'
 
 /** Ascendente 1 (currenttier 21): o mesmo número de _tier_minimo_ranked() na base de dados. */
 export const TIER_RANKED = 21
 
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function pedir(metodo: string, caminho: string, tentativa = 0): Promise<Response> {
   const r = await fetch(API + caminho, {
     method: metodo,
-    headers: { Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`, 'X-Audit-Log-Reason': 'Rangify: cargo Ranked' },
+    headers: { Authorization: autorizacaoBot(), 'X-Audit-Log-Reason': 'Rangify: cargo Ranked' },
   })
   if (r.status === 429 && tentativa < 3) {
     const j = await r.json().catch(() => ({ retry_after: 1 }))

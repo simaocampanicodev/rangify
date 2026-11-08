@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { aoMudarDados, avisarMudanca, dados, type EstadoFila, type FilaTipo, type Partida, type SalaPartida } from '@/lib/data'
-import { BATIMENTO_DO_LIDER_MS, SILENCIO_DO_LIDER_MS, assinatura, eleger, fundir, precisaDePerguntar, publica } from '@/lib/lider'
-import { ESTADOS_ATIVOS } from '@/lib/regras'
-import { consultarExtensao, extensaoAvisarFila, extensaoMantemAFila, extensaoPresente } from '@/lib/extensao'
+import { BATIMENTO_DO_LIDER_MS, SILENCIO_DO_LIDER_MS, assinatura, eleger, fundir, precisaDePerguntar, publica } from '@/lib/jogo/lider'
+import { estadoAtivo } from '@/lib/jogo/estados'
+import { PERGUNTA_MS, consultarExtensao, extensaoAvisarFila, extensaoMantemAFila, extensaoPresente } from '@/lib/integracoes/extensao'
+import { armazemSessao } from '@/lib/armazem'
 import { acertarRelogio } from '@/lib/tempo'
 import { useVisivel } from '@/hooks/useVisivel'
 import { useAvisos } from './Avisos'
@@ -22,8 +23,11 @@ const Contexto = createContext<ValorPartida | null>(null)
 /** Marca no separador que a fila foi deixada ao descarregar a página ("hora|fila"): um recarregar volta a pô-la, na mesma fila. */
 const CHAVE_RECARGA = 'rangify:fila-ao-fechar'
 const JANELA_RECARGA = 30_000
+/** O servidor tira da fila quem fica 3 minutos sem sinal de vida: este fica muito abaixo disso. */
 const BATIMENTO = 30_000
-const ativo = (p: Partida | null) => !!p && (ESTADOS_ATIVOS as readonly string[]).includes(p.estado)
+/** Se o líder da sala não envia nada durante SILENCIO_DO_LIDER_MS, a verificação seguinte vê-o: tem de ser mais curta. */
+const VERIFICAR_LIDER_MS = 2000
+const ativo = (p: Partida | null) => !!p && estadoAtivo(p.estado)
 
 /**
  * Segue a fila e a partida do utilizador em todo o site: a janela de
@@ -51,57 +55,68 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
   const ultimoEnvio = useRef({ assinatura: '', em: 0 })
   const partidaRef = useRef<Partida | null>(null)
   const souLiderRef = useRef(false)
+  const meuId = sessao && !sessao.incompleta ? sessao.perfilId : null
 
-  /** Um ciclo: uma só ida ao servidor traz a fila e a partida já avançada. */
+  /** Larga a partida que se estava a mostrar (o resumo fechado, ou a cancelada). */
+  const esquecerPartida = useCallback(() => {
+    fechada.current = ultima.current
+    ultima.current = null
+    setPartida(null)
+  }, [])
+
   const buscar = useCallback(async () => {
     if (!sessao || sessao.incompleta) return
+    const mostrar = ultima.current && fechada.current !== ultima.current ? ultima.current : null
+    let situacao
     try {
-      const mostrar = ultima.current && fechada.current !== ultima.current ? ultima.current : null
-      const { fila: f, partida: p } = await dados.situacao(mostrar)
-      acertarRelogio(f.agora)
-      setFila(f)
-      // O líder reenvia o estado aos outros nove: quando muda, e de 4 em 4 segundos para saberem que ele está vivo.
-      if (p && souLiderRef.current && sala.current) {
-        const sig = assinatura(p)
-        if (sig !== ultimoEnvio.current.assinatura || Date.now() - ultimoEnvio.current.em > BATIMENTO_DO_LIDER_MS) {
-          ultimoEnvio.current = { assinatura: sig, em: Date.now() }
-          sala.current.transmitir(publica(p))
-        }
-      }
-      if (p && ativo(p)) {
-        ultima.current = p.id
-        setPartida(p)
-      } else if (mostrar && p?.id === mostrar) {
-        // Acabou agora: mostra o resumo até o utilizador o fechar.
-        if (p.estado === 'CANCELLED') {
-          fechada.current = ultima.current
-          ultima.current = null
-          setPartida(null)
-          avisar(f.naFila
-            ? l('A partida foi cancelada porque alguém não aceitou. Voltaste à fila com o mesmo lugar.', 'The match was cancelled because someone did not accept. You are back in the queue with the same spot.')
-            : l('A partida foi cancelada.', 'The match was cancelled.'), f.naFila ? 'ok' : 'erro')
-        } else {
-          setPartida(p)
-          // No Supabase nada avisa as outras páginas: o Dashboard, as missões e o perfil
-          // só voltam a carregar se avisarmos uma vez que esta partida terminou.
-          if (p?.estado === 'COMPLETED' && terminada.current !== p.id) {
-            terminada.current = p.id
-            avisarMudanca('partida')
-          }
-        }
-      } else {
-        setPartida(null)
-      }
+      situacao = await dados.situacao(mostrar)
     } catch {
-      /* rede em baixo: tenta outra vez no próximo ciclo */
+      return // rede em baixo: tenta outra vez no próximo ciclo
     }
-  }, [sessao, avisar])
+    const { fila: f, partida: p } = situacao
+    acertarRelogio(f.agora)
+    setFila(f)
+    // O líder reenvia o estado aos outros nove: quando muda, e de 4 em 4 segundos para saberem que ele está vivo.
+    if (p && souLiderRef.current && sala.current) {
+      const sig = assinatura(p)
+      if (sig !== ultimoEnvio.current.assinatura || Date.now() - ultimoEnvio.current.em > BATIMENTO_DO_LIDER_MS) {
+        ultimoEnvio.current = { assinatura: sig, em: Date.now() }
+        sala.current.transmitir(publica(p))
+      }
+    }
+    if (p && ativo(p)) {
+      ultima.current = p.id
+      setPartida(p)
+    } else if (mostrar && p?.id === mostrar) {
+      if (p.estado === 'CANCELLED') {
+        esquecerPartida()
+        avisar(f.naFila
+          ? l('A partida foi cancelada porque alguém não aceitou. Voltaste à fila com o mesmo lugar.', 'The match was cancelled because someone did not accept. You are back in the queue with the same spot.')
+          : l('A partida foi cancelada.', 'The match was cancelled.'), f.naFila ? 'ok' : 'erro')
+      } else {
+        // Acabou agora: mostra o resumo até o utilizador o fechar.
+        setPartida(p)
+        // No Supabase nada avisa as outras páginas: o Dashboard, as missões e o perfil
+        // só voltam a carregar se avisarmos uma vez que esta partida terminou.
+        if (p.estado === 'COMPLETED' && terminada.current !== p.id) {
+          terminada.current = p.id
+          avisarMudanca('partida')
+        }
+      }
+    } else {
+      setPartida(null)
+    }
+  }, [sessao, avisar, esquecerPartida])
 
-  /** O ciclo automático: se já há um a correr, não começa outro. */
-  const ciclo = useCallback(() => {
-    if (emCurso.current) return
+  /** Começa um ciclo (uma só ida ao servidor traz a fila e a partida já avançada); nunca há dois ao mesmo tempo. */
+  const iniciar = useCallback(() => {
     emCurso.current = buscar().finally(() => { emCurso.current = null })
+    return emCurso.current
   }, [buscar])
+
+  const ciclo = useCallback(() => {
+    if (!emCurso.current) iniciar()
+  }, [iniciar])
 
   /**
    * Depois de um clique: espera pelo ciclo que já ia a meio (trazia dados de
@@ -109,24 +124,23 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
    */
   const atualizar = useCallback(async () => {
     if (emCurso.current) await emCurso.current
-    if (!emCurso.current) emCurso.current = buscar().finally(() => { emCurso.current = null })
-    await emCurso.current
-  }, [buscar])
+    await (emCurso.current ?? iniciar())
+  }, [iniciar])
 
   const visivel = useVisivel()
-  const naPartida = ativo(partida)
+  const idDaPartida = partida && ativo(partida) ? partida.id : null
   const naFila = !!fila?.naFila
   partidaRef.current = partida
-  const souLider = salaLigada && !!sessao && !sessao.incompleta && lider === sessao.perfilId
+  const souLider = salaLigada && !!meuId && lider === meuId
   souLiderRef.current = souLider
-  const demo = dados.modo === 'demo'
   // De quanto em quanto tempo pergunta (null: só quando o Realtime avisa).
-  // No Supabase o Realtime avisa de cada mudança, por isso aqui só se pergunta para cumprir os prazos (draft, bans...): 2,5 s
-  // chegam. No demo não há Realtime e os bots andam ao ritmo desta pergunta.
+  // Com Realtime o servidor avisa de cada mudança, por isso aqui só se pergunta para cumprir os prazos (draft, bans...): 2,5 s
+  // chegam. Sem ele (demo) os bots andam ao ritmo desta pergunta.
   // Quem não é o líder só confirma o estado de tempos a tempos (mais depressa nos bans, onde há sugestões só da sua equipa).
-  const intervalo = naPartida ? (demo ? (visivel ? 1000 : 3000) : seguidor ? (partida?.estado === 'MAP_BAN' ? 5000 : 15_000) : visivel ? 2500 : 5000)
-    : naFila ? (demo ? 1000 : visivel ? 5000 : 10_000)
-    : visivel ? (demo ? 8000 : 30_000) : null
+  const { realtime } = dados
+  const intervalo = idDaPartida ? (!realtime ? (visivel ? 1000 : 3000) : seguidor ? (partida?.estado === 'MAP_BAN' ? 5000 : 15_000) : visivel ? 2500 : 5000)
+    : naFila ? (!realtime ? 1000 : visivel ? 5000 : 10_000)
+    : visivel ? (!realtime ? 8000 : 30_000) : null
   useEffect(() => {
     if (!sessao) { setFila(null); setPartida(null); ultima.current = null; return }
     ciclo()
@@ -137,14 +151,13 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
 
   // Fechar o separador ou o browser tira-te da fila. Recarregar a página também a deixa, mas
   // ao abrir de novo voltas a entrar (é o mesmo separador), por isso quase não se nota.
-  const meuId = sessao && !sessao.incompleta ? sessao.perfilId : null
   const tipoNaFila: FilaTipo = fila?.fila === 'ranked' ? 'ranked' : 'aberta'
   useEffect(() => {
     if (!naFila) return
     const sair = () => {
       // Com a extensão do browser viva nesta conta, fechar o site não tira ninguém da fila: é ela que dá o sinal de vida.
       if (meuId && extensaoMantemAFila(meuId)) return
-      try { sessionStorage.setItem(CHAVE_RECARGA, `${Date.now()}|${tipoNaFila}`) } catch { /* sem sessionStorage */ }
+      armazemSessao.escrever(CHAVE_RECARGA, `${Date.now()}|${tipoNaFila}`)
       dados.sairFilaAoFechar()
     }
     window.addEventListener('pagehide', sair)
@@ -164,44 +177,37 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
     if (!naFila || !meuId) return
     const perguntar = () => { if (extensaoPresente()) consultarExtensao(meuId) }
     perguntar()
-    const t = window.setInterval(perguntar, 30_000)
+    const t = window.setInterval(perguntar, PERGUNTA_MS)
     return () => window.clearInterval(t)
   }, [naFila, meuId])
 
   // Sinal de vida: se o aviso de fecho não chegar (browser rebentou, portátil adormeceu), o servidor tira-te ao fim de 3 minutos.
   useEffect(() => {
-    if (!naFila || demo) return
+    if (!naFila) return
     const t = window.setInterval(() => { dados.batimentoFila() }, BATIMENTO)
     return () => window.clearInterval(t)
-  }, [naFila, demo])
+  }, [naFila])
 
   // Se esta página nasceu de um recarregar com a fila aberta, volta a entrar.
-  const perfilDaFila = sessao && !sessao.incompleta ? sessao.perfilId : null
   useEffect(() => {
-    if (!perfilDaFila) return
-    let antes = 0
-    let tipo: FilaTipo = 'aberta'
-    try {
-      const [quando, qual] = (sessionStorage.getItem(CHAVE_RECARGA) ?? '').split('|')
-      antes = Number(quando)
-      if (qual === 'ranked') tipo = 'ranked'
-      sessionStorage.removeItem(CHAVE_RECARGA)
-    } catch { /* sem sessionStorage */ }
+    if (!meuId) return
+    const [quando, qual] = (armazemSessao.ler(CHAVE_RECARGA) ?? '').split('|')
+    const antes = Number(quando)
+    const tipo: FilaTipo = qual === 'ranked' ? 'ranked' : 'aberta'
+    armazemSessao.apagar(CHAVE_RECARGA)
     if (!antes || Date.now() - antes > JANELA_RECARGA) return
     // Um instante para o pedido de saída da página anterior chegar primeiro.
-    const t = window.setTimeout(() => { dados.entrarFila(tipo).then(() => avisarMudanca('fila')).catch(() => {}) }, 1500)
+    const t = window.setTimeout(() => { dados.entrarFila(tipo).catch(() => {}) }, 1500)
     return () => window.clearTimeout(t)
-  }, [perfilDaFila])
+  }, [meuId])
 
   // A sala da partida: o líder (quem tem o separador à frente e está lá há mais tempo) pergunta à base de dados e reenvia o
   // estado; os outros recebem-no. Se o canal não abrir, ou o líder se calar, cada um volta a perguntar por conta própria.
-  const meuIdSala = sessao && !sessao.incompleta ? sessao.perfilId : null
-  const idDaPartida = ativo(partida) ? partida!.id : null
   useEffect(() => {
-    if (!idDaPartida || !meuIdSala) { sala.current = null; setLider(null); setSalaLigada(false); return }
+    if (!idDaPartida || !meuId) { sala.current = null; setLider(null); setSalaLigada(false); return }
     ultimoRecebido.current = 0
     ultimoEnvio.current = { assinatura: '', em: 0 }
-    const s = dados.sala(idDaPartida, meuIdSala, {
+    const s = dados.sala(idDaPartida, meuId, {
       aoPresencas: (ps) => setLider(eleger(ps)),
       aoLigado: setSalaLigada,
       aoReceber: (p) => {
@@ -211,48 +217,40 @@ export function ProvedorPartida({ children }: { children: ReactNode }) {
         const minha = partidaRef.current
         // Fase nova (o código e as sugestões só chegam a quem os pede) ou partida acabada (o resumo é de cada um): pergunta.
         if (precisaDePerguntar(p, minha)) ciclo()
-        if (p.estado === 'COMPLETED' || p.estado === 'CANCELLED') return
+        if (!estadoAtivo(p.estado)) return
         const nova = fundir(p, minha)
         setPartida((atual) => (atual && assinatura(atual) === assinatura(nova) ? atual : nova))
       },
     })
     sala.current = s
     return () => { s?.sair(); sala.current = null; setLider(null); setSalaLigada(false) }
-  }, [idDaPartida, meuIdSala, ciclo])
+  }, [idDaPartida, meuId, ciclo])
 
   // Sou seguidor enquanto houver líder e ele continuar a enviar; sem notícias dele durante uns segundos, volto a perguntar.
   useEffect(() => {
     if (!idDaPartida) { setSeguidor(false); return }
-    const ver = () => setSeguidor(salaLigada && !!lider && lider !== meuIdSala && Date.now() - ultimoRecebido.current < SILENCIO_DO_LIDER_MS)
+    const ver = () => setSeguidor(salaLigada && !!lider && lider !== meuId && Date.now() - ultimoRecebido.current < SILENCIO_DO_LIDER_MS)
     ver()
-    const t = window.setInterval(ver, 2000)
+    const t = window.setInterval(ver, VERIFICAR_LIDER_MS)
     return () => window.clearInterval(t)
-  }, [idDaPartida, salaLigada, lider, meuIdSala])
+  }, [idDaPartida, salaLigada, lider, meuId])
 
   // Os avisos do Realtime chegam em rajadas (dez jogadores a entrar): junta-os num só pedido.
-  const perfilId = sessao && !sessao.incompleta ? sessao.perfilId : null
-  const partidaId = naPartida ? partida!.id : null
   useEffect(() => {
-    if (!perfilId) return
+    if (!meuId) return
     // Quem recebe o estado do líder não precisa de ouvir a base de dados: o líder ouve por todos.
-    if (partidaId && seguidor) return
+    if (idDaPartida && seguidor) return
     let t: number | undefined
-    const off = dados.aoMudarJogo(perfilId, partidaId, () => {
+    const off = dados.aoMudarJogo(meuId, idDaPartida, () => {
       window.clearTimeout(t)
       // Um pequeno atraso ao calhas: dez jogadores a reagir ao mesmo aviso no mesmo instante eram dez perguntas de uma vez.
       t = window.setTimeout(ciclo, 150 + Math.random() * 450)
     })
     return () => { window.clearTimeout(t); off() }
-  }, [perfilId, partidaId, ciclo, seguidor])
-
-  const fecharResumo = useCallback(() => {
-    fechada.current = ultima.current
-    ultima.current = null
-    setPartida(null)
-  }, [])
+  }, [meuId, idDaPartida, ciclo, seguidor])
 
   return (
-    <Contexto.Provider value={{ fila, partida, ativa: ativo(partida), atualizar, fecharResumo }}>
+    <Contexto.Provider value={{ fila, partida, ativa: ativo(partida), atualizar, fecharResumo: esquecerPartida }}>
       {children}
     </Contexto.Provider>
   )

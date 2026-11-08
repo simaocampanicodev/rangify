@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { definirDonoCache } from '@/hooks/useCarregar'
 import { aoMudarDados, dados, type Perfil, type Sessao } from '@/lib/data'
+import { eOwnerDev, eStaff as eStaffConta } from '@/lib/funcoes'
 
 interface ValorSessao {
   carregando: boolean
@@ -39,12 +40,11 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     return () => { a(); b() }
   }, [recarregar])
 
-  const funcao = perfil?.funcao
   return (
     <Contexto.Provider value={{
       carregando, sessao, perfil, recarregar,
-      podeTestar: funcao === 'owner' || funcao === 'dev',
-      eStaff: funcao === 'owner' || funcao === 'dev' || funcao === 'mod',
+      podeTestar: eOwnerDev(perfil?.funcao),
+      eStaff: eStaffConta(perfil?.funcao),
     }}>
       {children}
     </Contexto.Provider>

@@ -2,7 +2,8 @@
 // terminada e refaz as estatísticas (agentes incluídos), o Rangify Score, o MVP
 // e os pontos com a fórmula de agora (função _recalcular, migração 0013).
 // Procura no histórico dos capitães e, se preciso, de mais um jogador.
-import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador, eOwnerDev, uuidDoPedido } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 
 /** Jogos personalizados pedidos por jogador: chega para partidas de há uns dias. */
@@ -18,11 +19,13 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('recarregar-partida', u.id, 20, 60)
+    if (excesso) return excesso
     const db = admin()
     const { data: eu } = await db.from('profiles').select('role').eq('auth_id', u.id).single()
-    if (eu?.role !== 'owner' && eu?.role !== 'dev') return erro('Só Owner e Dev podem fazer isto.', 403)
+    if (!eOwnerDev(eu?.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
 
-    const { matchId } = await req.json() as { matchId?: string }
+    const matchId = uuidDoPedido(((await req.json().catch(() => null)) as { matchId?: unknown } | null)?.matchId)
     if (!matchId) return erro('Falta a partida.')
     const { data: m } = await db.from('matches').select('*').eq('id', matchId).single()
     if (!m) return erro('Esta partida já não existe.', 404)

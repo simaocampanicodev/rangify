@@ -1,11 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
-export interface ParteDonut { nome: string; valor: number; cor: string }
+interface ParteDonut { nome: string; valor: number; cor: string }
 
-/**
- * Um anel de fatias (ideia do Donut Chart do EasyUI), desenhado à mão em SVG: os arcos desenham-se ao aparecer, a fatia por
- * baixo do rato acende e o centro passa a mostrar o valor dela. Sem rato, mostra o `centro`.
- */
+/** Um anel de fatias em SVG: a fatia sob o rato acende e o centro mostra o valor dela (sem rato, o `centro`). */
 export function Donut({ partes, centro, tamanho = 152, espessura = 14, rotulo }: {
   partes: ParteDonut[]; centro: ReactNode; tamanho?: number; espessura?: number; rotulo: string
 }) {

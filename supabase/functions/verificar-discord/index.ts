@@ -2,14 +2,15 @@
 // quem fez o pedido é membro do servidor do Rangify e guarda a resposta no perfil
 // (profiles.discord_member e discord_checked_at), que entrar_fila confirma.
 import { admin, cors, erro, idDiscord, resposta, utilizador } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { ajustarCargoRanked } from '../_shared/discord-cargo.ts'
+import { API, autorizacaoBot } from '../_shared/discord.ts'
 
-const API = 'https://discord.com/api/v10'
 
 /** 200: está no servidor. 404: não está. Outra coisa: o Discord não respondeu. */
 async function membro(guild: string, id: string, tentativa = 0): Promise<boolean> {
   const r = await fetch(`${API}/guilds/${guild}/members/${id}`, {
-    headers: { Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}` },
+    headers: { Authorization: autorizacaoBot() },
   })
   if (r.status === 429 && tentativa < 2) {
     const j = await r.json().catch(() => ({ retry_after: 1 }))
@@ -26,6 +27,8 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('verificar-discord', u.id, 10, 60)
+    if (excesso) return excesso
     const guild = Deno.env.get('DISCORD_GUILD_ID')
     if (!guild || !Deno.env.get('DISCORD_BOT_TOKEN')) return erro('O bot do Discord ainda não está configurado. Fala com a staff.', 503)
 

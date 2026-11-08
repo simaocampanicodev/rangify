@@ -3,9 +3,9 @@
  * a escolha dos capitães, o resultado, as estatísticas e os pontos.
  * Tudo puro, com o gerador de aleatórios passado por fora.
  */
-import { AGENTES_SIMULADOS } from '../agentes'
-import { bonusDesempenho, calcularPontos, rangifyScores } from '../pontos'
-import { divisao, mediaDivisoes } from '../ranks'
+import { AGENTES_SIMULADOS } from '../jogo/agentes'
+import { bonusDesempenho, calcularPontos, rangifyScores } from '../jogo/pontos'
+import { divisao, mediaDivisoes } from '../jogo/ranks'
 import type { Equipa, Partida, Perfil } from './tipos'
 
 export type Rng = () => number
@@ -74,7 +74,7 @@ export function novoJogador(p: Perfil): JogadorGuardado {
 }
 
 /** Ordena pelo rank oficial (e pelos pontos), para os capitães automáticos escolherem os melhores. */
-export function ordenarParaCapitao(jogadores: JogadorGuardado[], perfis: Record<string, Perfil>) {
+function ordenarParaCapitao(jogadores: JogadorGuardado[], perfis: Record<string, Perfil>) {
   return [...jogadores].sort((x, y) => y.tier - x.tier || (perfis[y.perfilId]?.pontos ?? 0) - (perfis[x.perfilId]?.pontos ?? 0))
 }
 

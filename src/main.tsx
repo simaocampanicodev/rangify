@@ -1,10 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { iniciarExtensao } from './lib/extensao'
+import { iniciarExtensao } from './lib/integracoes/extensao'
 import { useIdioma } from './lib/idioma'
-import { iniciarFundo } from './lib/fundo'
-import { desbloquearSom } from './lib/som'
+import { iniciarFundo } from './lib/personalizacao/fundo'
+import { desbloquearSom } from './lib/personalizacao/som'
 // As fontes vêm do próprio site (sem pedidos ao Google Fonts). Cada uma só descarrega
 // a parte do alfabeto que a página usa (unicode-range).
 import '@fontsource-variable/geist'

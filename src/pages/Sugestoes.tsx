@@ -7,6 +7,7 @@ import { useIntervalo } from '@/hooks/useVisivel'
 import { dados, type EstadoSugestao } from '@/lib/data'
 import { haQuanto } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
+import { LIMITES } from '@/lib/entradas'
 
 /** As categorias guardam-se em português; só o texto mostrado muda com a língua. */
 const CATEGORIAS = ['Fila', 'Partida', 'Ranking', 'Perfil', 'Amigos', 'Discord', 'Eventos', 'Regras', 'Outro']
@@ -36,7 +37,7 @@ function NovaSugestao() {
         <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); enviar() }}>
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
             {l('Título', 'Title')}
-            <input className="campo" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} placeholder={l('Em poucas palavras', 'In a few words')} />
+            <input className="campo" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={LIMITES.sugestaoTitulo} placeholder={l('Em poucas palavras', 'In a few words')} />
           </label>
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
             {l('Categoria', 'Category')}
@@ -44,7 +45,7 @@ function NovaSugestao() {
           </label>
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
             {l('Descrição', 'Description')}
-            <textarea className="campo !h-32 py-3" value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={500} placeholder={l('Que problema resolve e como imaginas que funcione.', 'What problem it solves and how you imagine it working.')} />
+            <textarea className="campo !h-32 py-3" value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={LIMITES.sugestaoDescricao} placeholder={l('Que problema resolve e como imaginas que funcione.', 'What problem it solves and how you imagine it working.')} />
             <span className="text-right font-mono text-[11px] font-normal text-mudo">{descricao.length}/500</span>
           </label>
           <div className="flex justify-end gap-2">

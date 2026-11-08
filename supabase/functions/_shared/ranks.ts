@@ -5,11 +5,11 @@
 // a Henrik Dev API fecha refresca o rank dos dez jogadores, tenha subido ou descido.
 import { ErroHenrik, admin, partirRiotId, rankOficial } from './comum.ts'
 import { sincronizarCargoRanked } from './discord-cargo.ts'
+import { dormir } from './discord.ts'
 
 /** A chave básica da Henrik dá 30 pedidos por minuto: um a cada 2 s não a esgota nem com a consulta da partida. */
 const PAUSA_MS = 2100
 
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 interface JogadorRank {
   profile_id: string

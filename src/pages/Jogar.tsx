@@ -1,46 +1,39 @@
 import { Ban, ClipboardPaste, Crown, Flag, Hash, Radio, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { FaixaAoVivo } from '@/components/AoVivo'
-import { FerramentasDev } from '@/components/FerramentasDev'
-import { ConviteExtensao } from '@/components/ConviteExtensao'
-import { CartaoFila } from '@/components/Fila'
+import { FaixaAoVivo } from '@/components/social/AoVivo'
+import { FerramentasDev } from '@/components/staff/FerramentasDev'
+import { ConviteExtensao } from '@/components/fila/ConviteExtensao'
+import { CartaoFila } from '@/components/fila/Fila'
 import { BlocoIcone, BotaoAjuda, Cabecalho, Carregando, Chip, Painel } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
 import { useSessao } from '@/contexts/Sessao'
-import { dados, type EstadoPartida, type Partida } from '@/lib/data'
-import { ROTACAO_PADRAO, totalBans } from '@/lib/mapas'
+import { dados, type Partida } from '@/lib/data'
+import { descricaoEstado, type Ecra } from '@/lib/jogo/estados'
+import { ROTACAO_PADRAO, totalBans } from '@/lib/jogo/mapas'
 import { useCarregar } from '@/hooks/useCarregar'
+import { usePoolMapas } from '@/hooks/usePoolMapas'
 import { useIntervalo } from '@/hooks/useVisivel'
-import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/discord'
+import { abrirNaApp, telemovel, urlCanalWeb } from '@/lib/integracoes/discord'
 import { useAvisos } from '@/contexts/Avisos'
-import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/regras'
+import { MINUTOS_BLOQUEIO, SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA } from '@/lib/jogo/regras'
 import { caminhoPartida } from '@/lib/rotas'
 import { l } from '@/lib/idioma'
 
-// Os ecrãs da partida só descarregam quando há fila ou partida (ver preCarregarPartida).
-const carregarCodigo = () => import('@/components/match/Codigo')
-const carregarDraft = () => import('@/components/match/Draft')
-const carregarMapas = () => import('@/components/match/Mapas')
-const carregarResultado = () => import('@/components/match/Resultado')
+const carregarCodigo = () => import('@/components/partida/Codigo')
+const carregarDraft = () => import('@/components/partida/Draft')
+const carregarMapas = () => import('@/components/partida/Mapas')
+const carregarResultado = () => import('@/components/partida/Resultado')
 const Codigo = lazy(() => carregarCodigo().then((m) => ({ default: m.Codigo })))
 const Draft = lazy(() => carregarDraft().then((m) => ({ default: m.Draft })))
 const Mapas = lazy(() => carregarMapas().then((m) => ({ default: m.Mapas })))
 const Resultado = lazy(() => carregarResultado().then((m) => ({ default: m.Resultado })))
 
-/** Ao entrar na fila já se descarregam os ecrãs, para a partida abrir sem espera. */
 function preCarregarPartida() {
   carregarDraft(); carregarMapas(); carregarCodigo(); carregarResultado()
 }
 
-const fases = (): { estados: EstadoPartida[]; nome: string }[] => [
-  { estados: ['READY_CHECK'], nome: l('Confirmar', 'Ready check') },
-  { estados: ['DRAFT_PHASE'], nome: 'Draft' },
-  { estados: ['MAP_BAN'], nome: l('Mapas', 'Maps') },
-  { estados: ['LOBBY_CREATION'], nome: l('Código', 'Code') },
-  { estados: ['IN_PROGRESS'], nome: l('Em jogo', 'In game') },
-  { estados: ['RESULT_SUBMISSION', 'DISPUTE', 'PROCESSING_API', 'COMPLETED'], nome: l('Resultado', 'Result') },
-]
+const nomesEtapas = () => [l('Confirmar', 'Ready check'), 'Draft', l('Mapas', 'Maps'), l('Código', 'Code'), l('Em jogo', 'In game'), l('Resultado', 'Result')]
 
 /**
  * O chat e a call da tua equipa no Discord, quando o bot já os criou.
@@ -96,10 +89,9 @@ function LinksDiscord({ p }: { p: Partida }) {
 }
 
 function Progresso({ p }: { p: Partida }) {
-  const FASES = fases()
-  const atual = FASES.findIndex((f) => f.estados.includes(p.estado))
+  const etapas = nomesEtapas()
+  const atual = descricaoEstado(p.estado).etapa
   const lista = useRef<HTMLOListElement>(null)
-  // Centra a fase atual na linha das fases (só mexe na própria linha, nunca na página).
   useEffect(() => {
     const ol = lista.current
     const li = ol?.querySelector<HTMLElement>('[aria-current=step]')
@@ -112,14 +104,12 @@ function Progresso({ p }: { p: Partida }) {
       </span>
       {p.fila === 'ranked' && <Chip tom="laranja">RANKED</Chip>}
       {p.simulada && <Chip tom="laranja">{p.automatica ? l('Simulação automática', 'Automatic simulation') : l('Simulada', 'Simulated')}</Chip>}
-      {/* No telemóvel as fases ficam numa linha que se arrasta (a atual centrada), em vez de uma coluna de seis linhas. */}
       <ol ref={lista} className="relative m-0 flex basis-full list-none flex-nowrap items-center gap-1.5 overflow-x-auto p-0 [scrollbar-width:none] sm:flex-1 sm:basis-auto sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
-        {FASES.map((f, i) => {
+        {etapas.map((nome, i) => {
           const feita = i < atual || p.estado === 'COMPLETED'
           const agora = i === atual && p.estado !== 'COMPLETED'
           return (
-            <li key={f.nome} aria-current={agora ? 'step' : undefined} className="flex items-center gap-1.5">
-              {/* O fio entre fases enche-se e o visto desenha-se quando a fase fica feita (ideia do Stepper do EasyUI). */}
+            <li key={nome} aria-current={agora ? 'step' : undefined} className="flex items-center gap-1.5">
               {i > 0 && <span aria-hidden className="fio-fase" data-cheio={feita || agora ? 'true' : 'false'}><span /></span>}
               <span className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-semibold transition-colors duration-500 ${agora ? 'fase-agora border-laranja/60 bg-laranja/15 text-pessego-claro' : feita ? 'border-transparent text-suave' : 'border-transparent text-mudo'}`}>
                 {feita && (
@@ -127,7 +117,7 @@ function Progresso({ p }: { p: Partida }) {
                     <path d="M2.2 6.4 4.9 9 9.8 3.2" />
                   </svg>
                 )}
-                {f.nome}
+                {nome}
               </span>
             </li>
           )
@@ -139,7 +129,7 @@ function Progresso({ p }: { p: Partida }) {
 }
 
 function ComoFunciona() {
-  const rotacao = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas', fresco: 300_000 })
+  const rotacao = usePoolMapas()
   const bans = totalBans(rotacao.valor ?? ROTACAO_PADRAO)
   const passos = [
     { icone: <Users size={18} />, titulo: l('Fila e confirmação', 'Queue and ready check'), texto: l(`10 jogadores, ${SEGUNDOS_CONFIRMAR} s para aceitar.`, `10 players, ${SEGUNDOS_CONFIRMAR} s to accept.`), topico: 'fila' as const },
@@ -163,7 +153,6 @@ function ComoFunciona() {
             </span>
             <span className="text-[14px] font-bold">{s.titulo}</span>
             <span className="text-[12.5px] leading-normal text-mudo">{s.texto}</span>
-            {/* O botão fica sempre no fundo do cartão, à mesma altura em todos. */}
             <span className="mt-auto flex flex-col pt-1.5"><BotaoAjuda topico={s.topico} pequeno>{l('Como funciona', 'How it works')}</BotaoAjuda></span>
           </li>
         ))}
@@ -172,7 +161,6 @@ function ComoFunciona() {
   )
 }
 
-/** Uma fila de cada vez, pontos separados por fila, e o overlay a dizer em qual estás. */
 function DuasFilas() {
   const itens = [
     { icone: <Users size={18} />, titulo: l('Uma fila de cada vez', 'One queue at a time'), texto: l('Entras numa só. Para mudar, sais da atual e entras na outra.', 'You join one only. To switch, leave the current one and join the other.') },
@@ -200,7 +188,6 @@ function DuasFilas() {
   )
 }
 
-/** A partida em curso, fase a fase. Vive em /partida/<ID>, um endereço só dela. */
 export function PaginaPartida() {
   const { id } = useParams()
   const { partida, fila } = usePartida()
@@ -212,15 +199,14 @@ export function PaginaPartida() {
   // não joga nesta partida nunca a vê, porque o servidor só devolve a partida de quem está nela.
   if (!partida || partida.id !== id) return <Navigate to={partida ? caminhoPartida(partida.id) : '/jogar'} replace />
   const eu = perfil.id
-  let fase: React.ReactNode
-  switch (partida.estado) {
-    case 'READY_CHECK': fase = <Carregando texto={l('À espera de que todos aceitem a partida…', 'Waiting for everyone to accept the match…')} />; break
-    case 'DRAFT_PHASE': fase = <Draft p={partida} eu={eu} />; break
-    case 'MAP_BAN': fase = <Mapas p={partida} eu={eu} />; break
-    case 'LOBBY_CREATION':
-    case 'IN_PROGRESS': fase = <Codigo p={partida} eu={eu} />; break
-    default: fase = <Resultado p={partida} eu={eu} />
+  const ecras: Record<Ecra, React.ReactNode> = {
+    confirmar: <Carregando texto={l('À espera de que todos aceitem a partida…', 'Waiting for everyone to accept the match…')} />,
+    draft: <Draft p={partida} eu={eu} />,
+    mapas: <Mapas p={partida} eu={eu} />,
+    codigo: <Codigo p={partida} eu={eu} />,
+    resultado: <Resultado p={partida} eu={eu} />,
   }
+  const fase = ecras[descricaoEstado(partida.estado).ecra]
   return (
     <>
       <Progresso p={partida} />
@@ -236,7 +222,6 @@ export function Jogar() {
   const preparar = !!fila?.naFila
   useEffect(() => { if (preparar) preCarregarPartida() }, [preparar])
   if (!perfil) return <Carregando />
-  // Com uma partida em curso (ou por fechar), a página Jogar leva ao endereço dela.
   if (partida) return <Navigate to={caminhoPartida(partida.id)} replace />
 
   return (
@@ -246,7 +231,6 @@ export function Jogar() {
         titulo={l('Jogar', 'Play')}
         descricao={l('Escolhe a fila. A aberta é para toda a gente; a ranked é só para Ascendente 1 ou mais. Quando houver 10 jogadores, recebes o alerta para aceitar e segues para o draft.', 'Pick a queue. Open is for everyone; ranked is for Ascendant 1 or higher only. When there are 10 players, you get the accept alert and go on to the draft.')}
       />
-      {/* Uma grelha em vez de duas colunas soltas: os cartões partilham as linhas, por isso o título, a escada de ranks, as etiquetas e o botão ficam alinhados. */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,440px),1fr))] gap-x-6 gap-y-5">
         <CartaoFila tipo="aberta" id="rg-fila-aberta" alinhada />
         <CartaoFila tipo="ranked" id="rg-fila-ranked" alinhada />

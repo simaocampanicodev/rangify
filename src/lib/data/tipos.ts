@@ -3,8 +3,10 @@
  * guarda em inglês (como no PRD) e o adaptador faz a tradução.
  */
 
-import type { CategoriaLoja, Cosmeticos } from '../loja'
-import type { Presenca } from '../lider'
+import type { CategoriaLoja, Cosmeticos } from '../personalizacao/loja'
+
+/** O que cada jogador diz de si na sala da partida: desde quando está lá e se o separador está à frente. */
+export interface Presenca { desde: number; visivel: boolean }
 
 export type Funcao = 'owner' | 'dev' | 'mod' | 'verified' | 'user'
 export type Regiao = 'eu' | 'na' | 'ap' | 'kr' | 'latam' | 'br'
@@ -91,19 +93,19 @@ export interface JogadorPartida {
   agente: string | null
 }
 
-export interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
+interface BanMapa { mapa: string; equipa: Equipa; ordem: number }
 /** O voto de um capitão: a equipa que diz ter ganho. Só confirma que o jogo acabou; o resultado vem da API. */
-export interface Submissao { capitaoId: string; vencedor: Equipa; em: string }
+interface Submissao { capitaoId: string; vencedor: Equipa; em: string }
 export type Lado = 'ataque' | 'defesa'
 /** Depois do último ban, a equipa que não o fez escolhe o lado em que começa. */
-export interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
+interface EscolhaLado { equipa: Equipa; escolha: Lado | null }
 /**
  * A votação para cancelar a partida (alguém caiu ou não pode jogar). Aberta enquanto o grupo
  * é criado e nos primeiros 10 minutos de jogo; com 7 jogadores de 10, a partida cai.
  */
-export interface Cancelamento { votos: number; necessarios: number; euVotei: boolean; aberto: boolean }
+interface Cancelamento { votos: number; necessarios: number; euVotei: boolean; aberto: boolean }
 /** O que os colegas do capitão sugerem na vez atual (um mapa a banir, ou o lado). */
-export interface SugestaoMapa { perfilId: string; valor: string }
+interface SugestaoMapa { perfilId: string; valor: string }
 
 export interface Partida {
   id: string
@@ -171,8 +173,8 @@ export interface EstadoFila {
   agora?: string | null
   /** Banido da fila pela staff: mostra-se em vez do castigo de 5 minutos. */
   ban?: BanFila | null
-  /** Filas fechadas por Owner ou Dev (ninguém entra) e o motivo, se houver. Ausente num servidor ainda sem a migração 0042. */
-  filasFechadas?: FilasFechadas
+  /** Filas fechadas por Owner ou Dev (ninguém entra) e o motivo, se houver. */
+  filasFechadas: FilasFechadas
 }
 
 /** Que filas estão fechadas e porquê. */
@@ -209,7 +211,7 @@ export interface LinhaRanking {
   forma: ('V' | 'D')[]
 }
 
-export interface PaginaRanking {
+interface PaginaRanking {
   linhas: LinhaRanking[]
   cursor: string | null
   total: number
@@ -272,8 +274,8 @@ export interface PontoForma {
   mvp: boolean
 }
 
-export interface EstatisticasMapa { mapa: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
-export interface EstatisticasAgente { agente: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
+interface EstatisticasMapa { mapa: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
+interface EstatisticasAgente { agente: string; partidas: number; vitorias: number; acs: number | null; rs: number | null }
 
 export interface EstatisticasPerfil {
   partidas: number
@@ -348,7 +350,7 @@ export interface LinhaNivel {
 }
 
 /** Uma linha da tabela do Rangify Score: a média de RS das partidas do jogador. */
-export interface LinhaRankingRs {
+interface LinhaRankingRs {
   posicao: number
   perfil: Perfil
   media: number
@@ -377,7 +379,7 @@ export interface JogadorAgente {
 }
 
 /** Os melhores jogadores de um agente, do melhor para o pior. */
-export interface RankingAgente { agente: string; jogadores: JogadorAgente[] }
+interface RankingAgente { agente: string; jogadores: JogadorAgente[] }
 
 export interface RankingAgentes {
   /** Partidas com o agente precisas para entrar na tabela dele. */
@@ -414,7 +416,7 @@ export interface TesteApi {
   avisos: string[]
 }
 
-export type EstadoAmizade = 'pendente' | 'aceite'
+type EstadoAmizade = 'pendente' | 'aceite'
 
 export interface Amizade {
   perfil: Perfil
@@ -489,7 +491,7 @@ export interface LojaAberta {
 export type EstadoLoja = { visivel: false } | LojaAberta
 
 /** O que a sala de uma partida em curso avisa: quem lá está, o estado que o líder envia e se o canal está ligado. */
-export interface OuvintesSala {
+interface OuvintesSala {
   aoPresencas(sala: Record<string, Presenca[]>): void
   aoReceber(partida: Partida): void
   aoLigado(ligado: boolean): void
@@ -581,7 +583,7 @@ export interface JogadaVetoTorneio extends PassoVetoTorneio {
   /** Jogada feita pelo tempo ou por um bot, não por um capitão. */
   auto: boolean
 }
-export interface VetoJogoTorneio {
+interface VetoJogoTorneio {
   melhorDe: MelhorDe
   /** Os mapas em jogo (fixados quando o veto começa). */
   pool: string[]
@@ -596,7 +598,7 @@ export interface VetoJogoTorneio {
   mapaStaff: boolean
 }
 /** Como se soube o resultado: API da Riot, staff, simulado (testes), falta de comparência ou folga na chave. */
-export type ComoJogoTorneio = 'api' | 'staff' | 'simulado' | 'walkover' | 'bye'
+type ComoJogoTorneio = 'api' | 'staff' | 'simulado' | 'walkover' | 'bye'
 
 export interface TorneioResumo {
   id: string
@@ -660,7 +662,7 @@ export interface TorneioEquipa {
   membros: TorneioMembro[]
 }
 
-export interface TorneioJogadorJogo {
+interface TorneioJogadorJogo {
   /** Em que mapa da série (sempre 1 à melhor de 1). */
   mapaOrdem: number
   perfilId: string
@@ -790,8 +792,99 @@ export interface DadosNovoTorneio {
 
 export interface ItemCalendarioTorneio { jogo: string; quando: string | null; mapa?: string | null; presencial?: boolean | null; melhorDe?: MelhorDe | null }
 
+/** Estado do site (Staff > Estado). Os limites e os motivos vêm da base de dados (migração 0045): o site só os mostra. */
+export type EstadoSaude = 'ok' | 'lento' | 'sobrecarga' | 'em_baixo'
+export type PeriodoSaude = '1h' | '24h' | '7d' | '30d'
+export type MonitorSaudeId = 'site' | 'api' | 'auth' | 'funcoes'
+
+export interface MotivoSaude {
+  /** O que está mal (cpu, ligacoes, resposta_lenta...). Um código que o site não conhece mostra-se tal e qual. */
+  codigo: string
+  /** Só nos motivos de uma sonda (resposta_lenta, monitor_em_baixo). */
+  monitor?: MonitorSaudeId
+  valor?: number
+  /** A partir daqui é "lento"; a partir do crítico é "sobrecarga". */
+  aviso?: number
+  critico?: number
+  nivel: Exclude<EstadoSaude, 'ok'>
+  detalhe?: string
+}
+
+export interface BatimentoSaude { em: string; ok: boolean; ms: number | null }
+
+export interface MonitorSaude {
+  id: MonitorSaudeId
+  /** A partir de quantos ms a resposta é lenta. */
+  avisoMs: number
+  /** Os últimos batimentos, do mais antigo para o mais recente. */
+  ultimos: BatimentoSaude[]
+  detalhe: string | null
+  /** Há quantos segundos foi o último batimento. */
+  idadeS: number | null
+  disponibilidade24h: number | null
+  disponibilidade7d: number | null
+  mediaMs: number | null
+}
+
+export interface PontoSaude {
+  em: string
+  estado: EstadoSaude
+  cpu: number | null
+  ram: number | null
+  ligacoes: number | null
+  ligacoesMax: number | null
+  ativas: number | null
+  msApi: number | null
+  msSite: number | null
+}
+
+export interface IncidenteSaude {
+  id: number
+  inicio: string
+  /** null: ainda a decorrer. */
+  fim: string | null
+  estado: Exclude<EstadoSaude, 'ok'>
+  motivos: MotivoSaude[]
+}
+
+export interface Saude {
+  periodo: PeriodoSaude
+  /** O estado confirmado (duas amostras más seguidas para piorar, três boas para recuperar). */
+  estado: EstadoSaude
+  aConfirmar: boolean
+  aRecuperar: boolean
+  /** Desde quando dura o incidente em curso. */
+  desde: string | null
+  amostraEm: string | null
+  idadeS: number | null
+  /** Nunca chegou uma sonda: a Edge Function saude-sondar ainda não foi publicada. */
+  semSondas: boolean
+  motivos: MotivoSaude[]
+  agora: {
+    cpu: number | null; ram: number | null; disco: number | null; carga: number | null; poolEspera: number | null
+    ligacoes: number | null; ligacoesMax: number | null; ativas: number | null; maisLentaS: number | null; bloqueadas: number | null
+    fila: number | null; partidas: number | null; partidasParadas: number | null; errosHttp: number | null
+  } | null
+  /** A última leitura das métricas do servidor (CPU, memória, disco). */
+  servidor: { ok: boolean; detalhe: string | null; idadeS: number } | null
+  monitores: MonitorSaude[]
+  serie: PontoSaude[]
+  incidentes: IncidenteSaude[]
+}
+
+export interface SaudeResumo {
+  estado: EstadoSaude
+  aConfirmar: boolean
+  motivos: Pick<MotivoSaude, 'codigo' | 'monitor' | 'nivel'>[]
+}
+
+/** O que a demo finge, para se ver cada ecrã do estado do site. */
+export type CenarioSaude = 'normal' | 'lento' | 'sobrecarga' | 'em_baixo'
+
 export interface Dados {
   modo: 'demo' | 'supabase'
+  /** O servidor avisa de cada mudança (Supabase Realtime). Sem isto, a página tem de perguntar mais depressa. */
+  realtime: boolean
 
   // Sessão e conta
   sessao(): Promise<Sessao | null>
@@ -998,6 +1091,14 @@ export interface Dados {
   definirFuncao(perfilId: string, funcao: Funcao): Promise<void>
   /** Quantas contas humanas há no site. */
   contarJogadores(): Promise<number>
+  /** Owner e Dev: o estado do site (sondas, servidor, base de dados, incidentes) no período pedido. */
+  saude(periodo: PeriodoSaude): Promise<Saude>
+  /** Owner e Dev: só o estado e os motivos, para o ponto no menu. */
+  saudeResumo(): Promise<SaudeResumo>
+  /** Só existe no modo demo (onde não há servidor a medir): escolhe o que se simula. */
+  simularSaude?(cenario: CenarioSaude): void
+  /** O cenário que a demo está a simular. */
+  cenarioSaude?(): CenarioSaude
   /** Escreve um aviso a um jogador (popup no site e mensagem privada no Discord). */
   avisarJogador(perfilId: string, mensagem: string): Promise<AvisoStaff>
   /** Bane o jogador da fila: horas null é para sempre. Tira-o da fila já; não cancela uma partida a decorrer. */

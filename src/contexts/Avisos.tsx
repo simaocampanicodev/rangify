@@ -64,3 +64,23 @@ export function useAcao() {
     }
   }, [avisar])
 }
+
+/**
+ * Como `useAcao`, e diz qual ação está a correr (para desativar os botões). `depois` corre quando a ação acaba, com
+ * sucesso ou sem ele (por exemplo, para voltar a perguntar o estado da partida). A chave distingue ações do mesmo ecrã.
+ */
+export function useAcaoOcupada<C = true>(depois?: () => Promise<unknown>) {
+  const acao = useAcao()
+  const [chave, setChave] = useState<C | null>(null)
+  const correr = async <T,>(f: () => Promise<T>, ok?: string, qual: C = true as C): Promise<T | undefined> => {
+    setChave(qual)
+    try {
+      const r = await acao(f, ok)
+      await depois?.()
+      return r
+    } finally {
+      setChave(null)
+    }
+  }
+  return { ocupado: chave !== null, chave, correr }
+}

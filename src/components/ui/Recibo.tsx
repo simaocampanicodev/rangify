@@ -1,13 +1,11 @@
+import { armazemSessao } from '@/lib/armazem'
 import { useEffect, useState, type ReactNode } from 'react'
 import { l } from '@/lib/idioma'
 import { NumeroRolante } from './NumeroRolante'
 
-export interface LinhaRecibo { rotulo: ReactNode; valor: number }
+interface LinhaRecibo { rotulo: ReactNode; valor: number }
 
-/**
- * O recibo dos pontos (ideia do Payment Receipt Printer do EasyUI): um papel térmico escuro que sai da impressora aos
- * poucos, com cada linha de pontos a seguir à outra e o total a rolar no fim. Mostra de onde vieram os pontos da partida.
- */
+/** O recibo dos pontos: cada linha a seguir à outra e o total a rolar no fim. */
 export function ReciboPontos({ codigo, linhas, total, fila }: { codigo: string; linhas: LinhaRecibo[]; total: number; fila?: string }) {
   const sinal = (v: number) => (v > 0 ? `+${v}` : String(v))
   return (
@@ -41,7 +39,8 @@ export function Festa({ chave }: { chave: string }) {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const k = `rangify:festa:${chave}`
-    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1') } catch { /* sem armazenamento: dá a festa na mesma */ }
+    if (armazemSessao.ler(k)) return
+    armazemSessao.escrever(k, '1')
     setVer(true)
     const t = window.setTimeout(() => setVer(false), 2200)
     return () => window.clearTimeout(t)

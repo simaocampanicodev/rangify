@@ -1,49 +1,31 @@
 import { Check, Copy, ExternalLink, Gift, Link2, Megaphone, MonitorPlay, RefreshCw, Sparkles, Unlink } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { IconeTwitch } from '@/components/AoVivo'
+import { IconeTwitch } from '@/components/ui/IconesMarca'
 import { BotaoSegurar, Cabecalho, Carregando, Chip, Painel, Segmentado, TituloPainel } from '@/components/ui'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { dados, type ConvidadoLinha } from '@/lib/data'
-import { linkConvite } from '@/lib/convites'
+import { armazemLocal } from '@/lib/armazem'
+import { linkConvite } from '@/lib/integracoes/convites'
+import { CAMPOS_OVERLAY, CORES_OVERLAY, ESCALA_MAX, ESCALA_MIN, PREFERENCIAS_PADRAO, consultaOverlay, tamanhoOverlay, type PreferenciasOverlay } from '@/lib/integracoes/overlay'
 import { l } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
+import { LIMITES } from '@/lib/entradas'
 
-const CORES: { id: string; hex: string; nome: [string, string] }[] = [
-  { id: 'laranja', hex: '#ff5b1f', nome: ['Laranja', 'Orange'] },
-  { id: 'azul', hex: '#3b9eff', nome: ['Azul', 'Blue'] },
-  { id: 'verde', hex: '#3ddc97', nome: ['Verde', 'Green'] },
-  { id: 'rosa', hex: '#ff5c9d', nome: ['Rosa', 'Pink'] },
-  { id: 'roxo', hex: '#9146ff', nome: ['Roxo', 'Purple'] },
-  { id: 'ouro', hex: '#f2c14e', nome: ['Ouro', 'Gold'] },
-  { id: 'branco', hex: '#f3f0eb', nome: ['Branco', 'White'] },
-]
-const CAMPOS: { id: string; nome: [string, string] }[] = [
-  { id: 'rank', nome: ['Rank e pontos', 'Rank and points'] },
-  { id: 'hoje', nome: ['O dia (V, D, pontos)', 'Today (W, L, points)'] },
-  { id: 'estado', nome: ['Fila ou partida', 'Queue or match'] },
-  { id: 'ultima', nome: ['Última partida', 'Last match'] },
-  { id: 'fim', nome: ['Aviso de fim de partida', 'Match-end banner'] },
-]
-
-interface Preferencias { estilo: 'cartao' | 'barra'; cor: string; campos: string[]; escala: number; fila: 'auto' | 'aberta' | 'ranked' }
-const PADRAO: Preferencias = { estilo: 'cartao', cor: 'laranja', campos: CAMPOS.map((c) => c.id), escala: 100, fila: 'auto' }
 const CHAVE_PREFS = 'rangify:overlay-opcoes'
 
-function lerPreferencias(): Preferencias {
+function lerPreferencias(): PreferenciasOverlay {
   try {
-    const p = JSON.parse(localStorage.getItem(CHAVE_PREFS) ?? 'null')
-    if (p && (p.estilo === 'cartao' || p.estilo === 'barra') && Array.isArray(p.campos)) return { ...PADRAO, ...p }
+    const p = JSON.parse(armazemLocal.ler(CHAVE_PREFS) ?? 'null')
+    if (p && (p.estilo === 'cartao' || p.estilo === 'barra') && Array.isArray(p.campos)) return { ...PREFERENCIAS_PADRAO, ...p }
   } catch { /* sem preferências guardadas */ }
-  return PADRAO
+  return PREFERENCIAS_PADRAO
 }
 
-/** Um quadriculado para se ver o fundo transparente do overlay. */
 const XADREZ = { backgroundImage: 'conic-gradient(#1a1a1f 25%, #111115 0 50%, #1a1a1f 0 75%, #111115 0)', backgroundSize: '20px 20px' }
 
-/** Mostra uma página do overlay no tamanho que ela tem no OBS, encolhida para caber na largura do painel. */
 function Previsao({ src, titulo, largura, altura }: { src: string; titulo: string; largura: number; altura: number }) {
   const caixa = useRef<HTMLDivElement>(null)
   const [k, setK] = useState(1)
@@ -84,31 +66,21 @@ function CampoLink({ valor, aoCopiar, rotulo }: { valor: string; aoCopiar: () =>
   )
 }
 
-// ------------------------------------------------------------ overlay do OBS
 
 function PainelOverlay() {
   const acao = useAcao()
   const copiar = useCopiar()
   const chave = useCarregar(() => dados.meuOverlay(), [], ['streamers'])
   const [prefs, setPrefs] = useState(lerPreferencias)
-  useEffect(() => { try { localStorage.setItem(CHAVE_PREFS, JSON.stringify(prefs)) } catch { /* só uma comodidade */ } }, [prefs])
+  useEffect(() => { armazemLocal.escrever(CHAVE_PREFS, JSON.stringify(prefs)) }, [prefs])
   const k = chave.valor?.chave
   if (!k) return <Painel className="p-[22px]"><Carregando /></Painel>
 
-  const q = new URLSearchParams()
-  if (prefs.estilo !== 'cartao') q.set('estilo', prefs.estilo)
-  if (prefs.cor !== 'laranja') q.set('cor', prefs.cor)
-  if (prefs.campos.length !== CAMPOS.length) q.set('mostrar', prefs.campos.join(','))
-  if (prefs.escala !== 100) q.set('escala', String(prefs.escala))
-  if (prefs.fila !== 'auto') q.set('fila', prefs.fila)
-  const resto = q.toString() ? `?${q}` : ''
-  const url = `${window.location.origin}/overlay/${k}${resto}`
-  // Com o aviso de fim de partida ligado, o overlay reserva uns 66 px por cima para ele aparecer.
-  const comAviso = prefs.campos.includes('fim')
-  const tamanho = prefs.estilo === 'barra' ? [1050, 104 + (comAviso ? 66 : 0)] : [360, 304 + (comAviso ? 66 : 0)]
+  const url = `${window.location.origin}/overlay/${k}${consultaOverlay(prefs)}`
+  const tamanho = tamanhoOverlay(prefs.estilo, prefs.campos.includes('fim'))
   const largura = Math.round((tamanho[0] * prefs.escala) / 100)
   const altura = Math.round((tamanho[1] * prefs.escala) / 100)
-  const alternar = (id: string) => setPrefs((p) => ({ ...p, campos: p.campos.includes(id) ? (p.campos.length > 1 ? p.campos.filter((c) => c !== id) : p.campos) : CAMPOS.map((c) => c.id).filter((c) => c === id || p.campos.includes(c)) }))
+  const alternar = (id: string) => setPrefs((p) => ({ ...p, campos: p.campos.includes(id) ? (p.campos.length > 1 ? p.campos.filter((c) => c !== id) : p.campos) : CAMPOS_OVERLAY.map((c) => c.id).filter((c) => c === id || p.campos.includes(c)) }))
 
   return (
     <Painel aria-labelledby="rg-div-overlay" className="flex min-w-0 flex-[1_1_520px] flex-col gap-4 p-[22px]">
@@ -123,7 +95,7 @@ function PainelOverlay() {
         </div>
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
           {l('Tamanho', 'Size')}: {prefs.escala}%
-          <input type="range" min={50} max={200} step={10} value={prefs.escala} onChange={(e) => setPrefs((p) => ({ ...p, escala: Number(e.target.value) }))} className="accent-[#ff5b1f]" />
+          <input type="range" min={ESCALA_MIN} max={ESCALA_MAX} step={10} value={prefs.escala} onChange={(e) => setPrefs((p) => ({ ...p, escala: Number(e.target.value) }))} className="accent-[#ff5b1f]" />
         </label>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -134,7 +106,7 @@ function PainelOverlay() {
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-1.5 text-[13px] font-semibold text-[#d0cbc4]">{l('Cor de destaque', 'Accent colour')}</legend>
         <div className="flex flex-wrap gap-2">
-          {CORES.map((c) => (
+          {CORES_OVERLAY.map((c) => (
             <button key={c.id} type="button" onClick={() => setPrefs((p) => ({ ...p, cor: c.id }))} aria-pressed={prefs.cor === c.id} title={l(c.nome[0], c.nome[1])} aria-label={l(c.nome[0], c.nome[1])}
               className={`grid size-9 place-items-center rounded-full border-2 transition-transform hover:scale-110 ${prefs.cor === c.id ? 'border-white' : 'border-white/15'}`} style={{ background: c.hex }}>
               {prefs.cor === c.id && <Check size={16} className="text-black" aria-hidden />}
@@ -145,7 +117,7 @@ function PainelOverlay() {
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-1.5 text-[13px] font-semibold text-[#d0cbc4]">{l('O que mostrar', 'What to show')}</legend>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {CAMPOS.map((c) => (
+          {CAMPOS_OVERLAY.map((c) => (
             <label key={c.id} className="flex items-center gap-2 text-[13px] text-suave">
               <input type="checkbox" checked={prefs.campos.includes(c.id)} onChange={() => alternar(c.id)} className="size-4 accent-[#ff5b1f]" />{l(c.nome[0], c.nome[1])}
             </label>
@@ -169,14 +141,13 @@ function PainelOverlay() {
   )
 }
 
-// ------------------------------------------------------------ marca animada
 
 function PainelMarca() {
   const copiar = useCopiar()
   const chave = useCarregar(() => dados.meuOverlay(), [], ['streamers'])
   const k = chave.valor?.chave
   const [cor, setCor] = useState(() => lerPreferencias().cor)
-  const consulta = cor !== 'laranja' ? `?cor=${cor}` : ''
+  const consulta = consultaOverlay({ ...PREFERENCIAS_PADRAO, cor })
   // A do endereço não precisa de chave. A do convite mostra o link inteiro e só existe depois de a chave existir.
   const urlSite = `${window.location.origin}/marca${consulta}`
   const urlConvite = k ? `${window.location.origin}/overlay/${k}/marca${consulta}` : ''
@@ -187,7 +158,7 @@ function PainelMarca() {
         {l('Um pequeno cartão animado para pores num canto da live: três mensagens que se trocam sozinhas (o Rangify, o endereço do site e um convite). São páginas para o OBS e não GIFs, por isso mexem-se com a fluidez da própria live, com fundo transparente. Escolhe a cor e uma das duas versões.', 'A small animated card for a corner of your stream: three messages that swap by themselves (Rangify, the site address and an invite). They are pages for OBS rather than GIFs, so they move as smoothly as the stream itself, on a transparent background. Pick a colour and one of the two versions.')}
       </p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={l('Cor', 'Colour')}>
-        {CORES.map((c) => (
+        {CORES_OVERLAY.map((c) => (
           <button key={c.id} type="button" onClick={() => setCor(c.id)} aria-pressed={cor === c.id} aria-label={l(c.nome[0], c.nome[1])} className={`size-6 rounded-full border-2 ${cor === c.id ? 'border-white' : 'border-white/15'}`} style={{ background: c.hex }} />
         ))}
       </div>
@@ -216,7 +187,6 @@ function PainelMarca() {
   )
 }
 
-// ------------------------------------------------------------ Twitch
 
 function PainelTwitch() {
   const acao = useAcao()
@@ -251,14 +221,14 @@ function PainelTwitch() {
 
   return (
     <Painel aria-labelledby="rg-div-twitch" className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-[22px]">
-      <TituloPainel eyebrow="TWITCH" titulo={l('A tua live no Rangify', 'Your stream on Rangify')} id="rg-div-twitch" direita={<span className="text-[#b48bff]"><IconeTwitch size={22} /></span>} />
+      <TituloPainel eyebrow="TWITCH" titulo={l('A tua live no Rangify', 'Your stream on Rangify')} id="rg-div-twitch" direita={<span className="text-[#b48bff]"><IconeTwitch tamanho={22} /></span>} />
       <p className="m-0 text-[13px] leading-normal text-mudo">
         {l('Liga o teu canal e, quando estiveres em direto, aparece "AO VIVO" ao lado do teu nome no Rangify (tabela, perfil e partidas) com um botão para abrirem a tua live. Não pedimos nenhuma permissão à Twitch: só ficamos a saber qual é o canal.', 'Link your channel and, when you are live, "LIVE" shows next to your name on Rangify (leaderboard, profile and matches) with a button to open your stream. We ask Twitch for no permissions: we only learn which channel it is.')}
       </p>
       {twitch.carregando ? <Carregando /> : t ? (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-3">
-            <span className="text-[#b48bff]"><IconeTwitch size={18} /></span>
+            <span className="text-[#b48bff]"><IconeTwitch tamanho={18} /></span>
             <a href={`https://www.twitch.tv/${encodeURIComponent(t.login)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-bold text-texto no-underline hover:text-pessego">{t.nome}<ExternalLink size={13} aria-hidden /></a>
             {t.aoVivo ? <Chip tom="derrota">{l('EM DIRETO', 'LIVE')}{t.espetadores != null ? ` · ${t.espetadores}` : ''}</Chip> : <Chip>{l('Offline', 'Offline')}</Chip>}
             <span className="ml-auto text-[12px] text-mudo">{l('ligado', 'linked')} {haQuanto(t.ligadaEm)}</span>
@@ -274,17 +244,16 @@ function PainelTwitch() {
         </div>
       ) : demo ? (
         <form className="flex flex-wrap items-stretch gap-2.5" onSubmit={(e) => { e.preventDefault(); ligar() }}>
-          <input className="campo min-w-0 flex-[1_1_200px]" value={canal} onChange={(e) => setCanal(e.target.value)} placeholder={l('O teu canal (demo)', 'Your channel (demo)')} aria-label={l('Nome do canal da Twitch', 'Twitch channel name')} maxLength={25} />
+          <input maxLength={LIMITES.canalTwitch} className="campo min-w-0 flex-[1_1_200px]" value={canal} onChange={(e) => setCanal(e.target.value)} placeholder={l('O teu canal (demo)', 'Your channel (demo)')} aria-label={l('Nome do canal da Twitch', 'Twitch channel name')} />
           <button type="submit" className="btn btn-primario" disabled={aLigar || canal.trim().length < 3}>{l('Ligar canal (demo)', 'Link channel (demo)')}</button>
         </form>
       ) : (
-        <div><button type="button" className="btn btn-primario" disabled={aLigar} onClick={ligar}><IconeTwitch size={16} />{aLigar ? l('A abrir a Twitch…', 'Opening Twitch…') : l('Ligar a Twitch', 'Link Twitch')}</button></div>
+        <div><button type="button" className="btn btn-primario" disabled={aLigar} onClick={ligar}><IconeTwitch tamanho={16} />{aLigar ? l('A abrir a Twitch…', 'Opening Twitch…') : l('Ligar a Twitch', 'Link Twitch')}</button></div>
       )}
     </Painel>
   )
 }
 
-// ------------------------------------------------------------ convites
 
 const ESTADO_CONVIDADO: Record<ConvidadoLinha['estado'], { tom: 'neutro' | 'vitoria' | 'laranja'; texto: [string, string] }> = {
   pendente: { tom: 'neutro', texto: ['À espera da 1.ª partida', 'Waiting for the 1st match'] },
@@ -356,7 +325,6 @@ function PainelConvites() {
   )
 }
 
-// ------------------------------------------------------------ página
 
 export function Divulgar() {
   const { perfil, eStaff } = useSessao()

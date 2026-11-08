@@ -58,6 +58,7 @@ O guia completo, com o Discord, a Henrik Dev API, o Render e o GitHub, está em 
    supabase functions deploy discord-partida discord-interacoes --no-verify-jwt   # canais de Discord, ver discord.md
    supabase functions deploy twitch-ligar twitch-sincronizar --no-verify-jwt       # Twitch ligada ao perfil, ver streamers.md
    supabase functions deploy processar-torneio --no-verify-jwt                      # resultados dos torneios, ver tournaments.md
+   supabase functions deploy saude-sondar --no-verify-jwt                           # estado do site, ver estado-do-site.md
    ```
 5. Cria o `.env` com as duas variáveis `VITE_`.
 6. Entra uma vez com o Discord e torna-te Owner:
@@ -81,7 +82,7 @@ Definem-se com `supabase secrets set NOME=valor` (ou no painel, em **Edge Functi
 | `SITE_URL` | O endereço do site (para os links dos botões do bot) |
 | `TWITCH_CLIENT_ID` · `TWITCH_CLIENT_SECRET` | A aplicação da Twitch (Twitch ligada ao perfil) |
 
-Opcionais, para trocar sem mexer no código: `DISCORD_PING_CANAL`, `DISCORD_PING_CARGO`, `DISCORD_FILA_CANAL`, `DISCORD_FILA_RANKED_CANAL`, `DISCORD_CARGO_RANKED`, `DISCORD_CARGO_MEMBER` e `DISCORD_ANUNCIOS_CANAL`. O que cada um faz está em [discord.md](discord.md).
+Opcionais, para trocar sem mexer no código: `DISCORD_PING_CANAL`, `DISCORD_PING_CARGO`, `DISCORD_FILA_CANAL`, `DISCORD_FILA_RANKED_CANAL`, `DISCORD_CARGO_RANKED`, `DISCORD_CARGO_MEMBER` e `DISCORD_ANUNCIOS_CANAL`. O que cada um faz está em [discord.md](discord.md). Mais `DISCORD_CANAL_ESTADO`, o canal de staff onde o bot avisa quando o site fica lento, sobrecarregado ou em baixo (ver [estado-do-site.md](estado-do-site.md)).
 
 ## Testes
 

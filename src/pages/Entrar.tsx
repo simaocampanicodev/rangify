@@ -1,22 +1,16 @@
 import { ArrowRight, Crown, FlaskConical, Map as IconeMapa, Scale } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { SeletorIdioma } from '@/components/Idioma'
-import { LayoutSimples } from '@/components/Layout'
-import { Marca, NomeRangify } from '@/components/Marca'
+import { SeletorIdioma } from '@/components/layout/Idioma'
+import { LayoutSimples } from '@/components/layout/Layout'
+import { Marca, NomeRangify } from '@/components/ui/Marca'
 import { Carregando } from '@/components/ui'
+import { IconeDiscord } from '@/components/ui/IconesMarca'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { dados } from '@/lib/data'
 import { l } from '@/lib/idioma'
-
-export function IconeDiscord({ tamanho = 20 }: { tamanho?: number }) {
-  return (
-    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" aria-hidden fill="currentColor">
-      <path d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18.2 18.2 0 0 0-5.6 0L8.6 3a19.5 19.5 0 0 0-4.9 1.5C.6 9.1-.3 13.7.1 18.2a19.8 19.8 0 0 0 6 3l1.3-2a12.8 12.8 0 0 1-2-1l.5-.4a14 14 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2a19.7 19.7 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.8ZM8 15.4c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z" />
-    </svg>
-  )
-}
+import { LIMITES } from '@/lib/entradas'
 
 export function Entrar() {
   const { carregando, sessao } = useSessao()
@@ -81,16 +75,16 @@ export function Entrar() {
           <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); correr(() => dados.entrarComPassword(utilizador, password)) }}>
             <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
               {l('Utilizador', 'Username')}
-              <input className="campo" value={utilizador} onChange={(e) => setUtilizador(e.target.value)} autoComplete="username" required />
+              <input maxLength={LIMITES.utilizador} className="campo" value={utilizador} onChange={(e) => setUtilizador(e.target.value)} autoComplete="username" required />
             </label>
             <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
               {l('Palavra-passe', 'Password')}
-              <input className="campo" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+              <input maxLength={LIMITES.password} className="campo" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             </label>
             <button type="submit" disabled={aEntrar} className="btn btn-fantasma">{l('Entrar', 'Sign in')}<ArrowRight size={16} aria-hidden /></button>
           </form>
 
-          {dados.modo === 'demo' && dados.entrarDemo && (
+          {dados.entrarDemo && (
             <div className="flex flex-col gap-3 rounded-[14px] border border-dashed border-laranja/40 bg-laranja/6 p-4">
               <span className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.14em] text-laranja"><FlaskConical size={14} aria-hidden />{l('MODO DEMO', 'DEMO MODE')}</span>
               <p className="m-0 text-[13px] leading-normal text-suave">

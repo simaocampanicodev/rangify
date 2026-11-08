@@ -1,6 +1,6 @@
 import { Crown, Medal, Settings2, Users } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ChipEstado, Contagem, dataLimite, formatoTexto } from '@/components/tournaments/comum'
+import { ChipEstado, Contagem, dataLimite, formatoTexto } from '@/components/torneios/comum'
 import { Cabecalho, Carregando, Chip, Esqueleto, Painel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -8,7 +8,7 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { dados, type ConviteTorneio, type TorneioResumo } from '@/lib/data'
 import { l } from '@/lib/idioma'
-import { nomeFuncao } from '@/components/tournaments/comum'
+import { nomeFuncao } from '@/components/torneios/comum'
 
 function Convite({ c }: { c: ConviteTorneio }) {
   const acao = useAcao()
@@ -94,12 +94,11 @@ function CartaoTorneio({ t, destaque }: { t: TorneioResumo; destaque: boolean })
 }
 
 export function Torneios() {
-  const { perfil } = useSessao()
+  const { perfil, podeTestar: staff } = useSessao()
   const visivel = useCarregar(() => dados.torneiosVisivel(), [perfil?.id, perfil?.funcao], ['torneios', 'staff'])
   const lista = useCarregar(() => dados.torneiosLista(), [perfil?.id], ['torneios', 'staff'], { chave: 'torneios:lista', minimo: 250 })
   const convites = useCarregar(() => dados.meusConvitesTorneio(), [perfil?.id], ['torneios'], { chave: 'torneios:convites' })
   useIntervalo(() => { lista.recarregar(); convites.recarregar() }, 60_000)
-  const staff = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
   const area = useCarregar(() => (staff ? dados.torneiosAreaAberta() : Promise.resolve(true)), [perfil?.id, staff], ['torneios', 'staff'], { chave: 'torneios:area' })
   if (!perfil || visivel.carregando) return <Carregando />
   if (!visivel.valor) return <Navigate to="/" replace />
@@ -113,8 +112,8 @@ export function Torneios() {
         migalhas={[l('Comunidade', 'Community'), l('Torneios', 'Tournaments')]}
         titulo={l('Torneios', 'Tournaments')}
         descricao={l('Monta a tua equipa, inscreve-te e joga até à final. Os resultados são lidos da API da Riot: ninguém os escreve à mão.', 'Build your team, register and play to the final. Results are read from the Riot API: nobody types them in by hand.')}
-        acoes={perfil.funcao === 'owner' || perfil.funcao === 'dev'
-          ? <Link to="/admin?aba=torneios" className="btn btn-fantasma no-underline"><Settings2 size={16} aria-hidden />{l('Gerir na Staff', 'Manage in Staff')}</Link>
+        acoes={staff
+          ?<Link to="/admin?aba=torneios" className="btn btn-fantasma no-underline"><Settings2 size={16} aria-hidden />{l('Gerir na Staff', 'Manage in Staff')}</Link>
           : undefined}
       />
       {staff && area.valor === false && (
@@ -138,10 +137,10 @@ export function Torneios() {
           <Vazio
             icone={<Medal size={22} />}
             titulo={l('Ainda não há torneios', 'No tournaments yet')}
-            texto={perfil.funcao === 'owner' || perfil.funcao === 'dev'
+            texto={staff
               ? l('Cria o primeiro na Staff › Torneios (podes começar por um de teste, com bots).', 'Create the first one in Staff › Tournaments (you can start with a test one, with bots).')
               : l('Quando houver um torneio aberto, aparece aqui.', 'When a tournament is open, it shows up here.')}
-            acao={perfil.funcao === 'owner' || perfil.funcao === 'dev' ? <Link to="/admin?aba=torneios" className="btn btn-primario no-underline">{l('Criar um torneio', 'Create a tournament')}</Link> : undefined}
+            acao={staff ? <Link to="/admin?aba=torneios" className="btn btn-primario no-underline">{l('Criar um torneio', 'Create a tournament')}</Link> : undefined}
           />
         </Painel>
       ) : (

@@ -39,13 +39,13 @@ O Rangify já tem fila, draft, Discord e um painel de staff. Este trabalho alinh
 - Discord **não executa JavaScript** num botão de link. “Abrir o site e já entrar na fila” faz-se com um URL do Rangify que, com sessão, chama `entrar_fila` ao carregar `/jogar` (query explícita). Sem sessão: login e depois o mesmo join.
 - `entrar_fila()` já recusa cooldown, partida activa, Riot ID em falta e Discord em falta. O ban da fila entra **nessa mesma porta**.
 - Rank no perfil: `official_tier` / `official_rr`. Sync manual tem cache de 6 horas; o update pós-jogo **ignora essa cache**. Falha da Henrik num jogador **não** impede o fecho da partida.
-- Som actual: `src/lib/som.ts` + `Confirmar.tsx`. A extensão reproduz o **mesmo acorde**; o site só silencia se a extensão confirmar que está viva.
+- Som actual: `src/lib/personalizacao/som.ts` + `Confirmar.tsx`. A extensão reproduz o **mesmo acorde**; o site só silencia se a extensão confirmar que está viva.
 
 ## How (decided)
 
 ### Draft
 
-`equipaDaEscolha(n)` em `src/lib/regras.ts` deixa de ser `n % 2`. Índice 0-based das escolhas (não conta os capitães já colocados):
+`equipaDaEscolha(n)` em `src/lib/jogo/regras.ts` deixa de ser `n % 2`. Índice 0-based das escolhas (não conta os capitães já colocados):
 
 `A, B, B, A, A, B, B, A`
 

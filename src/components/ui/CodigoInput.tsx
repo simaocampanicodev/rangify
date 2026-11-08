@@ -1,11 +1,7 @@
 import { useRef, useState } from 'react'
-import { limparCodigo } from '@/lib/regras'
+import { limparCodigo } from '@/lib/jogo/regras'
 
-/**
- * O campo do código do grupo, em seis caixas (ideia do OTP Input do EasyUI). Por baixo há um só campo de texto, por isso
- * colar, apagar, o teclado do telemóvel e o preenchimento automático funcionam como num campo normal; as caixas só mostram
- * o que lá está. Cada letra nova entra com um pequeno salto e a caixa seguinte fica com o cursor.
- */
+/** O código do grupo em seis caixas sobre um só campo de texto: colar, apagar e o preenchimento automático funcionam como num campo normal. */
 export function CodigoInput({ valor, aoMudar, id, ajudaId, invalido = false }: {
   valor: string; aoMudar: (v: string) => void; id: string; ajudaId?: string; invalido?: boolean
 }) {

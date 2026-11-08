@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 /** Se a consulta CSS (por exemplo "(max-width: 639px)") se cumpre agora, e muda quando o ecrã muda. */
-export function useMedia(consulta: string): boolean {
+function useMedia(consulta: string): boolean {
   return useSyncExternalStore(
     (aviso) => {
       const m = window.matchMedia(consulta)

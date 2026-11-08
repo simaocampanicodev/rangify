@@ -20,3 +20,7 @@ verify_jwt = false
 [functions.processar-torneio]
 # A base de dados chama-a a cada minuto (pg_cron + pg_net) com o segredo do Discord; os jogadores chamam-na com a sessão e ela confirma-a por dentro.
 verify_jwt = false
+
+[functions.saude-sondar]
+# Chamada pela base de dados (pg_cron + pg_net) a cada minuto com o mesmo segredo do Discord.
+verify_jwt = false

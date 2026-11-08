@@ -10,9 +10,11 @@
  * tempo esgotado = ao calhas). Não há cron: passado o prazo joga-se ao calhas quando alguém abre o jogo ou o torneio.
  */
 import { avisarMudanca } from './eventos'
-import { validarResultado } from '../regras'
-import { nomeJogador } from '../partida'
-import { MAPAS, NOMES_MAPAS, ROTACAO_PADRAO } from '../mapas'
+import { iso, novoId } from './util'
+import { eOwnerDev } from '../funcoes'
+import { validarResultado } from '../jogo/regras'
+import { nomeJogador } from '../jogo/partida'
+import { MAPAS, NOMES_MAPAS, ROTACAO_PADRAO } from '../jogo/mapas'
 import type {
   ConviteTorneio, Dados, DadosNovoTorneio, EstadoJogoTorneio, EstadoTorneio, FuncaoEquipaTorneio, ItemCalendarioTorneio,
   JogadaVetoTorneio, JogadorSugerido, MapaSerieTorneio, MelhorDe, OrigemEquipaTorneio, PassoVetoTorneio, Perfil, TorneioDetalhe, TorneioEquipa, TorneioJogo, TorneioLinhaClassificacao, TorneioMembro, TorneioResumo,
@@ -96,14 +98,8 @@ function guardar() {
   try { localStorage.setItem(CHAVE, JSON.stringify(estado)) } catch { /* sem espaço ou em modo privado: segue em memória */ }
 }
 
-const iso = (ms: number) => new Date(ms).toISOString()
 const ms = (s: string | null | undefined) => (s ? new Date(s).getTime() : NaN)
-const novoId = () => {
-  const c = globalThis.crypto as Partial<Crypto> | undefined
-  if (typeof c?.randomUUID === 'function') return c.randomUUID()
-  return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-const eStaff = (p: Perfil) => p.funcao === 'owner' || p.funcao === 'dev'
+const eStaff = (p: Perfil) => eOwnerDev(p.funcao)
 const erro = (m: string): never => { throw new Error(m) }
 
 function exigirStaff(p: Perfil) {
@@ -746,7 +742,6 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
   | 'torneioAcessos' | 'torneioStaffAdicionar' | 'torneioSortear' | 'torneioAgendar' | 'torneioAgendarVarios' | 'torneioResolverJogo'
   | 'torneioWalkover' | 'torneioDesfazerJogo' | 'torneioGerarPlayoffs' | 'torneioTesteEquipas' | 'torneioTestePreencher'
   | 'torneioTesteSimular' | 'torneioTesteSimularTudo' | 'torneioTesteReiniciar'> {
-  const mudou = () => { guardar(); avisarMudanca('torneios') }
   const so_teste = (s: EstadoTorneios, id: string) => {
     const t = s.torneios.find((x) => x.id === id)
     if (!t) return erro('Torneio não encontrado.')
@@ -784,8 +779,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const { eu } = await ctx.perfis()
       exigirStaff(eu)
       ler().areaAberta = !!aberta
-      mudou()
-      avisarMudanca('staff')
+      guardar()
       return !!aberta
     },
 
@@ -861,7 +855,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       s.equipas.push(e)
       s.membros = s.membros.filter((m) => !(m.torneioId === t.id && m.perfilId === eu.id && m.estado === 'convidado'))
       s.membros.push({ equipaId: e.id, perfilId: eu.id, torneioId: t.id, funcao, estado: 'aceite', convidadoPor: eu.id, criadoEm: iso(Date.now()) })
-      mudou()
+      guardar()
       return e.id
     },
 
@@ -873,7 +867,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (v.length < 2 || v.length > 32) erro('O nome da equipa tem entre 2 e 32 letras.')
       if (s.equipas.some((x) => x.torneioId === e.torneioId && x.id !== e.id && x.nome.trim().toLowerCase() === v.toLowerCase())) erro('Já existe uma equipa com esse nome neste torneio.')
       e.nome = v
-      mudou()
+      guardar()
     },
 
     async torneioConvidar(equipa, nome, funcao) {
@@ -890,7 +884,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       }
       // No demo os jogadores de exemplo são bots e aceitam logo (num torneio a sério a pessoa tem de aceitar).
       s.membros.push({ equipaId: e.id, perfilId: alvo.id, torneioId: e.torneioId, funcao, estado: alvo.bot ? 'aceite' : 'convidado', convidadoPor: eu.id, criadoEm: iso(Date.now()) })
-      mudou()
+      guardar()
       return sugerido(alvo)
     },
 
@@ -907,7 +901,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (!lugarLivre(s, e.id, funcao)) erro('Essa equipa já não tem lugar para essa função.')
       s.membros.push({ equipaId: e.id, perfilId: alvo.id, torneioId: e.torneioId, funcao, estado: 'aceite', convidadoPor: eu.id, criadoEm: iso(Date.now()) })
       s.membros = s.membros.filter((m) => !(m.torneioId === e.torneioId && m.perfilId === alvo.id && m.estado === 'convidado'))
-      mudou()
+      guardar()
       return sugerido(alvo)
     },
 
@@ -917,13 +911,13 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const m = s.membros.find((x) => x.equipaId === equipa && x.perfilId === eu.id && x.estado === 'convidado')
       if (!m) return erro('Esse convite já não existe.')
       const t = s.torneios.find((x) => x.id === m.torneioId)!
-      if (!aceitar) { s.membros = s.membros.filter((x) => x !== m); mudou(); return }
+      if (!aceitar) { s.membros = s.membros.filter((x) => x !== m); guardar(); return }
       if (!inscricoesAbertas(t)) erro('As inscrições já fecharam: já não podes aceitar este convite.')
       if (!perfilValido(eu)) erro('Liga o teu Riot ID no perfil antes de aceitares.')
       if (s.membros.some((x) => x.torneioId === t.id && x.perfilId === eu.id && x.estado === 'aceite')) erro('Já estás numa equipa deste torneio.')
       m.estado = 'aceite'
       s.membros = s.membros.filter((x) => !(x.torneioId === t.id && x.perfilId === eu.id && x.estado === 'convidado'))
-      mudou()
+      guardar()
     },
 
     async torneioRemoverMembro(equipa, perfil) {
@@ -934,7 +928,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const antes = s.membros.length
       s.membros = s.membros.filter((m) => !(m.equipaId === e.id && m.perfilId === perfil))
       if (s.membros.length === antes) erro('Esse jogador não está na equipa.')
-      mudou()
+      guardar()
     },
 
     async torneioMudarFuncao(equipa, perfil, funcao) {
@@ -948,7 +942,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (perfil === e.capitaoId && funcao === 'suplente') erro('O capitão joga ou é o coach.')
       if (!lugarLivre(s, e.id, funcao)) erro('Já não há lugar para essa função na equipa.')
       m.funcao = funcao
-      mudou()
+      guardar()
     },
 
     async torneioSairEquipa(equipa) {
@@ -962,7 +956,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const antes = s.membros.length
       s.membros = s.membros.filter((m) => !(m.equipaId === e.id && m.perfilId === eu.id))
       if (s.membros.length === antes) erro('Não estás nessa equipa.')
-      mudou()
+      guardar()
     },
 
     async torneioApagarEquipa(equipa) {
@@ -972,7 +966,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (t.estado !== 'rascunho' && t.estado !== 'inscricoes') erro('O sorteio já foi feito: pede à staff (um jogo perdido por falta de comparência resolve-se na Staff).')
       s.equipas = s.equipas.filter((x) => x.id !== e.id)
       s.membros = s.membros.filter((m) => m.equipaId !== e.id)
-      mudou()
+      guardar()
     },
 
     async torneioAbrirJogo(jogo, codigo) {
@@ -999,7 +993,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       // Numa série, o mapa que se joga agora é o seguinte ao último que acabou.
       const mapaAgora = j.mapas[j.serieA + j.serieB]
       if (mapaAgora) { mapaAgora.estado = 'a_decorrer'; mapaAgora.comecouEm = mapaAgora.comecouEm ?? iso(Date.now()) }
-      mudou()
+      guardar()
     },
 
     /** Os capitães das duas equipas (ou a staff) começam os picks e bans, 30 minutos antes da hora marcada. */
@@ -1022,7 +1016,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (!eStaff(eu) && !capitaes.includes(eu.id)) erro('Só os capitães das duas equipas começam os picks e bans.')
       if (!eStaff(eu) && !t.teste && (!j.agendadoPara || Date.now() < ms(j.agendadoPara) - 30 * 60_000)) erro('Ainda é cedo: os picks e bans abrem 30 minutos antes da hora marcada.')
       vetoComecar(s, j, eBotDe(todos))
-      mudou()
+      guardar()
     },
 
     /** O capitão da equipa da vez escolhe (mapa para banir ou escolher, ou o lado). A staff joga por qualquer uma. */
@@ -1044,7 +1038,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       }
       vetoFazer(s, j, (valor ?? '').trim(), false)
       vetoBots(s, j, eBotDe(todos))
-      mudou()
+      guardar()
     },
 
     /** Passou o tempo da vez? Joga ao calhas por quem não jogou. */
@@ -1058,7 +1052,8 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (j.estado !== 'veto' || !j.vetoPrazo || ms(j.vetoPrazo) > Date.now()) return false
       vetoAuto(s, j)
       vetoBots(s, j, eBotDe(todos))
-      mudou()
+      guardar()
+      avisarMudanca('torneios')
       return true
     },
 
@@ -1075,7 +1070,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (j.estado === 'a_decorrer' || j.estado === 'concluido') erro('Este jogo já começou.')
       if (j.mapaStaff) erro('O mapa deste jogo foi posto pela staff.')
       vetoCompletar(s, j, eBotDe(todos))
-      mudou()
+      guardar()
     },
 
     async torneioVetoReiniciar(jogo) {
@@ -1088,7 +1083,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (j.serieA + j.serieB > 0) erro('A série já começou: desfaz o jogo para refazeres os picks e bans.')
       Object.assign(j, { poolMapas: null, vetoMelhorDe: null, vetoPrazo: null, ladoEquipa: null, ladoEscolha: null, vetos: [], mapas: [], mapa: j.mapaStaff ? j.mapa : null, estado: 'pendente' as EstadoJogoTorneio })
       recalcularEstado(j)
-      mudou()
+      guardar()
     },
 
     /** No demo não há API: passados 15 s o jogo fecha-se com um resultado simulado. */
@@ -1101,7 +1096,8 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (t.estado !== 'grupos' && t.estado !== 'playoffs') return
       // A "API" do demo fecha o mapa que está em jogo (numa série, um de cada vez).
       simularMapa(s, j, 'api', () => false)
-      mudou()
+      guardar()
+      avisarMudanca('torneios')
     },
 
     async torneioCriar(p: DadosNovoTorneio) {
@@ -1120,7 +1116,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (t.passamPorGrupo >= t.tamanhoGrupo) erro('Têm de passar menos equipas do que as que há num grupo.')
       validarMelhorDe(t.melhorDe, t.poolMapas, t.vetoMapas)
       s.torneios.push(t)
-      mudou()
+      guardar()
       return t.id
     },
 
@@ -1151,7 +1147,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (p.inicio !== undefined) t.inicio = p.inicio || null
       if (p.maxEquipas !== undefined) t.maxEquipas = p.maxEquipas
       if (p.publico !== undefined) t.publico = p.publico
-      mudou()
+      guardar()
     },
 
     async torneioMudarEstado(id, novo) {
@@ -1167,7 +1163,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       } else if (novo === 'cancelado') { if (t.estado === 'concluido' || t.estado === 'cancelado') erro('Este torneio já acabou.') }
       else erro('Estado inválido.')
       t.estado = novo
-      mudou()
+      guardar()
     },
 
     async torneioApagar(id) {
@@ -1185,7 +1181,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       s.jogos = s.jogos.filter((j) => j.torneioId !== id)
       s.stats = s.stats.filter((x) => !jogos.has(x.jogoId))
       for (const j of jogos) delete s.codigos[j]
-      mudou()
+      guardar()
     },
 
     async torneioAcesso(id, nome, dar) {
@@ -1196,7 +1192,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const alvo = achar(todos, nome)
       s.acessos = s.acessos.filter((a) => !(a.torneioId === id && a.perfilId === alvo.id))
       if (dar) s.acessos.push({ torneioId: id, perfilId: alvo.id })
-      mudou()
+      guardar()
       return sugerido(alvo)
     },
 
@@ -1235,7 +1231,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       t.estado = 'grupos'
       t.inscricoesAte = ms(t.inscricoesAte) > Date.now() ? iso(Date.now()) : t.inscricoesAte
       t.seed = semente; t.sorteadoEm = iso(Date.now()); t.campeaoId = null
-      mudou()
+      guardar()
       return { grupos: g, equipas: n, seed: semente }
     },
 
@@ -1246,7 +1242,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const j = s.jogos.find((x) => x.id === jogo)
       if (!j) return erro('Jogo não encontrado.')
       agendarJogo(s, j, quando, mapa, presencial, melhorDe)
-      mudou()
+      guardar()
     },
 
     async torneioAgendarVarios(itens: ItemCalendarioTorneio[]) {
@@ -1258,7 +1254,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
         if (!j) erro('Jogo não encontrado.')
         else agendarJogo(s, j, x.quando, x.mapa, x.presencial, x.melhorDe)
       }
-      mudou()
+      guardar()
       return (itens ?? []).length
     },
 
@@ -1270,7 +1266,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (!j) return erro('Jogo não encontrado.')
       if (j.estado === 'concluido') desfazer(s, jogo)
       aplicarResultado(s, jogo, a, b, null, 'staff', null, eBotDe((await ctx.perfis()).todos))
-      mudou()
+      guardar()
     },
 
     async torneioWalkover(jogo, vencedor) {
@@ -1282,14 +1278,14 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (vencedor !== j.equipaA && vencedor !== j.equipaB) erro('Essa equipa não joga este jogo.')
       if (j.estado === 'concluido') desfazer(s, jogo)
       aplicarResultado(s, jogo, vencedor === j.equipaA ? 13 : 0, vencedor === j.equipaB ? 13 : 0, null, 'walkover')
-      mudou()
+      guardar()
     },
 
     async torneioDesfazerJogo(jogo) {
       const { eu } = await ctx.perfis()
       exigirStaff(eu)
       desfazer(ler(), jogo)
-      mudou()
+      guardar()
     },
 
     async torneioGerarPlayoffs(id) {
@@ -1299,7 +1295,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       const t = s.torneios.find((x) => x.id === id)
       if (!t) return erro('Torneio não encontrado.')
       gerarPlayoffs(s, t)
-      mudou()
+      guardar()
     },
 
     async torneioTesteEquipas(id, n) {
@@ -1323,7 +1319,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
         todos.push(...bots.filter((b) => !todos.includes(b)))
         feitas++
       }
-      mudou()
+      guardar()
       return feitas
     },
 
@@ -1346,7 +1342,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
           adicionados++
         }
       }
-      mudou()
+      guardar()
       return adicionados
     },
 
@@ -1360,7 +1356,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       if (j.estado === 'concluido') erro('Este jogo já tem resultado.')
       if (!j.equipaA || !j.equipaB) erro('Este jogo ainda não tem as duas equipas.')
       simular(s, jogo, eBotDe((await ctx.perfis()).todos))
-      mudou()
+      guardar()
     },
 
     async torneioTesteSimularTudo(id, soGrupos = false) {
@@ -1377,7 +1373,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
         simular(s, j.id, eBot)
         n++
       }
-      mudou()
+      guardar()
       return n
     },
 
@@ -1393,7 +1389,7 @@ export function criarTorneiosLocais(ctx: ContextoTorneios): Pick<Dados,
       for (const e of s.equipas.filter((x) => x.torneioId === id)) { e.grupo = null; e.ordem = null }
       t.estado = 'inscricoes'; t.campeaoId = null; t.seed = null; t.sorteadoEm = null
       t.inscricoesAte = iso(Math.max(ms(t.inscricoesAte), Date.now() + 86_400_000))
-      mudou()
+      guardar()
     },
   }
 }

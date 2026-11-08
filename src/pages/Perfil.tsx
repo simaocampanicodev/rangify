@@ -1,12 +1,12 @@
 import { BadgeCheck, Flag, RefreshCw, Shield, Swords, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Desempenho, OndeJogaMelhor } from '@/components/DesempenhoPerfil'
-import { EditarPerfil } from '@/components/EditarPerfil'
-import { GraficoForma } from '@/components/GraficoForma'
-import { LinhaPartida } from '@/components/LinhaPartida'
-import { FundoBanner, TituloJogador } from '@/components/Cosmeticos'
-import { EmDireto } from '@/components/AoVivo'
+import { Desempenho, OndeJogaMelhor } from '@/components/perfil/DesempenhoPerfil'
+import { EditarPerfil } from '@/components/perfil/EditarPerfil'
+import { GraficoForma } from '@/components/perfil/GraficoForma'
+import { LinhaPartida } from '@/components/partida/LinhaPartida'
+import { FundoBanner, TituloJogador } from '@/components/ui/Cosmeticos'
+import { EmDireto } from '@/components/social/AoVivo'
 import { Donut } from '@/components/ui/Donut'
 import { MapaAtividade } from '@/components/ui/MapaAtividade'
 import { NumeroRolante } from '@/components/ui/NumeroRolante'
@@ -15,15 +15,16 @@ import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
-import { avisarMudanca, dados, type FilaTipo } from '@/lib/data'
-import { caminhoPerfil, nomeJogador, riotIdDoCaminho, tagJogador } from '@/lib/partida'
-import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
-import { nomeRegiao } from '@/lib/regioes'
-import { HORAS_CACHE_RANK } from '@/lib/regras'
+import { dados, type FilaTipo } from '@/lib/data'
+import { nomeFuncaoConta } from '@/lib/funcoes'
+import { caminhoPerfil, nomeJogador, riotIdDoCaminho, tagJogador } from '@/lib/jogo/partida'
+import { PONTOS_INICIAIS, comSinal } from '@/lib/jogo/pontos'
+import { nomeRegiao } from '@/lib/jogo/regioes'
+import { HORAS_CACHE_RANK } from '@/lib/jogo/regras'
 import { l, locale, nomeFuncaoJogo } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
+import { LIMITES } from '@/lib/entradas'
 
-const nomesFuncao = () => ({ owner: 'Owner', dev: 'Dev', mod: 'Mod', verified: l('Verificado', 'Verified'), user: l('Jogador', 'Player') })
 /** Os motivos vão para a staff em português; só o texto mostrado muda com a língua. */
 const MOTIVOS = ['Abandono', 'Resultado falso', 'Comportamento', 'Batota', 'Outro']
 const MOTIVOS_EN: Record<string, string> = { Abandono: 'Abandoning', 'Resultado falso': 'False result', Comportamento: 'Behaviour', Batota: 'Cheating', Outro: 'Other' }
@@ -48,7 +49,7 @@ function Denunciar({ perfilId, nome }: { perfilId: string; nome: string }) {
           </label>
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
             {l('O que aconteceu', 'What happened')}
-            <textarea className="campo !h-28 py-3" value={detalhes} onChange={(e) => setDetalhes(e.target.value)} placeholder={l('Partida, ronda e o que viste. Quanto mais concreto, melhor.', 'Match, round and what you saw. The more specific, the better.')} />
+            <textarea maxLength={LIMITES.denunciaDetalhes} className="campo !h-28 py-3" value={detalhes} onChange={(e) => setDetalhes(e.target.value)} placeholder={l('Partida, ronda e o que viste. Quanto mais concreto, melhor.', 'Match, round and what you saw. The more specific, the better.')} />
           </label>
           <p className="m-0 text-[12.5px] text-mudo">{l('Só a staff vê as denúncias. Denúncias falsas também dão castigo.', 'Only the staff sees reports. False reports are penalised too.')}</p>
           <div className="flex justify-end gap-2">
@@ -119,7 +120,7 @@ export function Perfil() {
           <EmDireto perfilId={p.id} />
           <Chip>{nomeRegiao(p.regiao)}</Chip>
           {p.funcaoJogo && <Chip>{nomeFuncaoJogo(p.funcaoJogo)}</Chip>}
-          {p.funcao !== 'user' && <Chip tom="laranja"><BadgeCheck size={12} aria-hidden />{nomesFuncao()[p.funcao]}</Chip>}
+          {p.funcao !== 'user' && <Chip tom="laranja"><BadgeCheck size={12} aria-hidden />{nomeFuncaoConta(p.funcao)}</Chip>}
           <span className="text-[13px] text-mudo">{l('no hub desde', 'on the hub since')} {new Date(p.criadoEm).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</span>
         </span>}
         acoes={souEu ? (
@@ -129,7 +130,7 @@ export function Perfil() {
           </>
         ) : (
           <>
-            {!amizade && <button type="button" className="btn btn-suave" onClick={async () => { if (await acao(async () => { await dados.pedirAmizade(p.riotId ?? p.utilizador); return true }, l('Pedido de amizade enviado.', 'Friend request sent.'))) avisarMudanca('amigos') }}><UserPlus size={16} aria-hidden />{l('Adicionar amigo', 'Add friend')}</button>}
+            {!amizade && <button type="button" className="btn btn-suave" onClick={() => acao(async () => { await dados.pedirAmizade(p.riotId ?? p.utilizador); return true }, l('Pedido de amizade enviado.', 'Friend request sent.'))}><UserPlus size={16} aria-hidden />{l('Adicionar amigo', 'Add friend')}</button>}
             {amizade && <Chip tom="laranja">{amizade.estado === 'aceite' ? l('Amigos', 'Friends') : amizade.direcao === 'enviado' ? l('Pedido enviado', 'Request sent') : l('Pediu-te amizade', 'Sent you a request')}</Chip>}
             <Denunciar perfilId={p.id} nome={nomeJogador(p)} />
           </>
@@ -154,7 +155,7 @@ export function Perfil() {
                   <Donut
                     rotulo={l('Vitórias e derrotas', 'Wins and losses')}
                     tamanho={140}
-                    partes={[{ nome: l('Vitórias', 'Wins'), valor: registo[0], cor: '#5fe3d6' }, { nome: l('Derrotas', 'Losses'), valor: registo[1], cor: '#ff7d8f' }]}
+                    partes={[{ nome: l('Vitórias', 'Wins'), valor: registo[0], cor: 'var(--color-vitoria)' }, { nome: l('Derrotas', 'Losses'), valor: registo[1], cor: 'var(--color-derrota)' }]}
                     centro={<><span className="font-mono text-[28px] leading-none font-semibold tracking-[-0.04em]"><NumeroRolante valor={Math.round((registo[0] / (registo[0] + registo[1])) * 100)} />%</span><span className="text-[11px] text-mudo">{l('de vitórias', 'win rate')}</span></>}
                   />
                   <span className="flex gap-4 font-mono text-[12.5px]">

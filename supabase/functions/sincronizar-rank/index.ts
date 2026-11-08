@@ -1,6 +1,7 @@
 // Liga o Riot ID (corpo { riotId, regiao }) ou volta a ler o rank oficial
 // (corpo vazio). O rank só é pedido à Henrik Dev API de 6 em 6 horas.
-import { ErroHenrik, admin, cors, enc, erro, henrik, idDiscord, partirRiotId, rankOficial, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, enc, erro, henrik, idDiscord, partirRiotId, rankOficial, resposta, utilizador, textoDoPedido } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { ajustarCargoRanked } from '../_shared/discord-cargo.ts'
 
 const HORAS_CACHE = 6
@@ -18,13 +19,17 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('sincronizar-rank', u.id, 6, 60)
+    if (excesso) return excesso
     const db = admin()
     const { data: perfil } = await db.from('profiles').select('*').eq('auth_id', u.id).single()
     if (!perfil) return erro('Perfil não encontrado.', 404)
-    const corpo = await req.json().catch(() => ({})) as { riotId?: string; regiao?: string }
+    const corpo = ((await req.json().catch(() => null)) ?? {}) as { riotId?: unknown; regiao?: unknown }
 
-    if (corpo.riotId) {
-      const riotId = corpo.riotId.trim()
+    const riotIdPedido = textoDoPedido(corpo.riotId, 40)
+    if (corpo.riotId && riotIdPedido === null) return erro('O Riot ID tem o formato Nome#TAG, por exemplo Nyx#4521.')
+    if (riotIdPedido) {
+      const riotId = riotIdPedido
       if (!/^[^#]{3,16}#[\p{L}\p{N}]{3,5}$/u.test(riotId)) return erro('O Riot ID tem o formato Nome#TAG, por exemplo Nyx#4521.')
       // Mudar de Riot ID a meio de uma partida estragava a confirmação pela API.
       if (perfil.riot_id) {
@@ -34,7 +39,8 @@ Deno.serve(async (req) => {
       }
       const { nome, tag } = partirRiotId(riotId)
       const conta = await henrik<{ puuid: string; region: string; name: string; tag: string }>(`/valorant/v1/account/${enc(nome)}/${enc(tag)}`)
-      const regiao = REGIOES.includes(corpo.regiao ?? '') ? corpo.regiao! : (REGIOES.includes(conta.region) ? conta.region : 'eu')
+      const pedida = typeof corpo.regiao === 'string' ? corpo.regiao : ''
+      const regiao = REGIOES.includes(pedida) ? pedida : (REGIOES.includes(conta.region) ? conta.region : 'eu')
       const canonico = `${conta.name}#${conta.tag}`
       const { data: dono } = await db.from('profiles').select('id').neq('id', perfil.id).or(`riot_id.ilike.${canonico.replace(/[%_,()]/g, '')},riot_puuid.eq.${conta.puuid}`).limit(1)
       if (dono?.length) return erro('Esse Riot ID já está ligado a outra conta.')

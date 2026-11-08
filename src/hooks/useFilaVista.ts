@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePartida } from '@/contexts/Partida'
+import { armazemLocal } from '@/lib/armazem'
 import type { FilaTipo } from '@/lib/data'
 
 const CHAVE = 'rangify:fila-vista'
 
 function lerGuardada(): FilaTipo {
-  try { return localStorage.getItem(CHAVE) === 'ranked' ? 'ranked' : 'aberta' } catch { return 'aberta' }
+  return armazemLocal.ler(CHAVE) === 'ranked' ? 'ranked' : 'aberta'
 }
 
 /**
@@ -19,7 +20,7 @@ export function useFilaVista(): [FilaTipo, (f: FilaTipo) => void] {
   useEffect(() => { if (emFila) setVista(emFila) }, [emFila])
   const escolher = useCallback((f: FilaTipo) => {
     setVista(f)
-    try { localStorage.setItem(CHAVE, f) } catch { /* sem localStorage: vale só até recarregar */ }
+    armazemLocal.escrever(CHAVE, f)
   }, [])
   return [vista, escolher]
 }

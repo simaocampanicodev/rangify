@@ -73,6 +73,8 @@ export function partirRiotId(riotId: string) {
   return { nome: riotId.slice(0, i).trim(), tag: riotId.slice(i + 1).trim() }
 }
 
+export { textoDoPedido, uuidDoPedido } from './texto.ts'
+
 export const enc = encodeURIComponent
 
 /** Rank oficial atual: currenttier (0 a 27) e RR. */
@@ -89,3 +91,7 @@ export async function rankOficial(regiao: string, nome: string, tag: string) {
  * Usa assim: `${SITE}/jogar`. Vazio se o secret não existir.
  */
 export const SITE = (Deno.env.get('SITE_URL') ?? '').trim().replace(/\/+$/, '')
+
+/** Owner e Dev (a mesma regra do site, em lib/funcoes.ts, e das funções SQL). */
+export const eOwnerDev = (papel: unknown) => papel === 'owner' || papel === 'dev'
+

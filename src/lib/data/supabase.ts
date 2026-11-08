@@ -6,9 +6,10 @@
  * passa pelas Edge Functions.
  */
 import { chaveSupabase, supabase, urlSupabase } from '../supabase'
-import { avisarMudanca, type Mudanca } from './eventos'
-import { PADRAO_RIOT_ID } from '../regras'
-import type { Cosmeticos } from '../loja'
+import { avisarMudanca } from './eventos'
+import { PADRAO_RIOT_ID } from '../jogo/regras'
+import type { Cosmeticos } from '../personalizacao/loja'
+import type { Saude, SaudeResumo } from './tipos'
 import type {
   ConviteTorneio, JogadorSugerido, TorneioDetalhe, TorneioResumo,
   Amizade, AvisoStaff, ConvitesInfo, ResumoCargosRanked, Dados, DivulgacaoEstado, OverlayDados, StreamerAoVivo, TwitchConta, Denuncia, EstadoDiscord, EstadoLoja, JogadorStaff, RecargaPartida, RankingAgentes, RankingRs, EstadoFila, FilasFechadas, EstatisticasPerfil, Experiencia, LinhaNivel, Missao, Novidade, TesteApi, Partida, Perfil, PaginaPartidas, PontoForma, ResultadoAnuncio, ResumoEstatisticas, Sugestao,
@@ -63,8 +64,8 @@ function processar(id: string) {
 /** Partidas com RS precisas para entrar na tabela do Rangify Score. */
 const MINIMO_RS = 1
 
-/** Fica a true se a base de dados ainda não tiver a função situacao (migração 0009). */
-let semSituacao = false
+/** Só envia p_fila quando há fila: sem ela as funções usam o seu valor por omissão. */
+const argFila = (fila?: string | null) => (fila ? { p_fila: fila } : {})
 
 async function depoisDeAvancar(p: Partida | null) {
   if (p && p.estado === 'PROCESSING_API' && !p.simulada) processar(p.id)
@@ -73,6 +74,7 @@ async function depoisDeAvancar(p: Partida | null) {
 
 export const dadosSupabase: Dados = {
   modo: 'supabase',
+  realtime: true,
 
   async sessao() {
     const { data } = await cliente().auth.getSession()
@@ -161,38 +163,21 @@ export const dadosSupabase: Dados = {
 
   async marcarTourVisto(visto) { await rpc('marcar_tour', { p_visto: visto }) },
   sincronizarRank: () => funcao('sincronizar-rank', {}),
-  // Sem a migração 0039 não há estatisticas_resumo: pede o perfil de cada um (mais pesado, mas funciona).
-  estatisticasResumo: (ids) => rpc<Record<string, ResumoEstatisticas>>('estatisticas_resumo', { p_ids: ids }).catch(async (e) => {
-    if (!(e instanceof Error) || !/estatisticas_resumo/.test(e.message)) throw e
-    const todas = await Promise.all(ids.map(async (id) => [id, await rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: id })] as const))
-    return Object.fromEntries(todas.map(([id, s]) => [id, { partidas: s.partidas, vitorias: s.vitorias, kda: s.kda, acs: s.acs }]))
-  }),
-  // Sem a migração 0038 o servidor não conhece p_fila: pede as duas filas juntas (o filtro do perfil não faz nada).
-  estatisticas: (perfilId, fila) => (fila
-    ? rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId, p_fila: fila }).catch((e) => {
-      if (e instanceof Error && /estatisticas_perfil|p_fila/.test(e.message)) return rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId })
-      throw e
-    })
-    : rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId })),
-  forma: (perfilId, n, fila) => (fila
-    ? rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n, p_fila: fila }).catch((e) => {
-      if (e instanceof Error && /forma_perfil|p_fila/.test(e.message)) return rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n })
-      throw e
-    })
-    : rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n })),
+  estatisticasResumo: (ids) => rpc<Record<string, ResumoEstatisticas>>('estatisticas_resumo', { p_ids: ids }),
+  estatisticas: (perfilId, fila) => rpc<EstatisticasPerfil>('estatisticas_perfil', { p_perfil: perfilId, ...argFila(fila) }),
+  forma: (perfilId, n, fila) => rpc<PontoForma[]>('forma_perfil', { p_perfil: perfilId, p_n: n, ...argFila(fila) }),
 
   async ranking({ cursor, limite = 50, soAmigos = false, pesquisa = '', fila }) {
     const inicio = cursor ? Number(cursor) : 0
-    const r = await rpc<{ linhas: PaginaLinhas; total: number }>('ranking', { p_offset: inicio, p_limite: limite, p_so_amigos: soAmigos, p_pesquisa: pesquisa, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) })
+    const r = await rpc<{ linhas: PaginaLinhas; total: number }>('ranking', { p_offset: inicio, p_limite: limite, p_so_amigos: soAmigos, p_pesquisa: pesquisa, ...argFila(fila) })
     return { linhas: r.linhas, total: r.total, cursor: inicio + limite < r.total ? String(inicio + limite) : null }
   },
 
-  posicao: (perfilId, fila) => rpc<number>('posicao', { p_perfil: perfilId, ...(fila ? { p_fila: fila } : {}) }),
+  posicao: (perfilId, fila) => rpc<number>('posicao', { p_perfil: perfilId, ...argFila(fila) }),
 
   estadoFila: () => rpc<EstadoFila>('estado_fila'),
   async entrarFila(fila = 'aberta') {
-    // Sem o argumento, uma base de dados ainda sem a migração 0032 continua a entender o pedido.
-    const args = fila === 'aberta' ? undefined : { p_fila: fila }
+    const args = { p_fila: fila }
     try {
       await rpc('entrar_fila', args)
     } catch (e) {
@@ -206,9 +191,7 @@ export const dadosSupabase: Dados = {
   definirFilaFechada: (fila, fechada, motivo) => rpc<FilasFechadas>('definir_fila_fechada', { p_fila: fila, p_fechada: fechada, p_motivo: motivo?.trim() || null }),
   async sairFila() { await rpc('sair_fila') },
   async batimentoFila() {
-    try {
-      await rpc('fila_batimento')
-    } catch { /* sem a migração 0023 não há sinal de vida, e também ninguém é tirado por falta dele */ }
+    await rpc('fila_batimento').catch(() => {}) // o próximo batimento repete
   },
   sairFilaAoFechar() {
     if (!token || !urlSupabase || !chaveSupabase) return
@@ -223,20 +206,8 @@ export const dadosSupabase: Dados = {
   avancarPartida: async (id) => depoisDeAvancar(await rpc<Partida | null>('avancar_partida', { p_match: id })),
 
   async situacao(ultima) {
-    if (!semSituacao) {
-      try {
-        const r = await rpc<{ fila: EstadoFila; partida: Partida | null }>('situacao', { p_partida: ultima })
-        return { fila: r.fila, partida: await depoisDeAvancar(r.partida) }
-      } catch (e) {
-        // Base de dados ainda sem a migração 0009: segue pelo caminho antigo.
-        if (!/situacao|PGRST202|Could not find/i.test(e instanceof Error ? e.message : String(e))) throw e
-        semSituacao = true
-      }
-    }
-    const [fila, ativa] = await Promise.all([rpc<EstadoFila>('estado_fila'), rpc<Partida | null>('partida_ativa')])
-    const id = ativa?.id ?? ultima
-    const partida = id ? await depoisDeAvancar(await rpc<Partida | null>('avancar_partida', { p_match: id })) : null
-    return { fila, partida }
+    const r = await rpc<{ fila: EstadoFila; partida: Partida | null }>('situacao', { p_partida: ultima })
+    return { fila: r.fila, partida: await depoisDeAvancar(r.partida) }
   },
   async responderConfirmacao(id, aceita) { await rpc('responder_confirmacao', { p_match: id, p_aceita: aceita }) },
   async escolherJogador(id, perfilId) { await rpc('escolher_jogador', { p_match: id, p_jogador: perfilId }) },
@@ -247,22 +218,16 @@ export const dadosSupabase: Dados = {
   async definirCodigo(id, codigo) { await rpc('definir_codigo', { p_match: id, p_codigo: codigo.trim().toUpperCase() }) },
   async submeterResultado(id, vencedor) { await rpc('submeter_resultado', { p_match: id, p_vencedor: vencedor }) },
 
-  async devEncherFila({ serCapitao, fila }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) }) },
+  async devEncherFila({ serCapitao, fila }) { await rpc('dev_encher_fila', { p_ser_capitao: serCapitao, ...argFila(fila) }) },
   async devCompletarFila({ serCapitao }) { await rpc('dev_completar_fila', { p_ser_capitao: serCapitao }) },
   async devSimularPartida() { await rpc('dev_simular_partida') },
   async devSaltarBloqueio(id) { await rpc('dev_saltar_bloqueio', { p_match: id }) },
   async devAcelerar(id) { await rpc('dev_acelerar', { p_match: id }) },
 
-  async partidas({ minhas, cursor, mapa, perfilId, limite, fila }) {
-    const args = { p_perfil: perfilId ?? null, p_minhas: minhas, p_mapa: mapa ?? null, p_offset: cursor ? Number(cursor) : 0 }
-    const completos = { ...args, ...(limite ? { p_limite: limite } : {}), ...(fila ? { p_fila: fila } : {}) }
-    if (Object.keys(completos).length === Object.keys(args).length) return rpc<PaginaPartidas>('historico', args)
-    // Sem as migrações 0022 (p_limite) ou 0033 (p_fila) o servidor não conhece o argumento: pede sem ele (20 por página, as duas filas).
-    return rpc<PaginaPartidas>('historico', completos).catch((e) => {
-      if (e instanceof Error && /historico|p_limite|p_fila/.test(e.message)) return rpc<PaginaPartidas>('historico', args)
-      throw e
-    })
-  },
+  partidas: ({ minhas, cursor, mapa, perfilId, limite, fila }) => rpc<PaginaPartidas>('historico', {
+    p_perfil: perfilId ?? null, p_minhas: minhas, p_mapa: mapa ?? null, p_offset: cursor ? Number(cursor) : 0,
+    ...(limite ? { p_limite: limite } : {}), ...argFila(fila),
+  }),
 
   async jogadoresDaPartida(id) {
     const p = await rpc<Partida | null>('partida_detalhe', { p_match: id })
@@ -272,16 +237,8 @@ export const dadosSupabase: Dados = {
   missoes: () => rpc<Missao[]>('missoes'),
   experiencia: (perfilId) => rpc<Experiencia>('experiencia', { p_perfil: perfilId ?? null }),
   rankingNivel: (limite = 50) => rpc<LinhaNivel[]>('ranking_nivel', { p_limite: limite }),
-  rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }).catch((e) => {
-    // Sem a versão mais recente da migração 0013, a função não existe no servidor.
-    if (e instanceof Error && /ranking_rs/.test(e.message)) throw new Error('A tabela do Rangify Score ainda não está ativa no servidor.')
-    throw e
-  }),
-  rankingAgentes: (opts) => rpc<RankingAgentes>('ranking_agentes', { p_minimo: opts?.minimo ?? 1, p_top: opts?.top ?? 5 }).catch((e) => {
-    // Sem a migração 0030, a função não existe no servidor.
-    if (e instanceof Error && /ranking_agentes/.test(e.message)) throw new Error('A tabela dos agentes ainda não está ativa no servidor.')
-    throw e
-  }),
+  rankingRs: (limite = 50) => rpc<RankingRs>('ranking_rs', { p_limite: limite, p_minimo: MINIMO_RS }),
+  rankingAgentes: (opts) => rpc<RankingAgentes>('ranking_agentes', { p_minimo: opts?.minimo ?? 1, p_top: opts?.top ?? 5 }),
   resetarMissoes: () => rpc<Missao[]>('resetar_missoes'),
   amigos: () => rpc<Amizade[]>('amigos'),
   aoMudarJogo(perfilId, partidaId, cb) {
@@ -352,9 +309,7 @@ export const dadosSupabase: Dados = {
   apagarNovidade: (id) => rpc<Novidade[]>('apagar_novidade', { p_id: id }),
   testarApi: () => funcao<TesteApi>('testar-api', {}),
   async estadoDiscord(verificar) {
-    // Sem a migração 0012, a fila não exige nada.
-    const base = (await rpc<EstadoDiscord | null>('discord_fila').catch(() => null))
-      ?? { obrigatorio: false, convite: null, membro: null, verificadoEm: null }
+    const base = await rpc<EstadoDiscord>('discord_fila')
     if (!verificar || !base.obrigatorio) return base
     const r = await funcao<{ membro: boolean }>('verificar-discord', {})
     return { ...base, membro: r.membro, verificadoEm: new Date().toISOString() }
@@ -395,21 +350,21 @@ export const dadosSupabase: Dados = {
     if (simulada) return { ...(await rpc<Omit<RecargaPartida, 'fonte'>>('recalcular_partida', { p_match: id })), fonte: 'teste' }
     return funcao<RecargaPartida>('recarregar-partida', { matchId: id })
   },
-  async definirPontos(perfilId, pontos, fila) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos, ...(fila && fila !== 'aberta' ? { p_fila: fila } : {}) }) },
+  async definirPontos(perfilId, pontos, fila) { await rpc('definir_pontos', { p_perfil: perfilId, p_pontos: pontos, ...argFila(fila) }) },
   denuncias: () => rpc<Denuncia[]>('denuncias'),
   async tratarDenuncia(id, estado) { await rpc('tratar_denuncia', { p_id: id, p_estado: estado }) },
   pesquisarJogadores: (q) => rpc<JogadorStaff[]>('pesquisar_jogadores', { p_q: q }),
   async definirFuncao(perfilId, f) { await rpc('definir_funcao', { p_perfil: perfilId, p_funcao: f }) },
   contarJogadores: () => rpc<number>('contar_jogadores'),
+  saude: (periodo) => rpc<Saude>('saude', { p_periodo: periodo }),
+  saudeResumo: () => rpc<SaudeResumo>('saude_resumo'),
   avisarJogador: (perfilId, mensagem) => rpc<AvisoStaff>('avisar_jogador', { p_perfil: perfilId, p_mensagem: mensagem }),
   banirDaFila: (perfilId, mensagem, horas) => rpc<AvisoStaff>('banir_da_fila', { p_perfil: perfilId, p_mensagem: mensagem, p_horas: horas }),
   async levantarBan(perfilId) { await rpc('levantar_ban', { p_perfil: perfilId }) },
   avisosDoJogador: (perfilId) => rpc<AvisoStaff[]>('avisos_do_jogador', { p_perfil: perfilId }),
 
-  // Sem a migração 0026 não há avisos: o site segue sem popups em vez de dar erro.
   avisoPendente: () => rpc<AvisoStaff | null>('aviso_pendente').catch(() => null),
   async confirmarAviso(id) { await rpc('confirmar_aviso', { p_id: id }) },
-  // Sem a migração 0029 a área de streamers fica fechada em vez de dar erro.
   streamersVisivel: () => rpc<boolean>('streamers_visivel').then((v) => !!v).catch(() => false),
   meuOverlay: () => rpc<{ chave: string }>('meu_overlay'),
   renovarOverlay: () => rpc<{ chave: string }>('renovar_overlay'),
@@ -429,44 +384,29 @@ export const dadosSupabase: Dados = {
   // ---------------------------------------------------------------- torneios
   torneiosVisivel: () => rpc<boolean>('torneios_visivel').catch(() => false),
   torneiosAreaAberta: () => rpc<boolean>('torneio_area_aberta'),
-  async torneiosDefinirArea(aberta) {
-    const r = await rpc<boolean>('torneio_definir_area', { p_aberta: aberta })
-    avisarMudanca('torneios'); avisarMudanca('staff')
-    return r
-  },
+  torneiosDefinirArea: (aberta) => rpc<boolean>('torneio_definir_area', { p_aberta: aberta }),
   torneiosLista: () => rpc<TorneioResumo[]>('torneios_lista'),
   torneioDetalhe: (id) => rpc<TorneioDetalhe>('torneio_detalhe', { p_torneio: id }),
   meusConvitesTorneio: () => rpc<ConviteTorneio[]>('meus_convites_torneio').catch(() => []),
   torneioProcurarJogadores: (q) => rpc<JogadorSugerido[]>('torneio_procurar_jogadores', { p_q: q }),
-  async torneioCriarEquipa(torneio, nome, funcao = 'jogador') {
-    const id = await rpc<string>('torneio_criar_equipa', { p_torneio: torneio, p_nome: nome, p_funcao: funcao })
-    avisarMudanca('torneios')
-    return id
-  },
-  async torneioRenomearEquipa(equipa, nome) { await rpc('torneio_renomear_equipa', { p_equipa: equipa, p_nome: nome }); avisarMudanca('torneios') },
-  async torneioConvidar(equipa, nome, funcao) {
-    const r = await rpc<JogadorSugerido>('torneio_convidar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao })
-    avisarMudanca('torneios')
-    return r
-  },
-  async torneioResponderConvite(equipa, aceitar) { await rpc('torneio_responder_convite', { p_equipa: equipa, p_aceitar: aceitar }); avisarMudanca('torneios') },
-  async torneioRemoverMembro(equipa, perfil) { await rpc('torneio_remover_membro', { p_equipa: equipa, p_perfil: perfil }); avisarMudanca('torneios') },
-  async torneioMudarFuncao(equipa, perfil, funcao) { await rpc('torneio_mudar_funcao', { p_equipa: equipa, p_perfil: perfil, p_funcao: funcao }); avisarMudanca('torneios') },
-  async torneioSairEquipa(equipa) { await rpc('torneio_sair_equipa', { p_equipa: equipa }); avisarMudanca('torneios') },
-  async torneioApagarEquipa(equipa) { await rpc('torneio_apagar_equipa', { p_equipa: equipa }); avisarMudanca('torneios') },
-  async torneioAbrirJogo(jogo, codigo) {
-    await rpc('torneio_abrir_jogo', { p_jogo: jogo, p_codigo: codigo })
-    avisarMudanca('torneios')
-  },
-  async torneioVetoIniciar(jogo) { await rpc('torneio_veto_iniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
-  async torneioVetoAgir(jogo, valor) { await rpc('torneio_veto_agir', { p_jogo: jogo, p_valor: valor }); avisarMudanca('torneios') },
+  torneioCriarEquipa: (torneio, nome, funcao = 'jogador') => rpc<string>('torneio_criar_equipa', { p_torneio: torneio, p_nome: nome, p_funcao: funcao }),
+  async torneioRenomearEquipa(equipa, nome) { await rpc('torneio_renomear_equipa', { p_equipa: equipa, p_nome: nome }) },
+  torneioConvidar: (equipa, nome, funcao) => rpc<JogadorSugerido>('torneio_convidar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao }),
+  async torneioResponderConvite(equipa, aceitar) { await rpc('torneio_responder_convite', { p_equipa: equipa, p_aceitar: aceitar }) },
+  async torneioRemoverMembro(equipa, perfil) { await rpc('torneio_remover_membro', { p_equipa: equipa, p_perfil: perfil }) },
+  async torneioMudarFuncao(equipa, perfil, funcao) { await rpc('torneio_mudar_funcao', { p_equipa: equipa, p_perfil: perfil, p_funcao: funcao }) },
+  async torneioSairEquipa(equipa) { await rpc('torneio_sair_equipa', { p_equipa: equipa }) },
+  async torneioApagarEquipa(equipa) { await rpc('torneio_apagar_equipa', { p_equipa: equipa }) },
+  async torneioAbrirJogo(jogo, codigo) { await rpc('torneio_abrir_jogo', { p_jogo: jogo, p_codigo: codigo }) },
+  async torneioVetoIniciar(jogo) { await rpc('torneio_veto_iniciar', { p_jogo: jogo }) },
+  async torneioVetoAgir(jogo, valor) { await rpc('torneio_veto_agir', { p_jogo: jogo, p_valor: valor }) },
   async torneioVetoAvancar(jogo) {
     const jogou = await rpc<boolean>('torneio_veto_avancar', { p_jogo: jogo })
     if (jogou) avisarMudanca('torneios')
     return jogou
   },
-  async torneioVetoConcluir(jogo) { await rpc('torneio_veto_concluir', { p_jogo: jogo }); avisarMudanca('torneios') },
-  async torneioVetoReiniciar(jogo) { await rpc('torneio_veto_reiniciar', { p_jogo: jogo }); avisarMudanca('torneios') },
+  async torneioVetoConcluir(jogo) { await rpc('torneio_veto_concluir', { p_jogo: jogo }) },
+  async torneioVetoReiniciar(jogo) { await rpc('torneio_veto_reiniciar', { p_jogo: jogo }) },
   async torneioProcessarJogo(jogo) {
     // No máximo uma vez a cada 20 s por jogo (o servidor ainda limita a 1 consulta por minuto à API).
     const agora = Date.now()
@@ -477,36 +417,27 @@ export const dadosSupabase: Dados = {
       if (r?.estado === 'concluido') avisarMudanca('torneios')
     } catch { /* o servidor volta a tentar sozinho a cada minuto */ }
   },
-  async torneioCriar(p) { const id = await rpc<string>('torneio_criar', { p }); avisarMudanca('torneios'); return id },
-  async torneioEditar(id, p) { await rpc('torneio_editar', { p_torneio: id, p }); avisarMudanca('torneios') },
-  async torneioMudarEstado(id, estado) { await rpc('torneio_mudar_estado', { p_torneio: id, p_estado: estado }); avisarMudanca('torneios') },
-  async torneioApagar(id) { await rpc('torneio_apagar', { p_torneio: id }); avisarMudanca('torneios') },
-  async torneioAcesso(id, nome, dar) { const r = await rpc<JogadorSugerido>('torneio_acesso', { p_torneio: id, p_nome: nome, p_dar: dar }); avisarMudanca('torneios'); return r },
+  torneioCriar: (p) => rpc<string>('torneio_criar', { p }),
+  async torneioEditar(id, p) { await rpc('torneio_editar', { p_torneio: id, p }) },
+  async torneioMudarEstado(id, estado) { await rpc('torneio_mudar_estado', { p_torneio: id, p_estado: estado }) },
+  async torneioApagar(id) { await rpc('torneio_apagar', { p_torneio: id }) },
+  torneioAcesso: (id, nome, dar) => rpc<JogadorSugerido>('torneio_acesso', { p_torneio: id, p_nome: nome, p_dar: dar }),
   torneioAcessos: (id) => rpc<JogadorSugerido[]>('torneio_acessos_lista', { p_torneio: id }),
-  async torneioStaffAdicionar(equipa, nome, funcao) {
-    const r = await rpc<JogadorSugerido>('torneio_staff_adicionar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao })
-    avisarMudanca('torneios')
-    return r
-  },
-  async torneioSortear(id, seed) {
-    const r = await rpc<{ grupos: number; equipas: number; seed: number }>('torneio_sortear', { p_torneio: id, p_seed: seed ?? null })
-    avisarMudanca('torneios')
-    return r
-  },
+  torneioStaffAdicionar: (equipa, nome, funcao) => rpc<JogadorSugerido>('torneio_staff_adicionar', { p_equipa: equipa, p_nome: nome, p_funcao: funcao }),
+  torneioSortear: (id, seed) => rpc<{ grupos: number; equipas: number; seed: number }>('torneio_sortear', { p_torneio: id, p_seed: seed ?? null }),
   async torneioAgendar(jogo, quando, mapa, presencial, melhorDe) {
     await rpc('torneio_agendar', { p_jogo: jogo, p_quando: quando, p_mapa: mapa ?? null, p_presencial: presencial ?? null, p_melhor_de: melhorDe ?? null })
-    avisarMudanca('torneios')
   },
-  async torneioAgendarVarios(itens) { const n = await rpc<number>('torneio_agendar_varios', { p_itens: itens }); avisarMudanca('torneios'); return n },
-  async torneioResolverJogo(jogo, a, b) { await rpc('torneio_resolver_jogo', { p_jogo: jogo, p_a: a, p_b: b }); avisarMudanca('torneios') },
-  async torneioWalkover(jogo, vencedor) { await rpc('torneio_walkover', { p_jogo: jogo, p_vencedor: vencedor }); avisarMudanca('torneios') },
-  async torneioDesfazerJogo(jogo) { await rpc('torneio_desfazer_jogo', { p_jogo: jogo }); avisarMudanca('torneios') },
-  async torneioGerarPlayoffs(id) { await rpc('torneio_gerar_playoffs', { p_torneio: id }); avisarMudanca('torneios') },
-  async torneioTesteEquipas(id, n) { const r = await rpc<number>('torneio_teste_equipas', { p_torneio: id, p_n: n }); avisarMudanca('torneios'); return r },
-  async torneioTestePreencher(equipa, completo = false) { const r = await rpc<number>('torneio_teste_preencher', { p_equipa: equipa, p_completo: completo }); avisarMudanca('torneios'); return r },
-  async torneioTesteSimular(jogo) { await rpc('torneio_teste_simular', { p_jogo: jogo }); avisarMudanca('torneios') },
-  async torneioTesteSimularTudo(id, soGrupos = false) { const r = await rpc<number>('torneio_teste_simular_tudo', { p_torneio: id, p_so_grupos: soGrupos }); avisarMudanca('torneios'); return r },
-  async torneioTesteReiniciar(id) { await rpc('torneio_teste_reiniciar', { p_torneio: id }); avisarMudanca('torneios') },
+  torneioAgendarVarios: (itens) => rpc<number>('torneio_agendar_varios', { p_itens: itens }),
+  async torneioResolverJogo(jogo, a, b) { await rpc('torneio_resolver_jogo', { p_jogo: jogo, p_a: a, p_b: b }) },
+  async torneioWalkover(jogo, vencedor) { await rpc('torneio_walkover', { p_jogo: jogo, p_vencedor: vencedor }) },
+  async torneioDesfazerJogo(jogo) { await rpc('torneio_desfazer_jogo', { p_jogo: jogo }) },
+  async torneioGerarPlayoffs(id) { await rpc('torneio_gerar_playoffs', { p_torneio: id }) },
+  torneioTesteEquipas: (id, n) => rpc<number>('torneio_teste_equipas', { p_torneio: id, p_n: n }),
+  torneioTestePreencher: (equipa, completo = false) => rpc<number>('torneio_teste_preencher', { p_equipa: equipa, p_completo: completo }),
+  async torneioTesteSimular(jogo) { await rpc('torneio_teste_simular', { p_jogo: jogo }) },
+  torneioTesteSimularTudo: (id, soGrupos = false) => rpc<number>('torneio_teste_simular_tudo', { p_torneio: id, p_so_grupos: soGrupos }),
+  async torneioTesteReiniciar(id) { await rpc('torneio_teste_reiniciar', { p_torneio: id }) },
 
   aoMudarAvisos(perfilId, cb) {
     const canal = cliente().channel(`avisos-${perfilId}`)
@@ -514,40 +445,6 @@ export const dadosSupabase: Dados = {
       .subscribe()
     return () => { cliente().removeChannel(canal) }
   },
-}
-
-/**
- * Depois de cada ação que muda dados, avisa as páginas que os mostram, como faz o
- * modo demo. Sem isto, o que acabaste de fazer (publicar uma sugestão, votar,
- * resolver uma disputa, aceitar um amigo...) só aparecia depois de recarregar.
- */
-const AVISOS: Partial<Record<keyof Dados, Mudanca[]>> = {
-  definirPassword: ['perfil'], ligarRiotId: ['perfil'], definirAvatar: ['perfil'], atualizarPerfil: ['perfil'],
-  marcarTourVisto: ['perfil'], sincronizarRank: ['perfil'],
-  entrarFila: ['fila'], sairFila: ['fila'], definirFilaFechada: ['fila', 'staff'],
-  // Escolher, banir, sugerir e votar para cancelar não mudam nada fora da partida (a página já se atualiza sozinha): avisar
-  // 'partida' recarregava o perfil de cada jogador a cada clique.
-  responderConfirmacao: ['partida'], definirCodigo: ['partida'],
-  submeterResultado: ['partida'], devEncherFila: ['partida'], devCompletarFila: ['partida'], devSimularPartida: ['partida'],
-  devSaltarBloqueio: ['partida'], devAcelerar: ['partida'],
-  pedirAmizade: ['amigos'], responderAmizade: ['amigos'], removerAmigo: ['amigos'],
-  criarSugestao: ['sugestoes'], votar: ['sugestoes'], definirEstadoSugestao: ['sugestoes', 'staff'], apagarSugestao: ['sugestoes', 'staff'], denunciar: ['staff'],
-  criarNovidade: ['staff'], apagarNovidade: ['staff'], definirPoolMapas: ['staff'], definirDiscordFila: ['staff'], resetarMissoes: ['staff'],
-  avisarJogador: ['staff'], banirDaFila: ['staff', 'fila'], levantarBan: ['staff'], confirmarAviso: ['perfil'],
-  resolverDisputa: ['staff', 'partida'], submeterResultadoStaff: ['staff', 'partida'], cancelarPartida: ['staff', 'partida'], removerPartida: ['partida', 'perfil'], recarregarPartida: ['partida', 'perfil', 'staff'],
-  definirPontos: ['perfil', 'staff'], tratarDenuncia: ['staff'], definirFuncao: ['staff'],
-  comprarItem: ['loja'], equiparItem: ['loja'], desequiparItem: ['loja'], definirAvatarGif: ['loja'], definirLojaPublica: ['loja', 'staff'],
-  lojaResetar: ['loja'], lojaMoedasTeste: ['loja'], lojaDevolver: ['loja'],
-  definirStreamersPublico: ['staff', 'streamers'], desligarTwitch: ['streamers'], renovarOverlay: ['streamers'], usarConvite: ['streamers', 'loja'],
-}
-for (const [nome, tipos] of Object.entries(AVISOS)) {
-  const tabela = dadosSupabase as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>
-  const original = tabela[nome]
-  tabela[nome] = async (...args) => {
-    const r = await original.apply(dadosSupabase, args)
-    tipos.forEach(avisarMudanca)
-    return r
-  }
 }
 
 type PaginaLinhas = Awaited<ReturnType<Dados['ranking']>>['linhas']

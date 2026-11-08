@@ -1,27 +1,27 @@
 import { ArrowLeft, ArrowRight, Check, KeyRound, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { LayoutSimples } from '@/components/Layout'
-import { NomeRangify } from '@/components/Marca'
+import { LayoutSimples } from '@/components/layout/Layout'
+import { NomeRangify } from '@/components/ui/Marca'
 import { Avatar, BotaoAjuda, Carregando } from '@/components/ui'
-import { useAcao } from '@/contexts/Avisos'
+import { useAcaoOcupada } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { dados, type Regiao } from '@/lib/data'
-import { REGIOES } from '@/lib/regioes'
-import { PADRAO_RIOT_ID } from '@/lib/regras'
+import { REGIOES } from '@/lib/jogo/regioes'
+import { PADRAO_RIOT_ID } from '@/lib/jogo/regras'
 import { l } from '@/lib/idioma'
+import { LIMITES } from '@/lib/entradas'
 
 
 /** Primeiro acesso: palavra-passe (opcional) e Riot ID, como no protótipo. */
 export function BemVindo() {
   const { carregando, sessao, perfil, recarregar } = useSessao()
-  const acao = useAcao()
   const navegar = useNavigate()
   const [passo, setPasso] = useState<'password' | 'riot' | null>(null)
   const [password, setPassword] = useState('')
   const [riotId, setRiotId] = useState('')
   const [regiao, setRegiao] = useState<Regiao>('eu')
-  const [aEnviar, setAEnviar] = useState(false)
+  const { ocupado: aEnviar, correr } = useAcaoOcupada()
 
   if (carregando) return <LayoutSimples><Carregando /></LayoutSimples>
   if (!sessao) return <Navigate to="/entrar" replace />
@@ -32,15 +32,11 @@ export function BemVindo() {
   const riotValido = PADRAO_RIOT_ID.test(riotId.trim())
 
   const definir = async () => {
-    setAEnviar(true)
-    const ok = await acao(async () => { await dados.definirPassword(password); return true }, l('Palavra-passe definida.', 'Password set.'))
-    setAEnviar(false)
+    const ok = await correr(async () => { await dados.definirPassword(password); return true }, l('Palavra-passe definida.', 'Password set.'))
     if (ok) setPasso('riot')
   }
   const ligar = async () => {
-    setAEnviar(true)
-    const p = await acao(() => dados.ligarRiotId(riotId, regiao))
-    setAEnviar(false)
+    const p = await correr(() => dados.ligarRiotId(riotId, regiao))
     if (p) {
       await recarregar()
       navegar('/', { replace: true })
@@ -77,7 +73,7 @@ export function BemVindo() {
               </label>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
                 {l('Nova palavra-passe', 'New password')}
-                <input className="campo" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={10} />
+                <input maxLength={LIMITES.password} className="campo" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={10} />
                 <span className="text-[12px] font-normal text-mudo">{l('Pelo menos 10 caracteres. Não pode conter o teu utilizador.', 'At least 10 characters. It cannot contain your username.')}</span>
               </label>
               <div className="flex flex-wrap justify-end gap-2">
@@ -96,7 +92,7 @@ export function BemVindo() {
               </div>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
                 Riot ID
-                <input className="campo font-mono" value={riotId} onChange={(e) => setRiotId(e.target.value)} placeholder={l('Nome#TAG', 'Name#TAG')} autoComplete="off" spellCheck={false} />
+                <input maxLength={LIMITES.riotId} className="campo font-mono" value={riotId} onChange={(e) => setRiotId(e.target.value)} placeholder={l('Nome#TAG', 'Name#TAG')} autoComplete="off" spellCheck={false} />
                 <span className={`text-[12px] font-normal ${riotId && !riotValido ? 'text-derrota' : 'text-mudo'}`}>
                   {riotId && !riotValido ? l('Usa o formato Nome#TAG, por exemplo Nyx#4521.', 'Use the Name#TAG format, for example Nyx#4521.') : l('O mesmo nome com que jogas. Vamos ler o rank oficial através da Henrik Dev API.', 'The same name you play with. We read your official rank through the Henrik Dev API.')}
                 </span>

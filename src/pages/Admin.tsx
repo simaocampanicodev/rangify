@@ -1,27 +1,28 @@
 import { Ban, Check, ChevronDown, Flag, Gavel, Inbox, Radio, RotateCcw, Search, ShieldCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { BotaoMais, Colapsavel, useMais } from '@/components/Mais'
-import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/StaffExtras'
-import { StaffFilas } from '@/components/StaffFilas'
-import { Moderacao } from '@/components/StaffModeracao'
-import { StaffTorneios } from '@/components/tournaments/StaffTorneios'
+import { BotaoMais, Colapsavel, useMais } from '@/components/ui/Mais'
+import { EstadoDoSite } from '@/components/staff/EstadoDoSite'
+import { PontoEstado } from '@/components/staff/PontoEstado'
+import { DiscordStaff, DivulgacaoStaff, LojaStaff, NovidadesStaff, RecarregarStaff, SugestoesStaff, TesteApiStaff } from '@/components/staff/StaffExtras'
+import { StaffFilas } from '@/components/staff/StaffFilas'
+import { Moderacao } from '@/components/staff/StaffModeracao'
+import { StaffTorneios } from '@/components/torneios/StaffTorneios'
 import { Avatar, BotaoAjuda, BotaoSegurar, Cabecalho, Carregando, Chip, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
+import { usePoolMapas } from '@/hooks/usePoolMapas'
+import { useSaudeResumo } from '@/hooks/useSaudeResumo'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { aoMudarDados, dados, type Denuncia, type FilaTipo, type Funcao, type JogadorStaff, type Partida, type Perfil } from '@/lib/data'
-import { MAPAS, ROTACAO_PADRAO } from '@/lib/mapas'
-import { caminhoPerfil, capitao, equipa, nomeJogador, tagJogador } from '@/lib/partida'
-import { NOMES_ESTADO, validarResultado } from '@/lib/regras'
+import { FUNCOES_CONTA, eOwnerDev, nomeFuncaoConta } from '@/lib/funcoes'
+import { MAPAS, ROTACAO_PADRAO } from '@/lib/jogo/mapas'
+import { TEXTO_EQUIPA, caminhoPerfil, capitao, equipa, nomeJogador, tagJogador } from '@/lib/jogo/partida'
+import { nomeEstado, nomeFila, validarResultado } from '@/lib/jogo/regras'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
-
-const FUNCOES: { valor: Funcao; nome: string }[] = [
-  { valor: 'owner', nome: 'Owner' }, { valor: 'dev', nome: 'Dev' }, { valor: 'mod', nome: 'Mod' },
-  { valor: 'verified', get nome() { return tx('Verificado', 'Verified') } }, { valor: 'user', get nome() { return tx('Jogador', 'Player') } },
-]
+import { LIMITES } from '@/lib/entradas'
 
 function Disputa({ p }: { p: Partida }) {
   const acao = useAcao()
@@ -99,7 +100,7 @@ function JogadoresDaPartida({ p }: { p: Partida }) {
     <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-4 gap-y-3">
       {(['A', 'B'] as const).map((eq) => (
         <div key={eq} className="flex flex-col gap-1">
-          <span className={`px-2 font-mono text-[10.5px] font-bold tracking-[0.14em] ${eq === 'A' ? 'text-laranja' : 'text-marfim'}`}>{tx('EQUIPA', 'TEAM')} {eq} ({equipa(p, eq).length})</span>
+          <span className={`px-2 font-mono text-[10.5px] font-bold tracking-[0.14em] ${TEXTO_EQUIPA[eq]}`}>{tx('EQUIPA', 'TEAM')} {eq} ({equipa(p, eq).length})</span>
           <ul className="m-0 flex list-none flex-col p-0">{equipa(p, eq).map(linha)}</ul>
         </div>
       ))}
@@ -123,7 +124,7 @@ function PartidaAoVivo({ p }: { p: Partida }) {
     <article className={`flex flex-col gap-3 rounded-[14px] border p-4 ${parada ? 'border-derrota/35 bg-derrota/[0.04]' : 'border-white/8 bg-white/[0.025]'}`}>
       <div className="flex flex-wrap items-center gap-2.5">
         <span className="font-mono text-[13px] font-semibold text-pessego">{p.codigo} · {p.mapa ?? tx('sem mapa', 'no map')}</span>
-        <Chip tom="laranja">{NOMES_ESTADO[p.estado]}</Chip>
+        <Chip tom="laranja">{nomeEstado(p.estado)}</Chip>
         {(p.simulada || p.automatica) && <Chip>{p.automatica ? tx('Simulação', 'Simulation') : tx('Teste', 'Test')}</Chip>}
         {parada && <Chip tom="derrota">{tx('Parada há', 'Stopped for')} {haQuanto(p.atualizadaEm).replace(/^há\s*/i, '')}</Chip>}
         <span className="text-[12.5px] text-mudo">{p.comecouEm ? tx('começou', 'started') + ' ' + haQuanto(p.comecouEm) : tx('criada', 'created') + ' ' + haQuanto(p.criadaEm)}</span>
@@ -154,7 +155,7 @@ function ResultadoPendente({ p }: { p: Partida }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono text-[13px] font-semibold text-pessego">{p.codigo} · {p.mapa ?? tx('sem mapa', 'no map')}</span>
         <span className="flex items-center gap-2">
-          <Chip tom={p.estado === 'RESULT_SUBMISSION' ? 'laranja' : 'neutro'}>{NOMES_ESTADO[p.estado]}</Chip>
+          <Chip tom={p.estado === 'RESULT_SUBMISSION' ? 'laranja' : 'neutro'}>{nomeEstado(p.estado)}</Chip>
           <span className="text-[12px] text-mudo">{tx('começou', 'started')} {haQuanto(p.comecouEm ?? p.atualizadaEm)}</span>
         </span>
       </div>
@@ -190,7 +191,7 @@ function CampoPontos({ p, fila, onGuardado }: { p: Perfil; fila: FilaTipo; onGua
   useEffect(() => { setValor(String(atuais)) }, [atuais])
   const n = Number(valor)
   const mudou = valor !== String(atuais) && Number.isInteger(n) && n >= 0 && n <= 10000
-  const nome = fila === 'ranked' ? 'ranked' : tx('aberta', 'open')
+  const nome = nomeFila(fila)
   const guardar = async () => {
     const ok = await acao(async () => { await dados.definirPontos(p.id, n, fila); return true }, tx(`Pontos ${nome} de ${p.riotId ?? p.utilizador} acertados para ${n}.`, `${p.riotId ?? p.utilizador}'s ${nome} points set to ${n}.`))
     if (ok) onGuardado()
@@ -208,9 +209,8 @@ function CampoPontos({ p, fila, onGuardado }: { p: Perfil; fila: FilaTipo; onGua
 /** A rotação de mapas: só entram nos bans das próximas partidas os mapas escolhidos aqui. */
 function Rotacao() {
   const acao = useAcao()
-  const { perfil: eu } = useSessao()
-  const podeEditar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
-  const atual = useCarregar(() => dados.poolMapas(), [], ['staff'], { chave: 'pool_mapas' })
+  const { podeTestar: podeEditar } = useSessao()
+  const atual = usePoolMapas(false)
   const [escolha, setEscolha] = useState<string[] | null>(null)
   const guardada = atual.valor ?? []
   const lista = escolha ?? guardada
@@ -281,7 +281,7 @@ function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; a
     await acao(() => dados.definirFuncao(p.id, f), tx('Função atualizada.', 'Role updated.'))
     aMudou()
   }
-  const podeAcertar = eu?.funcao === 'owner' || eu?.funcao === 'dev'
+  const podeAcertar = eOwnerDev(eu?.funcao)
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-white/6 py-3">
       <Avatar nome={nomeJogador(p)} url={p.avatarUrl} tamanho={32} perfilId={p.id} />
@@ -302,7 +302,7 @@ function LinhaJogador({ p, eu, aMudou }: { p: JogadorStaff; eu: Perfil | null; a
           disabled={p.id === eu?.id || eu?.funcao === 'mod'}
           onChange={(e) => mudar(e.target.value as Funcao)}
         >
-          {FUNCOES.map((f) => <option key={f.valor} value={f.valor}>{f.nome}</option>)}
+          {FUNCOES_CONTA.map((f) => <option key={f} value={f}>{nomeFuncaoConta(f)}</option>)}
         </select>
         <button
           type="button"
@@ -339,7 +339,7 @@ function Jogadores() {
       <label className="relative block">
         <span className="so-leitores">{tx('Procurar jogadores', 'Search players')}</span>
         <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-        <input className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx('Utilizador ou Riot ID', 'Username or Riot ID')} />
+        <input maxLength={LIMITES.pesquisa} className="campo !pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx('Utilizador ou Riot ID', 'Username or Riot ID')} />
       </label>
       <ul className="m-0 flex list-none flex-col p-0">
         {mais.visiveis.map((p) => <LinhaJogador key={p.id} p={p} eu={eu} aMudou={recarregar} />)}
@@ -377,14 +377,16 @@ function Denuncias({ lista }: { lista: Denuncia[] }) {
   )
 }
 
-type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'discord' | 'loja' | 'divulgacao' | 'torneios'
+type Aba = 'resultados' | 'partidas' | 'inbox' | 'mapas' | 'novidades' | 'jogadores' | 'estado' | 'discord' | 'loja' | 'divulgacao' | 'torneios'
+/** As secções que se abrem por endereço (?aba=...), por exemplo a partir do aviso no Discord ou do link Gerir de um torneio. */
+const ABAS_POR_ENDERECO: Aba[] = ['torneios', 'estado']
 
 export function Admin() {
-  const { eStaff, carregando, perfil } = useSessao()
-  const ownerDev = perfil?.funcao === 'owner' || perfil?.funcao === 'dev'
-  // O link "Gerir" de um torneio abre direto este separador (?aba=torneios&torneio=...).
+  const { eStaff, carregando, podeTestar: ownerDev } = useSessao()
+  // O link "Gerir" de um torneio abre direto este separador (?aba=torneios&torneio=...), e o aviso do Discord o do estado.
   const [params] = useSearchParams()
-  const [aba, setAba] = useState<Aba>(() => (params.get('aba') === 'torneios' ? 'torneios' : 'resultados'))
+  const [aba, setAba] = useState<Aba>(() => ABAS_POR_ENDERECO.find((a) => a === params.get('aba')) ?? 'resultados')
+  const saude = useSaudeResumo()
   const [inbox, setInbox] = useState<'denuncias' | 'sugestoes'>('denuncias')
   // As disputas já quase não acontecem (a API fecha a partida sozinha): só aparecem se houver alguma.
   const disputas = useCarregar(() => (eStaff ? dados.disputas() : Promise.resolve([])), [eStaff], ['staff', 'partida'])
@@ -435,7 +437,7 @@ export function Admin() {
             { valor: 'mapas', texto: tx('Mapas', 'Maps') },
             { valor: 'novidades', texto: tx('Novidades', 'News') },
             { valor: 'jogadores', texto: tx('Jogadores', 'Players') },
-            ...(ownerDev ? [{ valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
+            ...(ownerDev ? [{ valor: 'estado' as const, texto: <span className="inline-flex items-center gap-1.5">{tx('Estado', 'Status')}<PontoEstado estado={saude?.estado} /></span> }, { valor: 'discord' as const, texto: 'Discord' }, { valor: 'loja' as const, texto: tx('Loja', 'Shop') }, { valor: 'divulgacao' as const, texto: tx('Divulgação', 'Promotion') }, { valor: 'torneios' as const, texto: tx('Torneios', 'Tournaments') }] : []),
           ]}
         />
         {aba === 'resultados' && (
@@ -496,6 +498,12 @@ export function Admin() {
           <div className="flex flex-col gap-3">
             <TituloPainel eyebrow={tx('NOVIDADES', 'NEWS')} titulo={tx('O que aparece no Painel', 'What shows on the Dashboard')} />
             <NovidadesStaff podeEditar={ownerDev} />
+          </div>
+        )}
+        {aba === 'estado' && ownerDev && (
+          <div className="flex flex-col gap-3">
+            <TituloPainel eyebrow={tx('ESTADO DO SITE', 'SITE STATUS')} titulo={tx('Sobrecarga, lentidão e quedas', 'Overload, slowness and outages')} />
+            <EstadoDoSite />
           </div>
         )}
         {aba === 'discord' && ownerDev && (

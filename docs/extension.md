@@ -46,7 +46,7 @@ Ficheiros:
 
 - `service-worker.js`: o motor (estado, sinal de vida da fila `fila_batimento`, partida encontrada).
 - `lib/tempo-real.js`: o canal Realtime (`queue_entries`, `match_players` da tua conta e `matches` da partida a decidir-se), empacotado com o supabase-js.
-- `offscreen/`: documento escondido que toca o acorde (um service worker não toca som), o mesmo de `src/lib/som.ts`.
+- `offscreen/`: documento escondido que toca o acorde (um service worker não toca som), o mesmo de `src/lib/personalizacao/som.ts`.
 - `popup/` e `alerta/`: as duas vistas. Só leem o que o service worker guardou e mandam-lhe pedidos.
 
 ## Limites

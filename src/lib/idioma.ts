@@ -5,6 +5,7 @@
  * aplicação volta a desenhar-se toda (ver main.tsx).
  */
 import { useSyncExternalStore } from 'react'
+import { armazemLocal } from './armazem'
 
 export type Idioma = 'pt' | 'en'
 
@@ -12,13 +13,12 @@ const CHAVE = 'rangify:idioma'
 const ouvintes = new Set<() => void>()
 
 function ler(): Idioma {
-  try { return localStorage.getItem(CHAVE) === 'en' ? 'en' : 'pt' } catch { return 'pt' }
+  return armazemLocal.ler(CHAVE) === 'en' ? 'en' : 'pt'
 }
 
 let atual: Idioma = ler()
 if (typeof document !== 'undefined') document.documentElement.lang = atual === 'en' ? 'en' : 'pt-PT'
 
-export const idioma = (): Idioma => atual
 export const emIngles = () => atual === 'en'
 
 /** O texto na língua escolhida. */
@@ -29,7 +29,7 @@ export function l(pt: string, en: string): string {
 export function mudarIdioma(novo: Idioma) {
   if (novo === atual) return
   atual = novo
-  try { localStorage.setItem(CHAVE, novo) } catch { /* ignora */ }
+  armazemLocal.escrever(CHAVE, novo)
   document.documentElement.lang = novo === 'en' ? 'en' : 'pt-PT'
   ouvintes.forEach((f) => f())
 }

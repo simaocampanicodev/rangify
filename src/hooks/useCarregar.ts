@@ -20,6 +20,11 @@ function guardar(chave: string, valor: unknown) {
 const aCaminho = new Map<string, Promise<unknown>>()
 let dono: string | null = null
 
+/**
+ * A cache é de uma conta: ao mudar de conta esvazia-se. O ProvedorSessao chama isto durante a renderização, antes de
+ * qualquer `useCarregar` dos filhos ler a cache; se passar a chamar-se num efeito, os filhos veem uns instantes os dados
+ * da conta anterior.
+ */
 export function definirDonoCache(perfilId: string | null) {
   if (perfilId === dono) return
   dono = perfilId

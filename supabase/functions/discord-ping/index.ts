@@ -5,17 +5,18 @@
 //   { canal: 'fila-ranked' }     : canal da fila ranked (só quem tem o cargo Ranked o vê), com o mesmo;
 //   { canal: 'cargos' }          : acerta o cargo Ranked de toda a gente pelo rank oficial (Ascendente 1 ou mais).
 // O token do bot fica nos secrets do Supabase; nunca passa pelo site.
-import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
+import { admin, cors, erro, resposta, utilizador, eOwnerDev } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { sincronizarCargoRanked } from '../_shared/discord-cargo.ts'
 import { CANAL_FILA, CANAL_FILA_RANKED, CANAL_PING, filaAtual, mensagemFila, mensagemPing } from '../_shared/discord-ping.ts'
+import { API, autorizacaoBot } from '../_shared/discord.ts'
 
-const API = 'https://discord.com/api/v10'
 
 async function discord(metodo: string, caminho: string, corpo?: unknown) {
   return fetch(API + caminho, {
     method: metodo,
     headers: {
-      Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`,
+      Authorization: autorizacaoBot(),
       'Content-Type': 'application/json',
       'X-Audit-Log-Reason': 'Rangify: mensagem da fila',
     },
@@ -28,12 +29,14 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('discord-ping', u.id, 10, 60)
+    if (excesso) return excesso
     const db = admin()
     const { data: perfil } = await db.from('profiles').select('role').eq('auth_id', u.id).maybeSingle()
-    if (!perfil || !['owner', 'dev'].includes(perfil.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
+    if (!perfil || !eOwnerDev(perfil.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
     if (!Deno.env.get('DISCORD_BOT_TOKEN')) return erro('O bot do Discord ainda não está configurado (falta o DISCORD_BOT_TOKEN).', 503)
 
-    const { canal } = await req.json().catch(() => ({})) as { canal?: string }
+    const { canal } = ((await req.json().catch(() => null)) ?? {}) as { canal?: string }
     if (canal === 'cargos') {
       try {
         return resposta({ cargos: await sincronizarCargoRanked(db) })

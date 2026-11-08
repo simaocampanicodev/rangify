@@ -6,6 +6,7 @@
 // Não pede nenhuma permissão à Twitch (scope vazio): só precisa de saber qual é o canal. O token que a Twitch
 // dá é revogado logo a seguir. Tem de estar com verify_jwt desligado (o GET vem do browser, sem token).
 import { admin, cors, erro, resposta, SITE, utilizador } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { clienteId, criarEstado, HELIX, ID, lerEstado, segredoTwitch, sincronizarLives, twitchConfigurada } from '../_shared/twitch.ts'
 
 const redirectUri = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/twitch-ligar`
@@ -75,13 +76,15 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('twitch-ligar', u.id, 10, 60)
+    if (excesso) return excesso
     if (!twitchConfigurada()) return erro('A Twitch ainda não está configurada. Fala com a staff.', 503)
     const db = admin()
     const { data: perfil } = await db.from('profiles').select('id').eq('auth_id', u.id).maybeSingle()
     if (!perfil) return erro('Tens de entrar na tua conta.', 401)
     const { data: pode } = await db.rpc('streamers_pode', { p_perfil: perfil.id })
     if (!pode) return erro('Esta área ainda não está aberta.', 403)
-    const corpo = await req.json().catch(() => ({})) as { accao?: string; retorno?: string }
+    const corpo = ((await req.json().catch(() => null)) ?? {}) as { accao?: string; retorno?: string }
     if (corpo.accao !== 'url') return erro('Pedido inválido.')
     const origem = origemSegura(corpo.retorno)
     if (!origem) return erro('Endereço de retorno inválido.')

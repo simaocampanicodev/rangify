@@ -4,10 +4,11 @@
 //   { acao: 'canal' }                       : só cria o canal (ou diz qual é, se já existe).
 // O canal é criado pelo bot na primeira vez (visível para o cargo Member, só de leitura) e o ID fica em config. O token do
 // bot fica nos secrets do Supabase; nunca passa pelo site.
-import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
-import { type Anuncio, mensagemAnuncio, validarAnuncio } from '../_shared/discord-anuncio.ts'
+import { admin, cors, erro, resposta, utilizador, eOwnerDev } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
+import { limparAnuncio, mensagemAnuncio, validarAnuncio } from '../_shared/discord-anuncio.ts'
+import { API, autorizacaoBot } from '../_shared/discord.ts'
 
-const API = 'https://discord.com/api/v10'
 
 // Permissões do Discord (bits).
 const VER = 1n << 10n
@@ -24,7 +25,7 @@ async function discord<T>(metodo: string, caminho: string, corpo?: unknown): Pro
   const r = await fetch(API + caminho, {
     method: metodo,
     headers: {
-      Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`,
+      Authorization: autorizacaoBot(),
       'Content-Type': 'application/json',
       'X-Audit-Log-Reason': 'Rangify: avisos',
     },
@@ -69,15 +70,18 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('discord-anuncio', u.id, 10, 60)
+    if (excesso) return excesso
     const db = admin()
     const { data: perfil } = await db.from('profiles').select('role').eq('auth_id', u.id).maybeSingle()
-    if (!perfil || !['owner', 'dev'].includes(perfil.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
+    if (!perfil || !eOwnerDev(perfil.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
     if (!Deno.env.get('DISCORD_BOT_TOKEN')) return erro('O bot do Discord ainda não está configurado (falta o DISCORD_BOT_TOKEN).', 503)
     const guild = Deno.env.get('DISCORD_GUILD_ID')
     if (!guild) return erro('Falta o segredo DISCORD_GUILD_ID.', 503)
 
-    const corpo = await req.json().catch(() => ({})) as Anuncio & { acao?: string }
-    const soCanal = corpo.acao === 'canal'
+    const bruto = ((await req.json().catch(() => null)) ?? {}) as { acao?: unknown }
+    const corpo = limparAnuncio(bruto)
+    const soCanal = bruto?.acao === 'canal'
     if (!soCanal) {
       const problema = validarAnuncio(corpo)
       if (problema) return erro(problema)

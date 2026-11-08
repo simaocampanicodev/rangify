@@ -6,6 +6,7 @@
 // DISCORD_PING_CARGO, DISCORD_FILA_CANAL, DISCORD_FILA_RANKED_CANAL e DISCORD_CARGO_RANKED servem só para os trocar
 // sem mexer no código.
 import { SITE, admin } from './comum.ts'
+import { API, autorizacaoBot } from './discord.ts'
 
 export const CANAL_PING = Deno.env.get('DISCORD_PING_CANAL') ?? '1559654941952577688'
 export const CARGO_PING = Deno.env.get('DISCORD_PING_CARGO') ?? '1559654502137602178'
@@ -132,7 +133,6 @@ export function mensagemFila(fila: FilaAtual, tipo: TipoFila = 'aberta') {
   }
 }
 
-const API = 'https://discord.com/api/v10'
 
 const CANAIS: Record<TipoFila, { canal: string; coluna: string }> = {
   aberta: { canal: CANAL_FILA, coluna: 'discord_fila_message' },
@@ -145,7 +145,7 @@ async function atualizarUma(db: ReturnType<typeof admin>, tipo: TipoFila, id: st
   if (!id) return { n: fila.n, editada: false }
   const r = await fetch(`${API}/channels/${CANAIS[tipo].canal}/messages/${id}`, {
     method: 'PATCH',
-    headers: { Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: autorizacaoBot(), 'Content-Type': 'application/json' },
     body: JSON.stringify(mensagemFila(fila, tipo)),
   })
   if (!r.ok) console.error('Discord', tipo, r.status, await r.text())

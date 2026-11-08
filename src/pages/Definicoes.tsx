@@ -1,19 +1,21 @@
 import { BookOpen, FlaskConical, Globe, KeyRound, RefreshCw, RotateCcw, Save, Settings, Sparkles, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { EditarPerfil } from '@/components/EditarPerfil'
-import { SeletorIdioma } from '@/components/Idioma'
-import { reverTour } from '@/components/Tour'
+import { EditarPerfil } from '@/components/perfil/EditarPerfil'
+import { SeletorIdioma } from '@/components/layout/Idioma'
+import { reverTour } from '@/lib/tour'
 import { Cabecalho, Carregando, Painel, RankBadge, Segmentado, TituloPainel } from '@/components/ui'
 import { Interruptor } from '@/components/ui/Interruptor'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type Funcao, type FuncaoJogo, type Regiao } from '@/lib/data'
-import { definirPreferenciaFundo, preferenciaFundo, type PreferenciaFundo } from '@/lib/fundo'
-import { REGIOES } from '@/lib/regioes'
-import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/som'
+import { FUNCOES_CONTA, nomeFuncaoConta } from '@/lib/funcoes'
+import { definirPreferenciaFundo, preferenciaFundo, type PreferenciaFundo } from '@/lib/personalizacao/fundo'
+import { REGIOES } from '@/lib/jogo/regioes'
+import { definirVolumeSom, ligarSom, somLigado, tocarPartidaEncontrada, volumeSom } from '@/lib/personalizacao/som'
 import { l, nomeFuncaoJogo } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
+import { LIMITES } from '@/lib/entradas'
 
 const FUNCOES_JOGO: FuncaoJogo[] = ['Duelista', 'Controlador', 'Iniciador', 'Sentinela']
 
@@ -82,7 +84,7 @@ export function Definicoes() {
           <form className="flex flex-col gap-2 border-t border-white/7 pt-4" onSubmit={(e) => { e.preventDefault(); definirPassword() }}>
             <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#d0cbc4]">
               <span className="flex items-center gap-2"><KeyRound size={14} className="text-laranja" aria-hidden />{perfil.temPassword ? l('Mudar palavra-passe', 'Change password') : l('Definir palavra-passe', 'Set password')}</span>
-              <input className="campo" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} />
+              <input maxLength={LIMITES.password} className="campo" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} />
               <span className="text-[12px] font-normal text-mudo">{l('Para entrares sem o Discord. Pelo menos 10 caracteres, sem o teu utilizador.', 'To sign in without Discord. At least 10 characters, without your username.')}</span>
             </label>
             <div><button type="submit" className="btn btn-fantasma" disabled={password.length < 10}>{l('Guardar palavra-passe', 'Save password')}</button></div>
@@ -179,7 +181,7 @@ export function Definicoes() {
             <Settings size={16} className="text-laranja" aria-hidden />
             {l('Função desta conta', 'Role of this account')}
             <select className="campo !h-10 !w-auto" value={perfil.funcao} onChange={(e) => acao(() => dados.devMudarFuncao!(e.target.value as Funcao), l('Função mudada.', 'Role changed.'))}>
-              <option value="owner">Owner</option><option value="dev">Dev</option><option value="mod">Mod</option><option value="verified">{l('Verificado', 'Verified')}</option><option value="user">{l('Jogador', 'Player')}</option>
+              {FUNCOES_CONTA.map((f) => <option key={f} value={f}>{nomeFuncaoConta(f)}</option>)}
             </select>
             <span className="text-[12.5px] text-mudo">{l('As ferramentas de teste só aparecem a Owner e Dev.', 'The test tools only show for Owner and Dev.')}</span>
           </label>

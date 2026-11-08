@@ -2,9 +2,10 @@
 // call qualquer do servidor do Rangify, o bot muda-o logo para a call da sua equipa.
 // O Discord não deixa ninguém (nem um bot) ligar uma pessoa à voz do zero: ela tem de
 // já estar numa call. Se não estiver, o site abre o canal e a pessoa entra com um clique.
-import { admin, cors, erro, resposta, utilizador } from '../_shared/comum.ts'
+import { admin, cors, erro, resposta, utilizador, uuidDoPedido } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
+import { API, autorizacaoBot } from '../_shared/discord.ts'
 
-const API = 'https://discord.com/api/v10'
 // "Target user is not connected to voice."
 const FORA_DA_VOZ = 40032
 
@@ -21,7 +22,9 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
-    const { matchId } = await req.json().catch(() => ({})) as { matchId?: string }
+    const excesso = await limitar('puxar-call', u.id, 10, 60)
+    if (excesso) return excesso
+    const matchId = uuidDoPedido(((await req.json().catch(() => null)) as { matchId?: unknown } | null)?.matchId)
     if (!matchId) return erro('Pedido inválido.')
     const id = idDiscord(u)
     if (!id) return resposta({ movido: false, semDiscord: true })
@@ -38,7 +41,7 @@ Deno.serve(async (req) => {
     const r = await fetch(`${API}/guilds/${d.guild_id}/members/${id}`, {
       method: 'PATCH',
       headers: {
-        Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`,
+        Authorization: autorizacaoBot(),
         'Content-Type': 'application/json',
         'X-Audit-Log-Reason': 'Rangify: entrar na call da equipa',
       },

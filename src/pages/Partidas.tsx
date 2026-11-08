@@ -1,15 +1,15 @@
 import { Flag, Swords, Trash } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { LinhaPartida } from '@/components/LinhaPartida'
-import { DetalhePartida } from '@/components/match/DetalhePartida'
-import { BotaoRecarregar } from '@/components/StaffExtras'
+import { LinhaPartida } from '@/components/partida/LinhaPartida'
+import { DetalhePartida } from '@/components/partida/DetalhePartida'
+import { BotaoRecarregar } from '@/components/partida/BotaoRecarregar'
 import { Cabecalho, Carregando, Chip, LinhasEsqueleto, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
-import { avisarMudanca, dados, type FilaTipo, type ResumoPartida } from '@/lib/data'
-import { MAPAS } from '@/lib/mapas'
+import { dados, type FilaTipo, type ResumoPartida } from '@/lib/data'
+import { MAPAS } from '@/lib/jogo/mapas'
 import { l as tx } from '@/lib/idioma'
 
 /** Partidas por página: as mais recentes primeiro, e "Ver mais" traz as seguintes. */
@@ -33,10 +33,7 @@ function Detalhe({ id, onFechar }: { id: string | null; onFechar: () => void }) 
     setARemover(true)
     const ok = await acao(async () => { await dados.removerPartida(partida.id); return true }, tx('Partida removida do histórico.', 'Match removed from the history.'))
     setARemover(false)
-    if (ok) {
-      avisarMudanca('partida')
-      onFechar()
-    }
+    if (ok) onFechar()
   }
 
   return (

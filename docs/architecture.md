@@ -21,19 +21,24 @@ Como o Rangify está montado: o que vive no browser, o que vive na base de dados
 ```text
 src/
 ├── pages/                 Uma página por rota: Dashboard, Jogar, Ranking, Partidas, Perfil, Missoes, Amigos, Admin...
-├── components/
-│   ├── match/             As fases da partida: Confirmar, Draft, Mapas, Codigo e Resultado
-│   ├── tournaments/       O hub e a staff dos torneios
-│   ├── Fila.tsx           Os cartões e o anel da fila aberta e da ranked
-│   ├── StaffExtras.tsx    Os painéis da Staff (Discord, divulgação, API...)
-│   └── ui.tsx             Os blocos visuais partilhados
+├── components/            Uma pasta por área do site
+│   ├── ajuda/             O centro de ajuda e o guia de boas-vindas
+│   ├── fila/              Os cartões e o anel da fila aberta e da ranked
+│   ├── layout/            A estrutura do site: menu lateral, rodapé, fundo, idioma e paleta de comandos
+│   ├── partida/           As fases da partida: Confirmar, Draft, Mapas, Codigo e Resultado
+│   ├── perfil/            Editar o perfil, o desempenho, a forma recente e a tabela de agentes
+│   ├── social/            Quem está em direto e os links de convite
+│   ├── staff/             Os painéis da Staff (moderação, Discord, divulgação, API, estado do site...)
+│   ├── torneios/          O hub e a staff dos torneios
+│   └── ui/                Os blocos visuais partilhados (index.tsx) e os componentes pequenos
 ├── contexts/              Sessão, partida em curso (polling inteligente) e avisos
 ├── hooks/                 useCarregar (cache e avisos de mudança), useIntervalo, useVisivel...
 └── lib/
     ├── data/              A interface Dados e as duas implementações
-    ├── pontos.ts          A fórmula dos pontos (a mesma que a SQL)
-    ├── ranks.ts · regras.ts · mapas.ts · regioes.ts
-    └── discordMarkdown.tsx  A pré-visualização dos avisos do Discord
+    ├── jogo/              As regras do jogo: pontos (a mesma fórmula que a SQL), ranks, estados, mapas, agentes, missões...
+    ├── personalizacao/    A loja, os cosméticos, o fundo e o som
+    ├── integracoes/       Discord, extensão do browser, convites e o endereço do overlay do OBS
+    └── ...                O que serve a tudo: idioma, tempo, erros, armazém local, limpeza de texto
 ```
 
 ### A camada de dados
@@ -59,7 +64,7 @@ Toda a gente começa a temporada com **1000 pontos**. O rank oficial da Riot nun
 - **Rangify Score**: ACS, KDA, KAST e trades de cada jogador comparados com a média da partida (100 é a média).
 - Cada fila (aberta e ranked) tem os seus pontos, vitórias, derrotas e tabela.
 
-A fórmula está em `src/lib/pontos.ts` e em `_pontos_partida` na SQL.
+A fórmula está em `src/lib/jogo/pontos.ts` e em `_pontos_partida` na SQL.
 
 ## A máquina de estados
 
@@ -103,7 +108,7 @@ Uma partida em curso vive em `/partida/<ID>` (`PaginaPartida` em `pages/Jogar.ts
 
 ### Um líder por partida
 
-Numa partida (confirmação, bans, draft), dez jogadores a perguntar à base de dados ao mesmo tempo, e cada um a ouvir as mudanças das tabelas, era o que mais pesava. Agora só um jogador, o **líder**, pergunta o estado e reenvia-o aos outros nove (`src/lib/lider.ts`, `Partida.tsx`).
+Numa partida (confirmação, bans, draft), dez jogadores a perguntar à base de dados ao mesmo tempo, e cada um a ouvir as mudanças das tabelas, era o que mais pesava. Agora só um jogador, o **líder**, pergunta o estado e reenvia-o aos outros nove (`src/lib/jogo/lider.ts`, `Partida.tsx`).
 
 - Cada partida tem um canal do Realtime privado, `partida:<ID>`, onde só entram os seus jogadores (migração `0040`, regras em `realtime.messages`). Usa Presence e Broadcast, que não tocam na base de dados.
 - O líder é quem tem o separador à frente e está na sala há mais tempo (`eleger`). Se sair ou esconder o separador, passa para outro. Reenvia o estado quando muda e de 4 em 4 segundos.
@@ -131,6 +136,7 @@ Em `supabase/functions/`. As que o bot ou outros serviços chamam sem sessão pu
 | `puxar-call` | Muda-te para a call da tua equipa, se já estiveres numa call |
 | `twitch-ligar` · `twitch-sincronizar` | A Twitch ligada ao perfil e o estado "AO VIVO" |
 | `processar-torneio` | Lê da API os resultados dos jogos dos torneios |
+| `saude-sondar` | De minuto a minuto: mede o site, a API, o login e as Edge Functions, lê a CPU e a memória do servidor e regista o estado do site (ver [estado-do-site.md](estado-do-site.md)) |
 
 O Discord está em [discord.md](discord.md), as Twitch e os convites em [streamers.md](streamers.md) e os torneios em [tournaments.md](tournaments.md).
 
@@ -143,14 +149,14 @@ npm run testar-sql    # todas as suites abaixo, uma a seguir à outra
 
 | Suite | O que cobre |
 | --- | --- |
-| `scripts/testar-sql.mjs` | As migrações num Postgres local (PGlite): a fila, a confirmação, o draft, os bans, o código, o resultado, os pontos, a segurança (RLS e funções internas), a Staff e o Discord |
-| `scripts/testar-filas.mjs` | As duas filas: quem pode entrar na ranked, pontos e tabelas separados, o histórico e o overlay do OBS |
-| `scripts/testar-filas-demo.mjs` | O mesmo, no modo demo (o motor do browser) |
-| `scripts/testar-torneios.mjs` · `testar-torneios-demo.mjs` · `testar-migracao-torneios.mjs` | Os torneios, na SQL, na demo e na migração de uma versão anterior |
-| `scripts/testar-deteccao.mjs` | A deteção do jogo na API da Riot |
-| `scripts/testar-anuncio.mjs` | A mensagem dos avisos do Discord |
+| `scripts/testes/testar-sql.mjs` | As migrações num Postgres local (PGlite): a fila, a confirmação, o draft, os bans, o código, o resultado, os pontos, a segurança (RLS e funções internas), a Staff e o Discord |
+| `scripts/testes/testar-filas.mjs` | As duas filas: quem pode entrar na ranked, pontos e tabelas separados, o histórico e o overlay do OBS |
+| `scripts/testes/testar-filas-demo.mjs` | O mesmo, no modo demo (o motor do browser) |
+| `scripts/testes/testar-torneios.mjs` · `testar-torneios-demo.mjs` · `testar-migracao-torneios.mjs` | Os torneios, na SQL, na demo e na migração de uma versão anterior |
+| `scripts/testes/testar-deteccao.mjs` | A deteção do jogo na API da Riot |
+| `scripts/testes/testar-anuncio.mjs` | A mensagem dos avisos do Discord |
 
-Outras ferramentas em `scripts/`:
+Os testes vivem em `scripts/testes/`. As ferramentas, em `scripts/ferramentas/`:
 
 - `montar-extensao.mjs`: prepara a extensão do browser (ver [extension.md](extension.md)).
 - `otimizar-mapas.mjs`: converte a arte original dos mapas (`assets/maps-source`) em WebP (`public/maps`).

@@ -10,8 +10,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "testar-sql": "node scripts/testar-sql.mjs && node scripts/testar-filas.mjs && node scripts/testar-filas-demo.mjs && node scripts/testar-torneios.mjs && node scripts/testar-migracao-torneios.mjs && node scripts/testar-deteccao.mjs && node scripts/testar-torneios-demo.mjs && node scripts/testar-anuncio.mjs && node scripts/testar-lider.mjs",
-    "extension": "node scripts/montar-extensao.mjs"
+    "testar-sql": "node scripts/testes/testar-sql.mjs && node scripts/testes/testar-filas.mjs && node scripts/testes/testar-filas-demo.mjs && node scripts/testes/testar-torneios.mjs && node scripts/testes/testar-migracao-torneios.mjs && node scripts/testes/testar-deteccao.mjs && node scripts/testes/testar-torneios-demo.mjs && node scripts/testes/testar-anuncio.mjs && node scripts/testes/testar-lider.mjs && node scripts/testes/testar-limites.mjs && node scripts/testes/testar-metricas.mjs && node scripts/testes/testar-saude.mjs",
+    "extension": "node scripts/ferramentas/montar-extensao.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

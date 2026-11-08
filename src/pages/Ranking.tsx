@@ -1,10 +1,10 @@
 import { Minus, Plus, RefreshCw, Search, Trophy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { EmDireto } from '@/components/AoVivo'
-import { TabelaAgentes } from '@/components/TabelaAgentes'
-import { ExtraLinha, useClassesCosmeticos } from '@/components/Cosmeticos'
-import { nomeTabela } from '@/components/Fila'
+import { EmDireto } from '@/components/social/AoVivo'
+import { TabelaAgentes } from '@/components/perfil/TabelaAgentes'
+import { ExtraLinha, useClassesCosmeticos } from '@/components/ui/Cosmeticos'
+
 import { Avatar, BotaoAjuda, Cabecalho, Esqueleto, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -12,13 +12,14 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useFilaVista } from '@/hooks/useFilaVista'
 import { useSincronizarRank } from '@/hooks/useSincronizarRank'
 import { dados, type FilaTipo, type LinhaRanking, type Perfil } from '@/lib/data'
-import { formatarXp } from '@/lib/experiencia'
-import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
-import { DESEMPENHO_MAX, PONTOS_BASE, RESULTADO_MAX, RESULTADO_MIN, RS_POR_PONTO, bonusDesempenho, comSinal, margemRondas } from '@/lib/pontos'
-import { TIER_MINIMO_RANKED } from '@/lib/ranks'
-import { HORAS_CACHE_RANK } from '@/lib/regras'
+import { formatarXp } from '@/lib/jogo/experiencia'
+import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/jogo/partida'
+import { DESEMPENHO_MAX, PONTOS_BASE, RESULTADO_MAX, RESULTADO_MIN, RS_POR_PONTO, bonusDesempenho, comSinal, margemRondas } from '@/lib/jogo/pontos'
+import { TIER_MINIMO_RANKED } from '@/lib/jogo/ranks'
+import { HORAS_CACHE_RANK, nomeTabela } from '@/lib/jogo/regras'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
+import { LIMITES } from '@/lib/entradas'
 
 function Forma({ f }: { f: ('V' | 'D')[] }) {
   const texto = f.map((x) => (x === 'V' ? tx('vitória', 'win') : tx('derrota', 'loss'))).join(', ')
@@ -26,7 +27,7 @@ function Forma({ f }: { f: ('V' | 'D')[] }) {
     <span role="img" aria-label={f.length ? `${tx('Últimas', 'Last')} ${f.length}: ${texto}` : tx('Sem partidas', 'No matches')} className="flex gap-1">
       {Array.from({ length: 5 }, (_, i) => {
         const x = f[f.length - 5 + i]
-        return <span key={i} className="size-2 rounded-full" style={{ background: x === 'V' ? '#5fe3d6' : x === 'D' ? '#ff7d8f' : 'rgba(255,255,255,0.1)' }} />
+        return <span key={i} className="size-2 rounded-full" style={{ background: x === 'V' ? 'var(--color-vitoria)' : x === 'D' ? 'var(--color-derrota)' : 'rgba(255,255,255,0.1)' }} />
       })}
     </span>
   )
@@ -88,7 +89,7 @@ function PodioEsqueleto() {
       {[0, 1, 2].map((k) => (
         <div key={k} className={`painel flex flex-col gap-3.5 p-5 ${k === 1 ? 'sm:-mt-4 sm:pb-7' : ''}`}>
           <Esqueleto className="h-3 w-20" />
-          <span className="flex items-center gap-3"><Esqueleto className="size-[50px] !rounded-[13px]" /><span className="flex flex-1 flex-col gap-2"><Esqueleto className="h-4 w-2/3" /><Esqueleto className="h-5 w-24 !rounded-full" /></span></span>
+          <span className="flex items-center gap-3"><Esqueleto className="size-[50px] rounded-[13px]" /><span className="flex flex-1 flex-col gap-2"><Esqueleto className="h-4 w-2/3" /><Esqueleto className="h-5 w-24 rounded-full" /></span></span>
           <Esqueleto className="h-8 w-1/2" />
         </div>
       ))}
@@ -192,7 +193,7 @@ function PainelClassificacao({ total, etiqueta, ambito, setAmbito, pesquisa, set
       <label className="relative block">
         <span className="so-leitores">{tx('Procurar jogador', 'Search player')}</span>
         <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-        <input className="campo campo-expande !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder={tx('Procurar por Riot ID', 'Search by Riot ID')} />
+        <input maxLength={LIMITES.pesquisa} className="campo campo-expande !pl-10" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} placeholder={tx('Procurar por Riot ID', 'Search by Riot ID')} />
       </label>
       {carregando ? <LinhasEsqueleto tipo="ranking" n={8} /> : linhas.length ? (
         <div className="-mx-2 overflow-x-auto">

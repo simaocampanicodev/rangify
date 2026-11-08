@@ -1,11 +1,11 @@
 import { Crown, Medal, Settings2, UserPlus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Chave } from '@/components/tournaments/Chave'
-import { ChipEstado, Contagem, dataHoraCurta, dataLimite, formatoTexto, nomeFuncao, nomeGrupo, Papel, rotuloJogo } from '@/components/tournaments/comum'
-import { EquipaCartao, MinhaEquipa } from '@/components/tournaments/Equipas'
-import { Grupos } from '@/components/tournaments/Grupos'
-import { JogoLinha, JogoPainel } from '@/components/tournaments/Jogo'
+import { Chave } from '@/components/torneios/Chave'
+import { ChipEstado, Contagem, dataHoraCurta, dataLimite, ehJogoReal, formatoTexto, nomeFuncao, Papel, rotuloComGrupo } from '@/components/torneios/comum'
+import { EquipaCartao, MinhaEquipa } from '@/components/torneios/Equipas'
+import { Grupos } from '@/components/torneios/Grupos'
+import { JogoLinha, JogoPainel } from '@/components/torneios/Jogo'
 import { Cabecalho, Carregando, Chip, Modal, Painel, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao } from '@/contexts/Avisos'
 import { useSessao } from '@/contexts/Sessao'
@@ -13,6 +13,7 @@ import { useCarregar } from '@/hooks/useCarregar'
 import { useIntervalo } from '@/hooks/useVisivel'
 import { dados, type ConviteTorneio, type TorneioDetalhe, type TorneioJogo } from '@/lib/data'
 import { l } from '@/lib/idioma'
+import { LIMITES } from '@/lib/entradas'
 
 type Aba = 'resumo' | 'equipas' | 'grupos' | 'playoffs' | 'calendario'
 const ABAS: Aba[] = ['resumo', 'equipas', 'grupos', 'playoffs', 'calendario']
@@ -34,7 +35,7 @@ function InscreverEquipa({ torneioId, aoMudar }: { torneioId: string; aoMudar: (
         if (id) { setNome(''); aoMudar() }
       }}>
         <label className="sr-only" htmlFor="rg-nome-nova">{l('Nome da equipa', 'Team name')}</label>
-        <input id="rg-nome-nova" className="campo min-w-[200px] flex-[2_1_220px]" placeholder={l('Nome da equipa', 'Team name')} maxLength={32} autoComplete="off" value={nome} onChange={(e) => setNome(e.target.value)} />
+        <input id="rg-nome-nova" className="campo min-w-[200px] flex-[2_1_220px]" placeholder={l('Nome da equipa', 'Team name')} maxLength={LIMITES.nomeEquipa} autoComplete="off" value={nome} onChange={(e) => setNome(e.target.value)} />
         <select aria-label={l('Entro como', 'I join as')} className="campo !w-auto" value={funcao} onChange={(e) => setFuncao(e.target.value as 'jogador' | 'coach')}>
           <option value="jogador">{l('Capitão e jogador', 'Captain and player')}</option>
           <option value="coach">{l('Capitão e coach', 'Captain and coach')}</option>
@@ -68,7 +69,7 @@ function Facto({ rotulo, children }: { rotulo: string; children: React.ReactNode
 /** O jogo que interessa à minha equipa: o que está a decorrer, o próximo, ou o último. */
 function meuJogo(d: TorneioDetalhe, equipaId: string | undefined): TorneioJogo | null {
   if (!equipaId) return null
-  const meus = d.jogos.filter((j) => (j.equipaA?.id === equipaId || j.equipaB?.id === equipaId) && j.como !== 'bye')
+  const meus = d.jogos.filter((j) => (j.equipaA?.id === equipaId || j.equipaB?.id === equipaId) && ehJogoReal(j))
   const aDecorrer = meus.find((j) => j.estado === 'a_decorrer')
   if (aDecorrer) return aDecorrer
   const porJogar = meus.filter((j) => j.estado !== 'concluido' && j.equipaA && j.equipaB)
@@ -79,7 +80,7 @@ function meuJogo(d: TorneioDetalhe, equipaId: string | undefined): TorneioJogo |
 
 function Calendario({ d, meuId, aoAbrirJogo }: { d: TorneioDetalhe; meuId: string | null; aoAbrirJogo: (j: TorneioJogo) => void }) {
   const [so, setSo] = useState<'todos' | 'meus'>(meuId ? 'meus' : 'todos')
-  const jogos = d.jogos.filter((j) => j.como !== 'bye' && (so === 'todos' || !meuId || j.equipaA?.id === meuId || j.equipaB?.id === meuId))
+  const jogos = d.jogos.filter((j) => ehJogoReal(j) && (so === 'todos' || !meuId || j.equipaA?.id === meuId || j.equipaB?.id === meuId))
   const comData = jogos.filter((j) => j.agendadoPara).sort((a, b) => new Date(a.agendadoPara!).getTime() - new Date(b.agendadoPara!).getTime())
   const semData = jogos.filter((j) => !j.agendadoPara)
   const dias = new Map<string, TorneioJogo[]>()
@@ -149,8 +150,8 @@ export function Torneio() {
   const aoMudar = () => { detalhe.recarregar(); convites.recarregar() }
   const jogoModal = jogoAberto ? d.jogos.find((j) => j.id === jogoAberto) ?? null : null
   const proximo = meuJogo(d, minha?.id)
-  const nJogos = d.jogos.filter((j) => j.como !== 'bye').length
-  const feitos = d.jogos.filter((j) => j.estado === 'concluido' && j.como !== 'bye').length
+  const nJogos = d.jogos.filter(ehJogoReal).length
+  const feitos = d.jogos.filter((j) => j.estado === 'concluido' && ehJogoReal(j)).length
 
   return (
     <>
@@ -251,7 +252,7 @@ export function Torneio() {
       <Modal
         aberto={!!jogoModal}
         onFechar={() => setJogoAberto(null)}
-        eyebrow={jogoModal ? `${jogoModal.fase === 'grupo' ? `${nomeGrupo(jogoModal.grupo)} · ` : ''}${rotuloJogo(jogoModal)}`.toUpperCase() : undefined}
+        eyebrow={jogoModal ? rotuloComGrupo(jogoModal).toUpperCase() : undefined}
         titulo={jogoModal ? `${jogoModal.equipaA?.nome ?? '?'} · ${jogoModal.equipaB?.nome ?? '?'}` : ''}
         largura={760}
       >

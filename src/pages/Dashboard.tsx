@@ -1,10 +1,10 @@
 import { ArrowRight, ArrowUpRight, Bell, Check, CircleCheck, Clock, Globe, MessageCircle, RefreshCw, Shield, Swords, Target, Trophy, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AnelFila, CartaoFila, SeletorFila, nomeTabela } from '@/components/Fila'
-import { SeletorIdioma } from '@/components/Idioma'
-import { LinhaPartida } from '@/components/LinhaPartida'
-import { NomeRangify } from '@/components/Marca'
+import { AnelFila, CartaoFila, SeletorFila } from '@/components/fila/Fila'
+import { SeletorIdioma } from '@/components/layout/Idioma'
+import { LinhaPartida } from '@/components/partida/LinhaPartida'
+import { NomeRangify } from '@/components/ui/Marca'
 import { NumeroRolante } from '@/components/ui/NumeroRolante'
 import { BarraProgresso, BlocoIcone, BotaoAjuda, Cabecalho, Carregando, LinhasEsqueleto, LinkSeta, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { usePartida } from '@/contexts/Partida'
@@ -12,13 +12,13 @@ import { useSessao } from '@/contexts/Sessao'
 import { useCarregar } from '@/hooks/useCarregar'
 import { useFilaVista } from '@/hooks/useFilaVista'
 import { dados, type Missao, type Partida } from '@/lib/data'
-import { formatarXp } from '@/lib/experiencia'
-import { traduzirMissao } from '@/lib/missoes'
-import { nomeJogador } from '@/lib/partida'
-import { PONTOS_INICIAIS, comSinal } from '@/lib/pontos'
+import { formatarXp } from '@/lib/jogo/experiencia'
+import { traduzirMissao } from '@/lib/jogo/missoes'
+import { nomeJogador } from '@/lib/jogo/partida'
+import { PONTOS_INICIAIS, comSinal } from '@/lib/jogo/pontos'
 import { caminhoPartida } from '@/lib/rotas'
-import { nomeRegiao } from '@/lib/regioes'
-import { NOMES_ESTADO } from '@/lib/regras'
+import { nomeRegiao } from '@/lib/jogo/regioes'
+import { nomeEstado, nomeTabela } from '@/lib/jogo/regras'
 import { diaCurto, duracaoAte, fimDaSemana, fimDoDia, haQuanto } from '@/lib/tempo'
 import { l } from '@/lib/idioma'
 
@@ -36,7 +36,7 @@ function BarrasPontos({ deltas }: { deltas: number[] }) {
               {d != null && (
                 <span
                   className="absolute inset-x-0 rounded-[3px]"
-                  style={{ top: d >= 0 ? 33 - h : 34, height: h, background: d >= 0 ? '#5fe3d6' : '#ff7d8f', opacity: 0.85 }}
+                  style={{ top: d >= 0 ? 33 - h : 34, height: h, background: d >= 0 ? 'var(--color-vitoria)' : 'var(--color-derrota)', opacity: 0.85 }}
                 />
               )}
             </span>
@@ -163,7 +163,7 @@ export function Dashboard() {
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="eyebrow">{ativa ? l('PARTIDA A DECORRER', 'MATCH IN PROGRESS') : l('A TUA PRÓXIMA PARTIDA', 'YOUR NEXT MATCH')}</span>
             <h2 id="rg-proxima" className="m-0 text-[28px] leading-[1.05] font-extrabold tracking-[-0.035em]">
-              {ativa && partida ? `${partida.codigo}: ${NOMES_ESTADO[partida.estado]}` : l('Pronto para a próxima?', 'Ready for the next one?')}
+              {ativa && partida ? `${partida.codigo}: ${nomeEstado(partida.estado)}` : l('Pronto para a próxima?', 'Ready for the next one?')}
             </h2>
           </div>
           {!ativa && (

@@ -9,7 +9,8 @@
 // Cada jogo gasta no máximo uma consulta à API por minuto, venha o pedido de onde vier.
 // Se o jogo ainda não aparecer devolve { pendente: true }; passada 1 hora, a staff é avisada na página
 // do torneio e põe o resultado à mão.
-import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador, eOwnerDev, uuidDoPedido } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 
 interface JogadorTorneio {
@@ -90,14 +91,16 @@ Deno.serve(async (req) => {
     // Um jogador do jogo (ou a staff), a partir da página do torneio.
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
-    const { jogoId } = await req.json() as { jogoId?: string }
+    const excesso = await limitar('processar-torneio', u.id, 30, 60)
+    if (excesso) return excesso
+    const jogoId = uuidDoPedido(((await req.json().catch(() => null)) as { jogoId?: unknown } | null)?.jogoId)
     if (!jogoId) return erro('Falta o jogo.')
     const { data: dados } = await db.rpc('_torneio_jogo_dados', { p_jogo: jogoId })
     if (!dados) return erro('Jogo não encontrado.', 404)
     const participa = (dados as DadosJogo).jogadores.some((j) => j.authId === u.id)
     if (!participa) {
       const { data: perfil } = await db.from('profiles').select('role').eq('auth_id', u.id).single()
-      if (!perfil || !['owner', 'dev'].includes(perfil.role as string)) return erro('Não fazes parte deste jogo.', 403)
+      if (!perfil || !eOwnerDev(perfil.role)) return erro('Não fazes parte deste jogo.', 403)
     }
     return resposta(await processar(jogoId))
   } catch (e) {

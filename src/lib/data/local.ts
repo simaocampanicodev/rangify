@@ -7,23 +7,27 @@
  * banem, criam o grupo e confirmam o resultado. A palavra-passe fica só como
  * hash SHA-256, mas isto continua a ser um modo de demonstração.
  */
-import { NOMES_MAPAS, ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
-import { PONTOS_INICIAIS, bonusDesempenho, calcularPontos } from '../pontos'
-import { AGENTES_SIMULADOS } from '../agentes'
-import { divisao, mediaDivisoes, podeRanked } from '../ranks'
+import { NOMES_MAPAS, ROTACAO_PADRAO, equipaDoBan, totalBans } from '../jogo/mapas'
+import { PONTOS_INICIAIS, bonusDesempenho, calcularPontos } from '../jogo/pontos'
+import { AGENTES_SIMULADOS } from '../jogo/agentes'
+import { mediaDivisoes, podeRanked } from '../jogo/ranks'
 import {
-  ESTADOS_ATIVOS, HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, PADRAO_CODIGO, PADRAO_RIOT_ID,
+  HORAS_CACHE_RANK, MINUTOS_BLOQUEIO, MINUTOS_COOLDOWN, ORDEM_DRAFT, PADRAO_CODIGO, PADRAO_RIOT_ID,
   SEGUNDOS_BAN, SEGUNDOS_CONFIRMAR, SEGUNDOS_ESCOLHA, SEGUNDOS_LADO, equipaDaEscolha, validarResultado,
-} from '../regras'
+} from '../jogo/regras'
 import { blobParaDataUrl } from '../imagem'
-import { nivelDe } from '../experiencia'
+import { nivelDe } from '../jogo/experiencia'
 import {
   COINS_POR_DIARIA, COINS_POR_MARCO, COINS_POR_MVP, COINS_POR_NIVEL, COINS_POR_SEMANAL, ITEM_POR_ID, ITENS_LOJA, gifValida,
   type CategoriaLoja, type Cosmeticos, type Raridade,
-} from '../loja'
+} from '../personalizacao/loja'
+import { estadoAtivo } from '../jogo/estados'
+import { eOwnerDev } from '../funcoes'
 import { periodoSemana } from '../tempo'
-import { VALORES_CONVITE } from '../convites'
+import { VALORES_CONVITE } from '../integracoes/convites'
 import { aoMudarDados, avisarMudanca } from './eventos'
+import { iso, novoId } from './util'
+import { criarSaudeLocal } from './local-saude'
 import { criarTorneiosLocais, type ContextoTorneios } from './local-torneios'
 import {
   aplicarResultado, baralhar, calcularRangifyScore, codigoGrupo, codigoPartida, definirCapitaes, escolhidos, gerarEstatisticas, gerarResultado,
@@ -34,7 +38,7 @@ import {
   type AmizadeGuardada, type DenunciaGuardada, type SugestaoGuardada,
 } from './semente'
 import type { FilasFechadas,
-  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, EstadoPartida, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
+  Amizade, AvisoStaff, BanFila, ConvitesInfo, Dados, FilaTipo, Denuncia, DivulgacaoEstado, JogadorAgente, OverlayDados, RankingAgentes, StreamerAoVivo, Equipa, EstadoLoja, Lado, Experiencia, Funcao, JogadorPartida, LinhaNivel, LinhaRanking, Missao, Novidade, Partida, Perfil,
   PontoForma, ResumoPartida, Sessao, Sugestao,
 } from './tipos'
 
@@ -49,7 +53,6 @@ interface Motor {
 }
 
 interface Estado {
-  versao: 7
   contas: Record<string, { perfilId: string; hash: string }>
   perfis: Record<string, Perfil>
   partidas: PartidaGuardada[]
@@ -106,10 +109,8 @@ let estado: Estado | null = null
 let aCarregar: Promise<Estado> | null = null
 const ouvintes = new Set<() => void>()
 
-const iso = (ms: number) => new Date(ms).toISOString()
 const ms = (s: string | null | undefined) => (s ? new Date(s).getTime() : Infinity)
 const aleatorio = (min: number, max: number) => min + Math.random() * (max - min)
-const ativa = (e: EstadoPartida) => (ESTADOS_ATIVOS as readonly string[]).includes(e)
 
 function guardar() {
   if (!estado) return
@@ -133,38 +134,20 @@ async function sha256(texto: string): Promise<string> {
   return 'fnv-' + h1.toString(16) + h2.toString(16)
 }
 
-/** randomUUID também só existe em contextos seguros. */
-function novoId(): string {
-  const c = globalThis.crypto as Partial<Crypto> | undefined
-  if (typeof c?.randomUUID === 'function') return c.randomUUID()
-  const b = new Uint8Array(16)
-  if (typeof c?.getRandomValues === 'function') c.getRandomValues(b)
-  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256)
-  b[6] = (b[6] & 0x0f) | 0x40
-  b[8] = (b[8] & 0x3f) | 0x80
-  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('')
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
-}
-
 async function carregar(): Promise<Estado> {
   if (estado) return estado
   if (aCarregar) return aCarregar
   aCarregar = (async () => {
     let lido: Estado | null = null
     try {
-      localStorage.removeItem('rangify:demo:v1')
-      localStorage.removeItem('rangify:demo:v2')
-      localStorage.removeItem('rangify:demo:v3')
-      localStorage.removeItem('rangify:demo:v4')
-      localStorage.removeItem('rangify:demo:v5')
-      localStorage.removeItem('rangify:demo:v6')
+      for (const k of Object.keys(localStorage)) if (/^rangify:demo:v\d+$/.test(k) && k !== CHAVE) localStorage.removeItem(k)
       const txt = localStorage.getItem(CHAVE)
       if (txt) lido = JSON.parse(txt) as Estado
     } catch { lido = null }
-    if (!lido || lido.versao !== 7) {
+    if (!lido) {
       const s = gerarSemente()
       lido = {
-        versao: 7, contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
+        contas: { nyx: { perfilId: ID_DEMO, hash: await sha256(PASSWORD_DEMO) } },
         perfis: s.perfis, partidas: s.partidas, fila: [], proximoBotEm: null, proximaSimulada: false, motores: {},
         amizades: s.amizades, sugestoes: s.sugestoes, denuncias: s.denuncias, sessao: null, serCapitao: false, poolMapas: [...ROTACAO_PADRAO],
         rotacoes: {}, conclusoes: [],
@@ -225,7 +208,7 @@ function streamersDemo(e: Estado): StreamersDemo {
   if (!e.streamers) e.streamers = { publico: false, chaves: {}, twitch: {}, codigos: {}, convidados: [] }
   return e.streamers
 }
-const streamersVisivel = (e: Estado, p: Perfil) => streamersDemo(e).publico || p.funcao === 'owner' || p.funcao === 'dev'
+const streamersVisivel = (e: Estado, p: Perfil) => streamersDemo(e).publico || eOwnerDev(p.funcao)
 function exigirStreamers(e: Estado) {
   const p = eu(e)
   if (!streamersVisivel(e, p)) throw new Error('Esta área ainda não está aberta.')
@@ -321,7 +304,7 @@ function motor(e: Estado, p: PartidaGuardada): Motor {
 }
 
 function noJogo(e: Estado, perfilId: string): PartidaGuardada | undefined {
-  return e.partidas.find((p) => ativa(p.estado) && p.jogadores.some((j) => j.perfilId === perfilId))
+  return e.partidas.find((p) => estadoAtivo(p.estado) && p.jogadores.some((j) => j.perfilId === perfilId))
 }
 
 function nomeCurto(p: Perfil | undefined) {
@@ -461,9 +444,10 @@ function toque(p: PartidaGuardada, agora: number) {
 function botLivre(e: Estado, excluir: string[] = [], fila: FilaTipo = 'aberta'): string | null {
   const agora = Date.now()
   const ocupados = new Set<string>([...excluir, ...e.fila.map((f) => f.perfilId)])
-  for (const p of e.partidas) if (ativa(p.estado)) p.jogadores.forEach((j) => ocupados.add(j.perfilId))
+  for (const p of e.partidas) if (estadoAtivo(p.estado)) p.jogadores.forEach((j) => ocupados.add(j.perfilId))
+  const comConta = new Set(Object.values(e.contas).map((c) => c.perfilId))
   const livres = Object.values(e.perfis).filter((p) =>
-    p.id !== e.sessao?.perfilId && p.riotId && !ocupados.has(p.id) && (p.cooldownAte == null || ms(p.cooldownAte) < agora)
+    !comConta.has(p.id) && p.riotId && !ocupados.has(p.id) && (p.cooldownAte == null || ms(p.cooldownAte) < agora)
     && (fila !== 'ranked' || podeRanked(p.tier)),
   )
   if (!livres.length) return null
@@ -562,7 +546,7 @@ function escolher(e: Estado, p: PartidaGuardada, perfilId: string, agora: number
   j.equipa = equipaDaEscolha(n)
   j.ordemEscolha = n + 1
   p.inicioFase = iso(agora)
-  if (n + 1 >= 8) {
+  if (n + 1 >= ORDEM_DRAFT.length) {
     p.estado = 'MAP_BAN'
     p.prazoFase = iso(agora + SEGUNDOS_BAN * 1000)
     p.sugestoes = []
@@ -817,11 +801,6 @@ function progressoMissoes(e: Estado, perfil: Perfil): MissaoAtiva[] {
     switch (def.tipo) {
       case 'jogos': v = lista.length; break
       case 'vitorias': v = lista.filter(ganhou).length; break
-      case 'vitorias_acima': v = lista.filter((p) => {
-        const j = eu(p)
-        if (p.vencedor !== j.equipa) return false
-        return Math.round(mediaDivisoes(tiersDe(p, j.equipa === 'A' ? 'B' : 'A'))) > divisao(j.tier)
-      }).length; break
       case 'first_bloods': v = soma(lista, (j) => j.firstBloods); break
       case 'mvp': v = lista.filter((p) => eu(p).mvp).length; break
       case 'sequencia': {
@@ -959,7 +938,7 @@ function moedas(e: Estado, perfilId: string) {
   return g.porNivel + g.porMarcos + g.porDiarias + g.porSemanais + g.porMvp + lojaDemo(e).movimentos.reduce((t, m) => t + (m.perfilId === perfilId ? m.delta : 0), 0)
 }
 
-const staffLoja = (p: Perfil) => p.funcao === 'owner' || p.funcao === 'dev'
+const staffLoja = (p: Perfil) => eOwnerDev(p.funcao)
 const lojaVisivel = (e: Estado, p: Perfil) => lojaDemo(e).publica || staffLoja(p)
 const temItem = (e: Estado, perfilId: string, itemId: string) => lojaDemo(e).inventario.some((i) => i.perfilId === perfilId && i.itemId === itemId)
 
@@ -1004,7 +983,6 @@ function estadoLoja(e: Estado): EstadoLoja {
 
 function mudouLoja(e: Estado) {
   guardar()
-  avisarMudanca('loja')
   return estadoLoja(e)
 }
 
@@ -1020,7 +998,7 @@ const contextoTorneios: ContextoTorneios = {
   },
   criarBot() {
     const e = estado!
-    const sufixo = () => Array.from(crypto.getRandomValues(new Uint8Array(2)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+    const sufixo = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
     const id = novoId()
     const bot: Perfil = {
       id, utilizador: `bot_${id.slice(0, 8)}`, avatarUrl: null, riotId: `Bot${sufixo()}#BOT`, regiao: 'eu', tier: 6 + Math.floor(Math.random() * 18), rr: null,
@@ -1034,9 +1012,10 @@ const contextoTorneios: ContextoTorneios = {
   },
 }
 
-/** O que se escreve aqui à mão; os torneios vêm de local-torneios.ts. */
-const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>> = {
+/** O que se escreve aqui à mão; os torneios vêm de local-torneios.ts e o estado do site de local-saude.ts. */
+const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais> | keyof ReturnType<typeof criarSaudeLocal>> = {
   modo: 'demo',
+  realtime: false,
 
   async sessao() {
     const e = await carregar()
@@ -1119,7 +1098,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     e.sessao = { perfilId: p.id, incompleta: incompleta(p) }
     guardar()
     avisarSessao()
-    avisarMudanca('perfil')
     return { ...p }
   },
 
@@ -1129,7 +1107,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     p.avatarUrl = imagem ? await blobParaDataUrl(imagem) : null
     guardar()
     avisarSessao()
-    avisarMudanca('perfil')
     return { ...p }
   },
 
@@ -1160,7 +1137,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (alt.funcaoJogo !== undefined) p.funcaoJogo = alt.funcaoJogo
     if (alt.regiao) p.regiao = alt.regiao
     guardar()
-    avisarMudanca('perfil')
     return { ...p }
   },
 
@@ -1168,7 +1144,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const e = await carregar()
     eu(e).tourVistoEm = visto ? iso(Date.now()) : null
     guardar()
-    avisarMudanca('perfil')
   },
 
   async sincronizarRank() {
@@ -1180,7 +1155,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     p.rr = Math.max(0, Math.min(99, (p.rr ?? 50) + Math.round(aleatorio(-18, 22))))
     p.rankAtualizadoEm = iso(Date.now())
     guardar()
-    avisarMudanca('perfil')
     return { perfil: { ...p }, atualizado: true, proximaEm: iso(Date.now() + HORAS_CACHE_RANK * 3_600_000) }
   },
 
@@ -1355,7 +1329,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
     e.proximoBotEm = Date.now() + aleatorio(2000, 3500)
     guardar()
-    avisarMudanca('fila')
   },
 
   async definirFilaFechada(fila, fechada, motivo) {
@@ -1372,8 +1345,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     // Ao fechar, sai quem estava à espera nessa fila.
     if (fechada) e.fila = e.fila.filter((f) => f.fila !== fila)
     guardar()
-    avisarMudanca('fila')
-    avisarMudanca('staff')
     return { ...novo }
   },
 
@@ -1384,7 +1355,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     e.proximoBotEm = null
     e.proximaSimulada = false
     guardar()
-    avisarMudanca('fila')
   },
 
   async batimentoFila() { /* no demo ninguém sai por falta de sinal */ },
@@ -1401,7 +1371,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const e = await pronto()
     const id = e.sessao?.perfilId
     if (!id) return null
-    const p = e.partidas.filter((x) => ativa(x.estado) && x.jogadores.some((j) => j.perfilId === id)).sort((x, y) => ms(y.criadaEm) - ms(x.criadaEm))[0]
+    const p = e.partidas.filter((x) => estadoAtivo(x.estado) && x.jogadores.some((j) => j.perfilId === id)).sort((x, y) => ms(y.criadaEm) - ms(x.criadaEm))[0]
     return p ? publica(e, p) : null
   },
 
@@ -1440,7 +1410,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       falhouConfirmacao(e, p, agora)
     }
     guardar()
-    avisarMudanca('partida')
   },
 
   async escolherJogador(id, perfilId) {
@@ -1452,7 +1421,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (cap !== me.id) throw new Error('Ainda não é a tua vez de escolher.')
     escolher(e, p, perfilId, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async banirMapa(id, mapa) {
@@ -1464,7 +1432,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (vezMapas(p).capitao !== me.id) throw new Error('Ainda não é a tua vez de banir.')
     banir(e, p, mapa, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async escolherLado(id, lado) {
@@ -1475,7 +1442,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (vezMapas(p).capitao !== me.id) throw new Error('Só o capitão da equipa que escolhe o lado pode decidir.')
     escolherLado(e, p, lado, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async votarCancelar(id, voto) {
@@ -1491,7 +1457,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const depois = estadoCancelamento(e, p)
     if (depois && depois.votos >= depois.necessarios) cancelar(e, p, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async sugerirMapa(id, valor) {
@@ -1509,7 +1474,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     p.sugestoes = tinha ? lista : [...lista, { perfilId: me.id, valor }]
     toque(p, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async definirCodigo(id, codigo) {
@@ -1522,7 +1486,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!PADRAO_CODIGO.test(c)) throw new Error('O código tem 6 letras ou números.')
     comecar(p, c, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async submeterResultado(id, vencedor) {
@@ -1538,7 +1501,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     submeter(e, p, me.id, vencedor, agora)
     if (e.motores[p.id]) e.motores[p.id].jogadaEm = agora + aleatorio(1800, 3200)
     guardar()
-    avisarMudanca('partida')
   },
 
   // No modo demo não há amigos reais na fila: completar é o mesmo que encher com bots.
@@ -1564,7 +1526,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     e.proximoBotEm = Date.now()
     passoFila(e, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async devSimularPartida() {
@@ -1582,7 +1543,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (ids.length < 10) throw new Error('Não há jogadores livres suficientes para simular.')
     criarPartida(e, ids, { simulada: true, automatica: true })
     guardar()
-    avisarMudanca('partida')
   },
 
   async devSaltarBloqueio(id) {
@@ -1592,7 +1552,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (p.estado !== 'IN_PROGRESS') throw new Error('A partida não está em jogo.')
     abrirResultado(e, p, Date.now())
     guardar()
-    avisarMudanca('partida')
   },
 
   async devAcelerar(id) {
@@ -1606,14 +1565,12 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (p.estado === 'IN_PROGRESS' || p.estado === 'PROCESSING_API') p.prazoFase = iso(agora)
     passo()
     guardar()
-    avisarMudanca('partida')
   },
 
   async devMudarFuncao(funcao) {
     const e = await carregar()
     eu(e).funcao = funcao
     guardar()
-    avisarMudanca('perfil')
     avisarSessao()
   },
 
@@ -1623,7 +1580,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     aCarregar = null
     await carregar()
     avisarSessao()
-    avisarMudanca('partida')
   },
 
   async partidas({ minhas, cursor, mapa, perfilId, limite = 20, fila }) {
@@ -1739,12 +1695,9 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     sortear(e, 'diaria', agora)
     sortear(e, 'semanal', agora)
     guardar()
-    avisarMudanca('staff')
     return progressoMissoes(e, me).map(({ chave: _, ...m }) => m)
   },
 
-  // No demo, as mudanças de amizade já avisam a página (avisarMudanca).
-  // No demo, a fila e as partidas correm no próprio browser e avisam com avisarMudanca.
   // No demo não há Realtime: cada um pergunta sozinho (os bots andam ao ritmo da pergunta).
   sala() { return null },
 
@@ -1764,7 +1717,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     // Disputas e partidas paradas há mais de 2 horas não contam como estar a jogar.
     const recente = Date.now() - 2 * 3_600_000
     for (const p of e.partidas) {
-      if (ativa(p.estado) && p.estado !== 'DISPUTE' && ms(p.atualizadaEm) > recente) p.jogadores.forEach((j) => emJogo.add(j.perfilId))
+      if (estadoAtivo(p.estado) && p.estado !== 'DISPUTE' && ms(p.atualizadaEm) > recente) p.jogadores.forEach((j) => emJogo.add(j.perfilId))
     }
     const ultima = new Map<string, string>()
     for (const p of terminadas(e)) for (const j of p.jogadores) {
@@ -1797,7 +1750,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (existente) existente.estado = 'aceite'
     else e.amizades.push({ de: me.id, para: p.id, estado: 'pendente', desde: iso(Date.now()) })
     guardar()
-    avisarMudanca('amigos')
   },
 
   async responderAmizade(perfilId, aceitar) {
@@ -1808,7 +1760,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (aceitar) { a.estado = 'aceite'; a.desde = iso(Date.now()) }
     else e.amizades = e.amizades.filter((x) => x !== a)
     guardar()
-    avisarMudanca('amigos')
   },
 
   async removerAmigo(perfilId) {
@@ -1816,7 +1767,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const me = eu(e)
     e.amizades = e.amizades.filter((a) => !((a.de === me.id && a.para === perfilId) || (a.de === perfilId && a.para === me.id)))
     guardar()
-    avisarMudanca('amigos')
   },
 
   async sugestoes(ordem) {
@@ -1839,7 +1789,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       estado: 'recebida', autorId: me.id, criadaEm: iso(Date.now()), votos: [me.id],
     })
     guardar()
-    avisarMudanca('sugestoes')
   },
 
   async votar(id) {
@@ -1849,7 +1798,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!s) return
     s.votos = s.votos.includes(me.id) ? s.votos.filter((v) => v !== me.id) : [...s.votos, me.id]
     guardar()
-    avisarMudanca('sugestoes')
   },
 
   async definirEstadoSugestao(id, estado) {
@@ -1859,8 +1807,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!s) throw new Error('Esta sugestão já não existe.')
     s.estado = estado
     guardar()
-    avisarMudanca('sugestoes')
-    avisarMudanca('staff')
   },
 
   async apagarSugestao(id) {
@@ -1869,8 +1815,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!e.sugestoes.some((x) => x.id === id)) throw new Error('Esta sugestão já não existe.')
     e.sugestoes = e.sugestoes.filter((x) => x.id !== id)
     guardar()
-    avisarMudanca('sugestoes')
-    avisarMudanca('staff')
   },
 
   async denunciar(perfilId, motivo, detalhes) {
@@ -1880,7 +1824,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (detalhes.trim().length < 10) throw new Error('Conta o que aconteceu em pelo menos 10 caracteres.')
     e.denuncias.unshift({ id: novoId(), denuncianteId: me.id, alvoId: perfilId, motivo, detalhes: detalhes.trim(), estado: 'aberta', criadaEm: iso(Date.now()) })
     guardar()
-    avisarMudanca('staff')
   },
 
   async novidades(limite = 5) {
@@ -1899,7 +1842,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (texto.length < 3 || texto.length > 500) throw new Error('A descrição tem entre 3 e 500 caracteres.')
     e.novidades.push({ id: novoId(), data: n.data, titulo, texto, criadaEm: new Date().toISOString() })
     guardar()
-    avisarMudanca('staff')
     return ordenarNovidades(e)
   },
 
@@ -1910,7 +1852,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!e.novidades.some((n) => n.id === id)) throw new Error('Esta novidade já não existe.')
     e.novidades = e.novidades.filter((n) => n.id !== id)
     guardar()
-    avisarMudanca('staff')
     return ordenarNovidades(e)
   },
 
@@ -2013,7 +1954,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const e = await pronto()
     exigirDev(e)
     lojaDemo(e).publica = publica
-    avisarMudanca('staff')
     return mudouLoja(e)
   },
 
@@ -2091,7 +2031,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (obrigatorio && !c) throw new Error('Põe o link de convite do servidor antes de tornar o Discord obrigatório.')
     e.discord = { obrigatorio, convite: c, membro: e.discord?.membro ?? false }
     guardar()
-    avisarMudanca('staff')
     return dadosLocais.estadoDiscord(false)
   },
 
@@ -2113,7 +2052,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (pool.length < 3) throw new Error('A rotação precisa de pelo menos 3 mapas.')
     e.poolMapas = pool
     guardar()
-    avisarMudanca('staff')
     return [...pool]
   },
 
@@ -2138,7 +2076,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       terminar(e, p, agora)
     }
     guardar()
-    avisarMudanca('staff')
   },
 
   async resultadosPendentes() {
@@ -2161,8 +2098,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       if (!p.submissoes.some((s) => s.capitaoId === cap)) submeter(e, p, cap, vencedor, agora)
     }
     guardar()
-    avisarMudanca('staff')
-    avisarMudanca('partida')
   },
 
   async partidasAoVivo() {
@@ -2175,10 +2110,9 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const e = await pronto()
     exigirStaff(e)
     const p = obterPartida(e, id)
-    if (!ativa(p.estado)) throw new Error('Esta partida já terminou.')
+    if (!estadoAtivo(p.estado)) throw new Error('Esta partida já terminou.')
     cancelar(e, p, Date.now())
     guardar()
-    avisarMudanca('staff')
   },
 
   async removerPartida(id) {
@@ -2207,8 +2141,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     // O XP das missões que esta partida tinha completado também sai.
     for (const j of p.jogadores) if (j.equipa) atualizarMissoes(e, j.perfilId, true)
     guardar()
-    avisarMudanca('partida')
-    avisarMudanca('perfil')
   },
 
   // No demo não há API: recalcula com as estatísticas que a partida já tem.
@@ -2243,8 +2175,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       atualizarMissoes(e, j.perfilId, true)
     }
     guardar()
-    avisarMudanca('partida')
-    avisarMudanca('perfil')
     return {
       codigo: p.codigo, fonte: 'teste',
       jogadores: p.jogadores.filter((j) => j.equipa).map((j) => ({
@@ -2264,8 +2194,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (fila === 'ranked') alvo.pontosRanked = pontos
     else alvo.pontos = pontos
     guardar()
-    avisarMudanca('staff')
-    avisarMudanca('perfil')
   },
 
   async denuncias() {
@@ -2285,7 +2213,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const d = e.denuncias.find((x) => x.id === id)
     if (d) d.estado = novo
     guardar()
-    avisarMudanca('staff')
   },
 
   async pesquisarJogadores(q) {
@@ -2311,7 +2238,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
     alvo.funcao = funcao
     guardar()
-    avisarMudanca('staff')
   },
   async contarJogadores() {
     const e = await carregar()
@@ -2331,7 +2257,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
     ;(e.avisos ??= []).push(a)
     guardar()
-    avisarMudanca('staff')
     return a
   },
 
@@ -2349,8 +2274,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     ;(e.avisos ??= []).push(a)
     e.fila = e.fila.filter((f) => f.perfilId !== alvo.id)
     guardar()
-    avisarMudanca('staff')
-    avisarMudanca('fila')
     return a
   },
 
@@ -2362,8 +2285,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
       if (a.alvoId === alvo.id && a.tipo === 'ban' && !a.levantadoEm) { a.levantadoEm = iso(Date.now()); a.lidoEm ??= a.levantadoEm }
     }
     guardar()
-    avisarMudanca('staff')
-    avisarMudanca('fila')
   },
 
   async avisosDoJogador(perfilId) {
@@ -2423,7 +2344,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const me = exigirStreamers(e)
     streamersDemo(e).chaves[me.id] = novaChave()
     guardar()
-    avisarMudanca('streamers')
     return { chave: streamersDemo(e).chaves[me.id] }
   },
 
@@ -2436,7 +2356,7 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0)
     const dele = (m: PartidaGuardada) => m.jogadores.find((j) => j.perfilId === p.id && j.equipa)
     const feitasTodas = e.partidas.filter((m) => m.estado === 'COMPLETED' && !m.automatica && dele(m))
-    const viva = e.partidas.find((m) => !m.automatica && ativa(m.estado) && m.jogadores.some((j) => j.perfilId === p.id))
+    const viva = e.partidas.find((m) => !m.automatica && estadoAtivo(m.estado) && m.jogadores.some((j) => j.perfilId === p.id))
     const naFila = e.fila.find((f) => f.perfilId === p.id)
     // Em partida ou na fila: a fila de agora. Senão, a da última partida (ou a aberta). O endereço pode fixar uma.
     const ultimaDeTodas = [...feitasTodas].sort((a, b) => (ms(b.terminouEm) || 0) - (ms(a.terminouEm) || 0))[0]
@@ -2487,7 +2407,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!/^[A-Za-z0-9_]{3,25}$/.test(c)) throw new Error('O nome do canal tem 3 a 25 letras, números ou _.')
     streamersDemo(e).twitch[me.id] = { login: c.toLowerCase(), nome: c, ligadaEm: iso(Date.now()), aoVivo: false, titulo: null, jogo: null, espetadores: null }
     guardar()
-    avisarMudanca('streamers')
   },
 
   async twitchAoVivoDemo(aoVivo) {
@@ -2497,7 +2416,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     if (!t) throw new Error('Liga primeiro o teu canal da Twitch.')
     Object.assign(t, aoVivo ? { aoVivo: true, titulo: 'Ranked no Rangify com a malta', jogo: 'VALORANT', espetadores: 27 } : { aoVivo: false, titulo: null, jogo: null, espetadores: null })
     guardar()
-    avisarMudanca('streamers')
   },
 
   async desligarTwitch() {
@@ -2505,7 +2423,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     const me = eu(e)
     delete streamersDemo(e).twitch[me.id]
     guardar()
-    avisarMudanca('streamers')
   },
 
   async streamersAoVivo(): Promise<StreamerAoVivo[]> {
@@ -2553,7 +2470,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     }
     s.convidados.push({ convidadoId: me.id, convidadorId, criadoEm: iso(Date.now()), estado: 'pendente', premiadoEm: null, moedasConvidador: 0, moedasConvidado: 0 })
     guardar()
-    avisarMudanca('streamers')
     return { convidador: nomeCurto(e.perfis[convidadorId]), moedas: VALORES_CONVITE.convidado }
   },
 
@@ -2569,7 +2485,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     s.convidados.push(c)
     premiarConvite(e, c)
     guardar()
-    avisarMudanca('streamers'); avisarMudanca('loja')
   },
 
   async divulgacaoEstado() {
@@ -2583,7 +2498,6 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
     exigirDev(e)
     streamersDemo(e).publico = publico
     guardar()
-    avisarMudanca('staff'); avisarMudanca('streamers')
     return estadoDivulgacao(e)
   },
 }
@@ -2592,4 +2506,4 @@ const dadosSemTorneios: Omit<Dados, keyof ReturnType<typeof criarTorneiosLocais>
  * O adaptador do modo demo. O Object.assign marcado como puro deixa o Vite tirar tudo isto do site a sério
  * (um spread com uma chamada à frente contava como efeito e arrastava o demo inteiro para o ficheiro final).
  */
-export const dadosLocais: Dados = /* @__PURE__ */ Object.assign({}, /* @__PURE__ */ criarTorneiosLocais(contextoTorneios), dadosSemTorneios)
+export const dadosLocais: Dados = /* @__PURE__ */ Object.assign({}, /* @__PURE__ */ criarTorneiosLocais(contextoTorneios), /* @__PURE__ */ criarSaudeLocal(), dadosSemTorneios)

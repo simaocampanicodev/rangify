@@ -12,8 +12,8 @@
 // O que foi criado fica em match_discord, para a limpeza saber o que apagar.
 import { SITE, admin, erro, resposta } from '../_shared/comum.ts'
 import { atualizarMensagemFila } from '../_shared/discord-ping.ts'
+import { API, autorizacaoBot, dormir } from '../_shared/discord.ts'
 
-const API = 'https://discord.com/api/v10'
 
 // Permissões do Discord (bits).
 const VER = 1n << 10n
@@ -36,7 +36,7 @@ async function discord<T>(metodo: string, caminho: string, corpo?: unknown, tent
   const r = await fetch(API + caminho, {
     method: metodo,
     headers: {
-      Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`,
+      Authorization: autorizacaoBot(),
       'Content-Type': 'application/json',
       'X-Audit-Log-Reason': 'Rangify: canais da partida',
     },
@@ -178,7 +178,6 @@ async function criar(db: ReturnType<typeof admin>, matchId: string) {
   return { criado: true, semDiscord }
 }
 
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** A mensagem privada de um aviso ou ban. Nunca lança por DMs fechadas: regista-o e segue. */
 async function enviarAviso(db: ReturnType<typeof admin>, avisoId: string) {

@@ -12,34 +12,20 @@
 import { ChevronsUp, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { NomeRangify, Simbolo } from '@/components/Marca'
+import { NomeRangify, Simbolo } from '@/components/ui/Marca'
 import { useAgora } from '@/hooks/useAgora'
-import { VALORES_CONVITE } from '@/lib/convites'
+import { VALORES_CONVITE } from '@/lib/integracoes/convites'
 import { aoMudarDados, dados, type EstadoPartida, type FilaTipo, type OverlayDados } from '@/lib/data'
 import { l } from '@/lib/idioma'
-import { imagemMapa } from '@/lib/mapas'
-import { corRank, nomeRank } from '@/lib/ranks'
+import { imagemMapa } from '@/lib/jogo/mapas'
+import { ESPACO_AVISO, lerOpcoes } from '@/lib/integracoes/overlay'
+import { corRank, nomeRank } from '@/lib/jogo/ranks'
 import { acertarRelogio, agoraCerto, relogio } from '@/lib/tempo'
 
-const CORES: Record<string, string> = { laranja: '#ff5b1f', azul: '#3b9eff', verde: '#3ddc97', rosa: '#ff5c9d', roxo: '#9146ff', ouro: '#f2c14e', branco: '#f3f0eb' }
 const VITORIA = '#5fe3d6'
 const DERROTA = '#ff7d8f'
 const MUDO = '#8a857e'
 
-export interface OpcoesOverlay { estilo: 'cartao' | 'barra'; cor: string; mostrar: Set<string>; escala: number; fila: FilaTipo | null }
-
-/** As opções vêm do endereço; o que não se percebe fica no padrão. */
-export function lerOpcoes(q: URLSearchParams): OpcoesOverlay {
-  const bruta = (q.get('cor') ?? 'laranja').toLowerCase()
-  const cor = CORES[bruta] ?? (/^[0-9a-f]{6}$/.test(bruta) ? `#${bruta}` : CORES.laranja)
-  const todos = ['rank', 'hoje', 'estado', 'ultima', 'fim']
-  const pedidos = (q.get('mostrar') ?? '').split(',').map((x) => x.trim()).filter((x) => todos.includes(x))
-  const escala = Math.min(200, Math.max(50, Number(q.get('escala')) || 100))
-  const fila = q.get('fila') === 'ranked' ? 'ranked' : q.get('fila') === 'aberta' ? 'aberta' : null
-  return { estilo: q.get('estilo') === 'barra' ? 'barra' : 'cartao', cor, mostrar: new Set(pedidos.length ? pedidos : todos), escala, fila }
-}
-
-/** O fundo do OBS transparente enquanto uma destas páginas está aberta. */
 function useFundoTransparente(ativo = true) {
   useEffect(() => {
     if (!ativo) return
@@ -106,11 +92,9 @@ const FASES: Record<string, [string, string]> = {
   PROCESSING_API: ['A CONFIRMAR', 'CONFIRMING'],
   DISPUTE: ['RESULTADO', 'RESULT'],
 }
-/** O nome da fila nos rótulos do overlay. */
 const nomeFilaOv = (f: FilaTipo | undefined) => (f === 'ranked' ? 'RANKED' : l('ABERTA', 'OPEN'))
 const nomeFase = (e: EstadoPartida) => { const f = FASES[e] ?? ['EM PARTIDA', 'IN MATCH']; return l(f[0], f[1]) }
 
-/** O que o estado do jogador diz, já com os tempos a contar. */
 function useEstado(d: OverlayDados) {
   useAgora(1000) // só para desenhar outra vez a cada segundo; a hora lê-se já abaixo, ao desenhar, para acompanhar o acerto do relógio
   const agora = agoraCerto()
@@ -125,9 +109,7 @@ function useEstado(d: OverlayDados) {
   return { tipo: 'livre' as const, rotulo: l('LIVRE', 'IDLE'), mapa: null, tempo: null, contagem: 0 }
 }
 
-// ------------------------------------------------------------ peças
 
-/** O emblema do rank: o escudo na cor do rank, com a divisão lá dentro. */
 function Emblema({ tier, tamanho = 50 }: { tier: number; tamanho?: number }) {
   const cor = corRank(tier)
   const divisao = /(\d)$/.exec(nomeRank(tier))?.[1] ?? (tier >= 27 ? '★' : '–')
@@ -140,7 +122,6 @@ function Emblema({ tier, tamanho = 50 }: { tier: number; tamanho?: number }) {
   )
 }
 
-/** A barra de RR (0 a 100) na cor do rank, com um traço a cada 25. */
 function BarraRr({ tier, rr, altura = 7 }: { tier: number; rr: number | null; altura?: number }) {
   const cor = corRank(tier)
   const pct = Math.max(0, Math.min(100, rr ?? 0))
@@ -155,7 +136,6 @@ function BarraRr({ tier, rr, altura = 7 }: { tier: number; rr: number | null; al
   )
 }
 
-/** Quadradinhos do dia: vitórias, derrotas e os que faltam (até 6). */
 function Pips({ v, d }: { v: number; d: number }) {
   const n = 6
   const total = v + d
@@ -175,7 +155,6 @@ function Pips({ v, d }: { v: number; d: number }) {
   )
 }
 
-/** Em que fila contam os pontos e em que lugar da tabela dela estás: cheia na ranked, só o contorno na aberta. */
 function PilulaFila({ d }: { d: OverlayDados }) {
   const ranked = d.filaTipo === 'ranked'
   const lugar = d.posicao ? ` · #${d.posicao}` : ''
@@ -213,7 +192,6 @@ function Hoje({ d, compacto = false }: { d: OverlayDados; compacto?: boolean }) 
   )
 }
 
-/** Dez segmentos: quantos já estão na fila. */
 function SegmentosFila({ n, largura }: { n: number; largura?: number }) {
   return (
     <span className="flex gap-[3px]" style={{ width: largura }} aria-hidden>
@@ -228,7 +206,6 @@ function Ponto({ cor, pisca }: { cor: string; pisca: boolean }) {
   return <span className="size-2 rounded-full" style={{ background: cor, animation: pisca ? 'rg-ov-pulsa 1.4s ease-in-out infinite' : undefined }} />
 }
 
-/** A caixa do estado no cartão: livre, na fila ou em partida (com a arte do mapa por trás). */
 function EstadoCartao({ d }: { d: OverlayDados }) {
   const e = useEstado(d)
   const mapa = e.mapa ? imagemMapa(e.mapa) : undefined
@@ -265,7 +242,6 @@ function EstadoCartao({ d }: { d: OverlayDados }) {
   )
 }
 
-/** O estado na barra: um bloco à direita, com a mesma informação. */
 function EstadoBarra({ d }: { d: OverlayDados }) {
   const e = useEstado(d)
   const mapa = e.mapa ? imagemMapa(e.mapa) : undefined
@@ -302,7 +278,6 @@ function Ultima({ d }: { d: OverlayDados }) {
   )
 }
 
-/** O aviso de fim de partida: uma faixa de vitória ou derrota por cima do cartão, durante 9 segundos. */
 function AvisoFim({ u }: { u: Ultima }) {
   const fundo = u.venceu ? 'linear-gradient(95deg, #1d8f86, #5fe3d6)' : 'linear-gradient(95deg, #c2415a, #ff7d8f)'
   return (
@@ -319,9 +294,7 @@ function AvisoFim({ u }: { u: Ultima }) {
 
 const VIDRO: CSSProperties = { background: 'linear-gradient(180deg, rgba(23,23,28,0.95), rgba(10,10,13,0.95))', boxShadow: '0 18px 46px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)' }
 /** Espaço por cima para o aviso de fim de partida (58 px de faixa e 8 de folga). */
-const ESPACO_AVISO = 66
 
-/** Os cantos em L da cor de destaque, por fora do cartão. */
 function Cantos() {
   return (
     <>
@@ -331,7 +304,6 @@ function Cantos() {
   )
 }
 
-/** O cartão e a barra do overlay: o rank, o dia, o estado e a última partida. */
 export function Overlay() {
   const { chave } = useParams()
   const [q] = useSearchParams()
@@ -407,7 +379,6 @@ export function Overlay() {
   )
 }
 
-// ------------------------------------------------------------ marca animada
 
 /** O endereço sem "https://" nem barras no fim: é o que se lê no ecrã. */
 const semProtocolo = (t: string) => t.replace(/^https?:\/\//, '').replace(/\/+$/, '')

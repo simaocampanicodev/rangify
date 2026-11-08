@@ -2,14 +2,15 @@ import { Check, Search, Trash, UserPlus, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { List, type RowComponentProps } from 'react-window'
-import { useClassesCosmeticos } from '@/components/Cosmeticos'
+import { useClassesCosmeticos } from '@/components/ui/Cosmeticos'
 import { Avatar, BotaoSegurar, Cabecalho, Chip, LinhasEsqueleto, Painel, RankBadge, Segmentado, TituloPainel, Vazio } from '@/components/ui'
 import { useAcao, useAvisos } from '@/contexts/Avisos'
 import { useCarregar } from '@/hooks/useCarregar'
-import { avisarMudanca, dados, type Amizade } from '@/lib/data'
-import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/partida'
+import { dados, type Amizade } from '@/lib/data'
+import { caminhoPerfil, nomeJogador, tagJogador } from '@/lib/jogo/partida'
 import { l as tx } from '@/lib/idioma'
 import { haQuanto } from '@/lib/tempo'
+import { LIMITES } from '@/lib/entradas'
 
 const ALTURA_LINHA = 68
 
@@ -71,13 +72,9 @@ export function Amigos() {
 
   const pedir = async () => {
     const ok = await acao(async () => { await dados.pedirAmizade(alvo); return true }, tx('Pedido enviado.', 'Request sent.'))
-    if (ok) { setAlvo(''); avisarMudanca('amigos') }
+    if (ok) setAlvo('')
   }
-  /** Corre a ação e, se correu bem, atualiza a lista, o contador da barra lateral e o perfil. */
-  const fazer = async (f: () => Promise<unknown>, ok?: string) => {
-    const r = await acao(async () => { await f(); return true }, ok)
-    if (r) avisarMudanca('amigos')
-  }
+  const fazer = (f: () => Promise<unknown>, ok?: string) => acao(async () => { await f(); return true }, ok)
   const remover = (id: string) => fazer(() => dados.removerAmigo(id), tx('Amigo removido.', 'Friend removed.'))
   const dica = () => avisar(tx('Mantém o botão premido até encher para remover.', 'Hold the button until it fills to remove.'))
 
@@ -99,7 +96,7 @@ export function Amigos() {
           <label className="relative block">
             <span className="so-leitores">{tx('Filtrar amigos', 'Filter friends')}</span>
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-mudo" aria-hidden />
-            <input className="campo !pl-10" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder={tx('Filtrar por nome', 'Filter by name')} />
+            <input maxLength={LIMITES.pesquisa} className="campo !pl-10" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder={tx('Filtrar por nome', 'Filter by name')} />
           </label>
           {amigos.carregando ? <LinhasEsqueleto tipo="amigos" n={6} /> : aceites.length ? (
             <List
@@ -119,7 +116,7 @@ export function Amigos() {
           <Painel aria-labelledby="rg-adicionar" className="flex flex-col gap-3 p-[22px]">
             <TituloPainel eyebrow={tx('ADICIONAR', 'ADD')} titulo={tx('Novo amigo', 'New friend')} id="rg-adicionar" />
             <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); if (alvo.trim()) pedir() }}>
-              <input className="campo font-mono" value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder={tx('Nome#TAG ou utilizador', 'Name#TAG or username')} aria-label={tx('Riot ID ou utilizador do Discord', 'Riot ID or Discord username')} />
+              <input maxLength={LIMITES.riotId} className="campo font-mono" value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder={tx('Nome#TAG ou utilizador', 'Name#TAG or username')} aria-label={tx('Riot ID ou utilizador do Discord', 'Riot ID or Discord username')} />
               <button type="submit" className="btn btn-primario" disabled={!alvo.trim()}><UserPlus size={16} aria-hidden />{tx('Enviar pedido', 'Send request')}</button>
             </form>
           </Painel>

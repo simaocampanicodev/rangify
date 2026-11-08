@@ -256,15 +256,15 @@ Para ligar a um projeto Supabase real (contas, Discord, a API da Riot e a máqui
 rangify/
 ├── src/                 O site (React + TypeScript)
 │   ├── pages/           Uma pasta por página: Painel, Jogar, Tabela, Perfil, Staff...
-│   ├── components/      Componentes (match/ tem as fases da partida, tournaments/ os torneios)
-│   ├── lib/             Regras, pontos, ranks, mapas e data/ (a camada de dados: demo e Supabase)
+│   ├── components/      Componentes por área (partida/, torneios/, staff/, perfil/, fila/, layout/, ui/...)
+│   ├── lib/             jogo/ (regras, pontos, ranks, mapas), data/ (camada de dados: demo e Supabase), integracoes/ e personalizacao/
 │   ├── contexts/        Sessão, partida em curso e avisos
 │   └── hooks/           Carregar dados, polling inteligente, relógios
 ├── supabase/
 │   ├── migrations/      O esquema, a máquina de estados e todas as regras em SQL
 │   └── functions/       As Edge Functions (Henrik API, bot do Discord, Twitch, avisos...)
 ├── extension/           A extensão do browser (Chrome, Edge e Brave)
-├── scripts/             Testes (SQL, filas, torneios...) e ferramentas
+├── scripts/             testes/ (SQL, filas, torneios...) e ferramentas/
 ├── assets/              Marca, banners do Discord, mapas originais e imagens deste README
 ├── public/              Ficheiros estáticos do site (favicon e arte dos mapas)
 └── docs/                Toda a documentação

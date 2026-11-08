@@ -10,10 +10,10 @@
 import nacl from 'npm:tweetnacl@1.0.3'
 import { admin } from '../_shared/comum.ts'
 import { BOTAO_PING, CANAL_PING, CARGO_PING, LINK_ENTRAR_NA_FILA, SEGUNDOS_ENTRE_PINGS } from '../_shared/discord-ping.ts'
+import { API, autorizacaoBot } from '../_shared/discord.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
-const API = 'https://discord.com/api/v10'
 const PING = 1
 const COMPONENTE = 3
 const RESPONDER = 4
@@ -44,7 +44,7 @@ const soParaTi = (texto: string) => json({ type: RESPONDER, data: { content: tex
 
 const bot = (metodo: string, caminho: string, corpo?: unknown) => fetch(API + caminho, {
   method: metodo,
-  headers: { Authorization: `Bot ${Deno.env.get('DISCORD_BOT_TOKEN') ?? ''}`, 'Content-Type': 'application/json' },
+  headers: { Authorization: autorizacaoBot(), 'Content-Type': 'application/json' },
   body: corpo === undefined ? undefined : JSON.stringify(corpo),
 })
 

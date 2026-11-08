@@ -4,7 +4,7 @@ O esquema, as regras e a máquina de estados do Rangify vivem em `supabase/migra
 
 - Para mudar a base de dados, cria sempre uma **migração nova**; nunca edites uma antiga.
 - Cada migração tem o seu teste em `scripts/` (ver [arquitetura](architecture.md#testes)).
-- Este índice gera-se com `node scripts/gerar-indice-migracoes.mjs`.
+- Este índice gera-se com `node scripts/ferramentas/gerar-indice-migracoes.mjs`.
 
 | Migração | O que faz |
 | --- | --- |
@@ -50,3 +50,6 @@ O esquema, as regras e a máquina de estados do Rangify vivem em `supabase/migra
 | [`0040_sala_da_partida.sql`](../supabase/migrations/0040_sala_da_partida.sql) | A sala da partida: só os jogadores dela entram no canal do Realtime onde o líder reenvia o estado. |
 | [`0041_sem_fila_na_partida.sql`](../supabase/migrations/0041_sem_fila_na_partida.sql) | Acabar com a fila de espera à volta da linha da partida (o que punha o PostgREST e o Auth "unhealthy" nos picks e bans). |
 | [`0042_fechar_filas.sql`](../supabase/migrations/0042_fechar_filas.sql) | Fechar a fila aberta ou a ranked: um interruptor de emergência para Owner e Dev. |
+| [`0043_bots_ids_unicos.sql`](../supabase/migrations/0043_bots_ids_unicos.sql) | Rangify, migração 0043: os bots deixam de colidir no Riot ID. |
+| [`0044_limites_e_entradas.sql`](../supabase/migrations/0044_limites_e_entradas.sql) | Rangify, migração 0044: limite de pedidos, texto limpo e nada de funções abertas a quem não entrou. |
+| [`0045_estado_do_site.sql`](../supabase/migrations/0045_estado_do_site.sql) | Rangify, migração 0045: estado do site (sobrecarga), ao jeito do Uptime Kuma. |

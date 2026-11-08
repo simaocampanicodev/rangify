@@ -3,10 +3,10 @@
  * do último mês já com pontos aplicados, amizades, sugestões e denúncias.
  * Gerada com um gerador determinístico, por isso é sempre igual.
  */
-import { ROTACAO_PADRAO, equipaDoBan, totalBans } from '../mapas'
-import { PONTOS_INICIAIS } from '../pontos'
-import { podeRanked } from '../ranks'
-import { equipaDaEscolha } from '../regras'
+import { ROTACAO_PADRAO, equipaDoBan, totalBans } from '../jogo/mapas'
+import { PONTOS_INICIAIS } from '../jogo/pontos'
+import { podeRanked } from '../jogo/ranks'
+import { equipaDaEscolha } from '../jogo/regras'
 import {
   aplicarResultado, baralhar, codigoGrupo, codigoPartida, definirCapitaes, entre, escolherUm, gerarEstatisticas,
   gerarResultado, inteiro, melhorDisponivel, mulberry32, novoJogador, type PartidaGuardada, type Rng,
@@ -27,7 +27,7 @@ export interface DenunciaGuardada {
   estado: 'aberta' | 'resolvida' | 'arquivada'; criadaEm: string
 }
 
-export type DefinicaoMissao = Omit<Missao, 'progresso' | 'concluida'>
+type DefinicaoMissao = Omit<Missao, 'progresso' | 'concluida'>
 
 /** O catálogo completo, igual ao da migração 0007: cada rotação mostra só uma parte. */
 export const MISSOES: DefinicaoMissao[] = [

@@ -5,7 +5,8 @@
 // fechar, volta a ler o rank oficial dos dez jogadores (ver _shared/ranks.ts).
 // Se ainda não aparecer, devolve { pendente: true } e o site volta a pedir; ao
 // fim de 30 minutos a partida vai para a staff (Resultados), que decide o resultado.
-import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador, uuidDoPedido } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { caminhoHistorico, encontrarPartida, type JogadorNosso, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 import { atualizarRanksDaPartida } from '../_shared/ranks.ts'
 
@@ -21,7 +22,9 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
-    const { matchId } = await req.json() as { matchId?: string }
+    const excesso = await limitar('processar-partida', u.id, 30, 60)
+    if (excesso) return excesso
+    const matchId = uuidDoPedido(((await req.json().catch(() => null)) as { matchId?: unknown } | null)?.matchId)
     if (!matchId) return erro('Falta a partida.')
     const db = admin()
 

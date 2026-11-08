@@ -1,7 +1,8 @@
 // Só Owner e Dev: vai buscar o último jogo personalizado da própria conta à
 // Henrik Dev API e devolve o que o Rangify tiraria dele, sem gravar nada.
 // Serve para confirmar, antes de uma partida a sério, que a API traz tudo.
-import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador } from '../_shared/comum.ts'
+import { ErroHenrik, admin, cors, erro, henrik, partirRiotId, resposta, utilizador, eOwnerDev } from '../_shared/comum.ts'
+import { limitar } from '../_shared/limite.ts'
 import { caminhoHistorico, lerPartida, type PartidaHenrik } from '../_shared/henrik-partida.ts'
 
 Deno.serve(async (req) => {
@@ -9,10 +10,12 @@ Deno.serve(async (req) => {
   try {
     const u = await utilizador(req)
     if (!u) return erro('Tens de entrar na tua conta.', 401)
+    const excesso = await limitar('testar-api', u.id, 6, 60)
+    if (excesso) return excesso
     const db = admin()
     const { data: perfil } = await db.from('profiles').select('riot_id, region, role').eq('auth_id', u.id).single()
     if (!perfil) return erro('Perfil não encontrado.', 404)
-    if (perfil.role !== 'owner' && perfil.role !== 'dev') return erro('Só Owner e Dev podem fazer isto.', 403)
+    if (!eOwnerDev(perfil.role)) return erro('Só Owner e Dev podem fazer isto.', 403)
     if (!perfil.riot_id) return erro('Liga o teu Riot ID primeiro.')
 
     const { nome, tag } = partirRiotId(perfil.riot_id)

@@ -107,6 +107,7 @@ npx supabase functions deploy discord-interacoes --no-verify-jwt
 npx supabase functions deploy discord-ping
 npx supabase functions deploy twitch-ligar twitch-sincronizar --no-verify-jwt
 npx supabase functions deploy processar-torneio --no-verify-jwt
+npx supabase functions deploy saude-sondar --no-verify-jwt
 ```
 
 - `xxxx` é o mesmo do Project URL.
@@ -159,7 +160,7 @@ Depois de correr `0015_loja.sql`, a loja fica **fechada**: só Owner e Dev a vee
 - **Abrir a toda a gente**: Staff › Loja › segura em "Abrir a loja a toda a gente". O mesmo sítio volta a fechá-la.
 - **Coins** (migração `0018_moedas_diarias.sql`): 15 por missão diária, 40 por missão semanal, 120 por nível do Experience, mais 400 em cada 5.º nível, e 25 por MVP (as partidas automáticas não contam). São sempre calculadas, por isso descem se uma partida for removida.
 - **Rotação**: muda à meia-noite de Lisboa. 8 diários (um de cada categoria), 2 semanais épicos (mudam à segunda) e 1 destaque lendário (de 3 em 3 dias). Um item que sai não volta durante 14 dias.
-- **Mudar o catálogo**: edita `src/lib/loja.ts` (o desenho de cada item está em `src/cosmeticos.css`), corre `node scripts/gerar-loja-sql.mjs` e volta a correr a `0015_loja.sql` no SQL Editor.
+- **Mudar o catálogo**: edita `src/lib/personalizacao/loja.ts` (o desenho de cada item está em `src/cosmeticos.css`), corre `node scripts/ferramentas/gerar-loja-sql.mjs` e volta a correr a `0015_loja.sql` no SQL Editor.
 
 ## Extensão do browser
 
